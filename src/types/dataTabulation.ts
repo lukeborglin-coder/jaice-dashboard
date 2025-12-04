@@ -32,6 +32,8 @@ export interface BannerCut {
   // New compound condition support
   conditionGroups?: BannerConditionGroup[];
   sumCondition?: BannerSumCondition;
+  // Optional raw text definition imported from specs for display
+  definitionText?: string;
 }
 
 export interface BannerSubGroup {

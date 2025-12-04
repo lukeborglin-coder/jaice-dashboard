@@ -4376,9 +4376,21 @@ router.post('/map-columns', async (req, res) => {
             // File doesn't exist yet, that's fine
           }
           
+          const sizeBefore = metadata.columnMapping ? Object.keys(metadata.columnMapping).length : 0;
+          const sizeIncoming = Object.keys(mapping).length;
+          console.log('🟠 [BACKEND MAP SAVE] Incoming mapping', {
+            questionnaireId,
+            sizeIncoming,
+            sizeBefore,
+            metadataPath
+          });
           metadata.columnMapping = mapping;
           metadata.mappingCreatedAt = new Date().toISOString();
           await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+          console.log('🟢 [BACKEND MAP SAVE] Saved mapping to metadata', {
+            questionnaireId,
+            savedSize: Object.keys(metadata.columnMapping || {}).length
+          });
         } catch (saveError) {
           console.warn('Could not save column mapping to metadata:', saveError);
           // Continue anyway - mapping is still returned
@@ -4847,6 +4859,12 @@ router.get('/data-file-info/:questionnaireId', async (req, res) => {
     
     try {
       const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+      const mappingSize = metadata.columnMapping ? Object.keys(metadata.columnMapping).length : 0;
+      console.log('🟠 [BACKEND FILE INFO] Loaded metadata', {
+        questionnaireId,
+        mappingSize,
+        hasHeaders: Array.isArray(metadata.columnHeaders) && metadata.columnHeaders.length > 0
+      });
       
       // If column headers are missing but we have a data file, try to parse them
       let columnHeaders = metadata.columnHeaders || null;
@@ -4905,6 +4923,401 @@ router.get('/data-file-info/:questionnaireId', async (req, res) => {
   } catch (error) {
     console.error('Error fetching data file info:', error);
     res.status(500).json({ error: 'Failed to fetch data file info' });
+  }
+});
+
+// POST /api/questionnaire/banners/auto-configure - AI attempts to configure banner cuts from definitions
+router.post('/banners/auto-configure', async (req, res) => {
+  try {
+    const { questionnaireId, cuts, variables, expectedHeaders, expectedHeadersDetail } = req.body;
+    if (!Array.isArray(cuts) || cuts.length === 0) {
+      return res.status(400).json({ error: 'cuts are required' });
+    }
+    // Constrain variables payload size (keep reasonable to avoid token issues)
+    const limitedVars = Array.isArray(variables) ? variables.slice(0, 300) : [];
+    const allowedHeaders = Array.isArray(expectedHeaders) ? expectedHeaders : [];
+    const allowedHeaderDetail = Array.isArray(expectedHeadersDetail) ? expectedHeadersDetail : [];
+
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    // Helper: find canonical header in allowed list (toggle leading Q as needed)
+    function canonicalizeHeader(h) {
+      if (!h || !allowedHeaders || allowedHeaders.length === 0) return null;
+      const norm = (s) => (s || '').trim();
+      const addQ = (s) => (s?.startsWith('Q') ? s : `Q${s}`);
+      const stripQ = (s) => s?.replace(/^Q/, '');
+      const candidates = [
+        norm(h),
+        norm(addQ(h)),
+        norm(stripQ(h))
+      ].filter(Boolean);
+      // include case-insensitive matches
+      for (const cand of candidates) {
+        const found = allowedHeaders.find(x => String(x).toLowerCase() === String(cand).toLowerCase());
+        if (found) return found;
+      }
+      return null;
+    }
+
+    // Helper: get codes for a header
+    function codesForHeader(header) {
+      const item = allowedHeaderDetail.find(d => String(d.header).toLowerCase() === String(header).toLowerCase());
+      const codes = Array.isArray(item?.codes) ? item.codes : [];
+      return codes;
+    }
+
+    // Deterministic pre-parser
+    // Supports:
+    // - Single categorical ranges/lists: "C7r1=9-10", "C7r1=9,10"
+    // - Simple numeric comparisons: "S14r3c1>0"
+    // - OR/AND chains of the above: "S14r3c1>0 OR S14r4c1>0 ..."
+    function preParseDefinition(defText) {
+      if (!defText || typeof defText !== 'string') return null;
+      const txt = defText.trim();
+      // Detect operator (OR/AND). Only support uniform operator across clauses.
+      const hasOr = /\sOR\s/i.test(txt);
+      const hasAnd = /\sAND\s/i.test(txt);
+      let operator = null;
+      if (hasOr && hasAnd) return null; // Too complex for deterministic pass
+      if (hasOr) operator = 'OR';
+      if (hasAnd) operator = 'AND';
+
+      const splitByOp = (s) => operator ? s.split(new RegExp(`\\s${operator}\\s`, 'i')) : [s];
+      const parts = splitByOp(txt).map(p => p.trim()).filter(Boolean);
+      const conditions = [];
+
+      // Helpers
+      const normCode = (s) => {
+        const t = String(s).trim();
+        if (!t) return null;
+        if (/^c\d+$/i.test(t)) return `c${t.replace(/^c/i, '')}`;
+        if (/^\d+$/.test(t)) return `c${t}`;
+        return null;
+      };
+
+      const headerPattern = /(Q?[A-Za-z]{1,3}\d+[A-Za-z]?(?:r\d+)(?:c\d+)?)/i;
+      for (const part of parts) {
+        // Try categorical with '='
+        let m = part.match(new RegExp(`^\\s*${headerPattern.source}\\s*=\\s*([A-Za-z0-9,\\-\\s]+)\\s*$`, 'i'));
+        if (m) {
+          const rawHeader = m[1];
+          const rhs = m[2].trim();
+          const canonHeader = canonicalizeHeader(rawHeader);
+          if (!canonHeader) return null;
+          const available = codesForHeader(canonHeader);
+          if (!available || available.length === 0) return null;
+          let codes = [];
+          if (rhs.includes('-')) {
+            const [a, b] = rhs.split('-').map(s => s.trim());
+            const start = parseInt(a.replace(/^c/i, ''), 10);
+            const end = parseInt(b.replace(/^c/i, ''), 10);
+            if (!isNaN(start) && !isNaN(end) && end >= start) {
+              for (let v = start; v <= end; v++) codes.push(`c${v}`);
+            }
+          } else if (rhs.includes(',')) {
+            codes = rhs.split(',').map(s => normCode(s)).filter(Boolean);
+          } else {
+            const single = normCode(rhs);
+            if (single) codes = [single];
+          }
+          codes = codes.filter(c => available.includes(c));
+          if (codes.length === 0) return null;
+          conditions.push({ variableName: canonHeader, codes });
+          continue;
+        }
+        // Try numeric comparison: header [><=]=? number
+        m = part.match(new RegExp(`^\\s*${headerPattern.source}\\s*(>=|<=|>|<|=)\\s*(-?\\d+(?:\\.\\d+)?)\\s*$`, 'i'));
+        if (m) {
+          const rawHeader = m[1];
+          const op = m[2];
+          const num = m[3];
+          const canonHeader = canonicalizeHeader(rawHeader);
+          if (!canonHeader) return null;
+          conditions.push({ variableName: canonHeader, numericCondition: `${op}${num}` });
+          continue;
+        }
+        // Unrecognized clause
+        return null;
+      }
+      if (conditions.length === 0) return null;
+      return operator ? { conditions, operator } : conditions[0];
+    }
+
+    const systemPrompt = `You are an expert data analyst configuring banner table cuts for survey data.
+Given a list of banner "definitions" (plain English descriptions of segments) and a list of available variables with known codes (when categorical), produce a configuration for each definition.
+
+Rules:
+- Output MUST be valid JSON matching the exact schema below.
+- Prefer exact code matches; if unsure, leave the item blank.
+- If a numeric variable with a range or threshold is implied, return a numericCondition like ">=50", "<10", or "5-10".
+- If a categorical match is found, return codes as an array of exact values as they appear in data (do not invent).
+- If no confident match exists, leave the item with no variableName and no codes.
+ - CRITICAL: variableName MUST be exactly one of the provided expected headers. NEVER return base variables (e.g., "C7"). Use specific headers like "QC7r1" only.
+ - When returning codes for a categorical header, choose from that header's provided code list.
+ - When a definition uses a numeric range on the right side like "C7r1=9-10", interpret this as codes c9 and c10 for the header "QC7r1", if "QC7r1" is in the allowed headers. Do not strip the 'c' prefix in the output codes.
+ - If a header is provided without leading 'Q' (e.g., "C7r1"), map it to the allowed header list preferring the 'Q' version (e.g., "QC7r1") when present.
+ - Support multiple conditions combined with OR or AND. When multiple conditions are present, return them in a "conditions" array and include the "operator" as "OR" or "AND". Each condition item should contain either {variableName, codes[]} for categorical or {variableName, numericCondition} for numeric comparisons.
+
+Examples:
+- Definition: "C7r1=9-10" -> variableName: "QC7r1", codes: ["c9","c10"]
+- Definition: "QC7r2=3,7" -> variableName: "QC7r2", codes: ["c3","c7"]
+ - Definition: "S14r3c1>0 OR S14r4c1>0" -> conditions: [{variableName:"QS14r3c1", numericCondition:">0"}, {variableName:"QS14r4c1", numericCondition:">0"}], operator: "OR"
+`;
+
+    const userPayload = {
+      cuts: cuts.map(c => ({
+        cutId: c.cutId,
+        title: c.title || '',
+        definitionText: c.definitionText || ''
+      })),
+      variables: limitedVars,
+      expectedHeaders: allowedHeaders,
+      expectedHeadersDetail: allowedHeaderDetail
+    };
+
+    const schemaHint = `
+Return JSON:
+{
+  "configs": [
+    {
+      "cutId": "<string>",
+      // EITHER single-condition form:
+      "variableName": "<string | optional>",
+      "codes": ["<string>", "..."],       // optional, categorical
+      "numericCondition": "<string>",     // optional, e.g., ">=50" or "5-10"
+      // OR multi-condition form:
+      "conditions": [
+        { "variableName": "<string>", "codes": ["<string>", "..."] } |
+        { "variableName": "<string>", "numericCondition": "<string>" }
+      ],
+      "operator": "OR" | "AND"
+    },
+    ...
+  ]
+}
+Only include fields that apply. Do not add extra keys.`;
+
+    // First, deterministically resolve easy cases before calling the model
+    const preResolved = [];
+    const unresolved = [];
+    for (const c of cuts) {
+      const parsed = preParseDefinition(c.definitionText || '');
+      if (parsed) {
+        if (parsed.conditions && parsed.operator) {
+          preResolved.push({ cutId: c.cutId, conditions: parsed.conditions, operator: parsed.operator });
+        } else if (parsed.variableName && (parsed.codes?.length || parsed.numericCondition)) {
+          preResolved.push({ cutId: c.cutId, ...parsed });
+        } else {
+          unresolved.push(c);
+        }
+      } else {
+        unresolved.push(c);
+      }
+    }
+
+    // Batch the unresolved cuts to avoid token limits
+    const BATCH_SIZE = 10;
+    console.log('🟠 [AUTO-CONFIGURE] Starting AI configuration', {
+      questionnaireId,
+      totalCuts: cuts.length,
+      batchSize: BATCH_SIZE,
+      limitedVars: limitedVars.length,
+      preResolved: preResolved.length,
+      toModel: unresolved.length
+    });
+    const allConfigs = [];
+    // include pre-resolved first
+    if (preResolved.length > 0) {
+      allConfigs.push(...preResolved);
+    }
+    for (let i = 0; i < unresolved.length; i += BATCH_SIZE) {
+      const batch = unresolved.slice(i, i + BATCH_SIZE);
+      const batchPayload = {
+        cuts: batch.map(c => ({
+          cutId: c.cutId,
+          title: c.title || '',
+          definitionText: c.definitionText || ''
+        }))
+      };
+      console.log('🟠 [AUTO-CONFIGURE] Sending batch', { indexStart: i, indexEnd: i + batch.length - 1 });
+      let response;
+      // Prefer GPT-5 or a reasoning-capable model; fallback to gpt-4o if unavailable
+      const primaryModel = process.env.BANNERS_AI_MODEL || 'gpt-5';
+      try {
+        response = await client.chat.completions.create({
+          model: primaryModel,
+          temperature: 0,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Variables (base, optional):\n${JSON.stringify(limitedVars)}` },
+            { role: 'user', content: `Allowed expected headers (choose ONLY from this list):\n${JSON.stringify(allowedHeaders)}` },
+            { role: 'user', content: `Per-header codes (categorical):\n${JSON.stringify(allowedHeaderDetail)}` },
+            { role: 'user', content: `Cuts to configure:\n${JSON.stringify(batchPayload.cuts)}\n\n${schemaHint}` }
+          ],
+          response_format: { type: 'json_object' }
+        });
+      } catch (e) {
+        console.warn(`Model ${primaryModel} failed, falling back to gpt-4o`, e?.message || e);
+        response = await client.chat.completions.create({
+          model: 'gpt-4o',
+          temperature: 0,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Variables (base, optional):\n${JSON.stringify(limitedVars)}` },
+            { role: 'user', content: `Allowed expected headers (choose ONLY from this list):\n${JSON.stringify(allowedHeaders)}` },
+            { role: 'user', content: `Per-header codes (categorical):\n${JSON.stringify(allowedHeaderDetail)}` },
+            { role: 'user', content: `Cuts to configure:\n${JSON.stringify(batchPayload.cuts)}\n\n${schemaHint}` }
+          ],
+          response_format: { type: 'json_object' }
+        });
+      }
+      let parsed = {};
+      try {
+        parsed = JSON.parse(response.choices?.[0]?.message?.content || '{}');
+      } catch (e) {
+        parsed = {};
+      }
+      const configs = Array.isArray(parsed.configs) ? parsed.configs : [];
+      console.log('🟢 [AUTO-CONFIGURE] Batch result', { indexStart: i, configs: configs.length });
+      allConfigs.push(...configs);
+    }
+    // Fallback pass: for any unconfigured cuts, try one-by-one minimal prompts
+    const returnedIds = new Set(allConfigs.map(c => c.cutId));
+    const missing = unresolved.filter(c => !returnedIds.has(c.cutId));
+    console.log('🟠 [AUTO-CONFIGURE] Fallback single-cut attempts', { missingCount: missing.length });
+    for (const item of missing) {
+      try {
+        let singleResponse;
+        const primaryModel = process.env.BANNERS_AI_MODEL || 'gpt-5';
+        try {
+          singleResponse = await client.chat.completions.create({
+            model: primaryModel,
+            temperature: 0,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: `Variables (base, optional):\n${JSON.stringify(limitedVars)}` },
+              { role: 'user', content: `Allowed expected headers (choose ONLY from this list):\n${JSON.stringify(allowedHeaders)}` },
+              { role: 'user', content: `Per-header codes (categorical):\n${JSON.stringify(allowedHeaderDetail)}` },
+              { role: 'user', content: `Configure this cut only (return JSON per schema):\n${JSON.stringify({ cutId: item.cutId, title: item.title || '', definitionText: item.definitionText || '' })}\n\n${schemaHint}` }
+            ],
+            response_format: { type: 'json_object' }
+          });
+        } catch (e) {
+          singleResponse = await client.chat.completions.create({
+            model: 'gpt-4o',
+            temperature: 0,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: `Variables (base, optional):\n${JSON.stringify(limitedVars)}` },
+              { role: 'user', content: `Allowed expected headers (choose ONLY from this list):\n${JSON.stringify(allowedHeaders)}` },
+              { role: 'user', content: `Per-header codes (categorical):\n${JSON.stringify(allowedHeaderDetail)}` },
+              { role: 'user', content: `Configure this cut only (return JSON per schema):\n${JSON.stringify({ cutId: item.cutId, title: item.title || '', definitionText: item.definitionText || '' })}\n\n${schemaHint}` }
+            ],
+            response_format: { type: 'json_object' }
+          });
+        }
+        let singleParsed = {};
+        try {
+          singleParsed = JSON.parse(singleResponse.choices?.[0]?.message?.content || '{}');
+        } catch (e) {
+          singleParsed = {};
+        }
+        const cfgs = Array.isArray(singleParsed.configs) ? singleParsed.configs : [];
+        if (cfgs.length > 0) {
+          allConfigs.push(...cfgs);
+        }
+      } catch (e) {
+        // ignore and leave cut unconfigured
+      }
+    }
+    // Heuristic fallback: try to map to closest header and parse simple codes if still missing
+    const updatedReturned = new Set(allConfigs.map(c => c.cutId));
+    const stillMissing = unresolved.filter(c => !updatedReturned.has(c.cutId));
+    // Helper: canonicalizeHeader, extractHeadersFromDefinition, chooseClosestHeader, parseCodesFromDefinition
+    function extractHeadersFromDefinition(defText) {
+      if (!defText || typeof defText !== 'string') return [];
+      const found = new Set();
+      const headers = [];
+      const re = /\bQ?[A-Za-z]{1,3}\d+[A-Za-z]?(?:r\d+)?(?:c\d+)?\b/g;
+      const matches = defText.match(re) || [];
+      for (const m of matches) {
+        const canon = canonicalizeHeader(m);
+        if (canon && !found.has(canon.toLowerCase())) {
+          found.add(canon.toLowerCase());
+          headers.push(canon);
+        }
+      }
+      return headers;
+    }
+    function chooseClosestHeader(defText) {
+      const extracted = extractHeadersFromDefinition(defText);
+      if (extracted.length > 0) return extracted[0];
+      const baseMatch = defText.match(/\bQ?([A-Za-z]{1,3}\d+[A-Za-z]?)\b/);
+      if (baseMatch) {
+        const base = baseMatch[1];
+        const candidates = [base, `Q${base}`];
+        for (const cand of candidates) {
+          const canon = canonicalizeHeader(cand);
+          if (canon) return canon;
+        }
+      }
+      return allowedHeaders[0] || null;
+    }
+    function parseCodesFromDefinition(defText, header) {
+      if (!defText || !header) return [];
+      const lower = defText.toLowerCase();
+      const cMatches = lower.match(/\bc\d+\b/g) || [];
+      const nMatches = lower.match(/(?:=|:)\s*([\d,\s-]{1,50})/) || [];
+      let codes = [];
+      if (cMatches.length > 0) {
+        codes = cMatches.map(s => s.trim());
+      } else if (nMatches.length > 1) {
+        const nums = nMatches[1].split(',').map(s => s.trim()).filter(Boolean);
+        codes = nums;
+      }
+      if (!codes.length) return [];
+      const detail = allowedHeaderDetail.find(d => String(d.header).toLowerCase() === String(header).toLowerCase());
+      const available = Array.isArray(detail?.codes) ? detail.codes : [];
+      if (!available.length) return [];
+      const preferCPrefix = available.every(k => /^c\d+$/i.test(k));
+      const toCanonical = (c) => {
+        const raw = String(c).trim();
+        const exact = available.find(k => k.toLowerCase() === raw.toLowerCase());
+        if (exact) return exact;
+        const num = raw.replace(/^c/,'');
+        if (/^\d+$/.test(num)) {
+          const cand = preferCPrefix ? `c${num}` : num;
+          const fx = available.find(k => k.toLowerCase() === cand.toLowerCase());
+          if (fx) return fx;
+        }
+        return raw;
+      };
+      const mapped = codes.map(toCanonical).filter(c => available.includes(c));
+      const seen = new Set();
+      const dedup = [];
+      for (const m of mapped) {
+        const key = m.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          dedup.push(m);
+        }
+      }
+      return dedup;
+    }
+    for (const item of stillMissing) {
+      const def = item.definitionText || '';
+      const header = chooseClosestHeader(def);
+      if (header) {
+        const parsedCodes = parseCodesFromDefinition(def, header);
+        const fallbackCfg = parsedCodes.length > 0
+          ? { cutId: item.cutId, variableName: header, codes: parsedCodes }
+          : { cutId: item.cutId, variableName: header };
+        allConfigs.push(fallbackCfg);
+      }
+    }
+    res.json({ configs: allConfigs });
+  } catch (error) {
+    console.error('Error in banners auto-configure:', error);
+    res.status(500).json({ error: 'Failed to auto-configure banners' });
   }
 });
 
@@ -5089,6 +5502,55 @@ router.get('/raw-data/:questionnaireId', async (req, res) => {
   } catch (error) {
     console.error('Error fetching raw data:', error);
     res.status(500).json({ error: 'Failed to fetch raw data' });
+  }
+});
+
+// PUT /api/questionnaire/raw-data/:questionnaireId - Update raw data file with new columns/rows
+router.put('/raw-data/:questionnaireId', async (req, res) => {
+  try {
+    const { questionnaireId } = req.params;
+    const { columns, rows } = req.body;
+
+    if (!columns || !rows) {
+      return res.status(400).json({ error: 'Missing columns or rows data' });
+    }
+
+    const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
+    const metadataPath = path.join(qnrDataDir, 'metadata.json');
+
+    try {
+      const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+      if (!metadata.dataFileName) {
+        return res.status(404).json({ error: 'No data file found. Please upload a data file first.' });
+      }
+
+      const filePath = path.join(qnrDataDir, metadata.dataFileName);
+
+      // Read existing workbook to preserve other sheets (like datamap)
+      const workbook = XLSX.readFile(filePath);
+
+      // Create new worksheet from updated data
+      const newWorksheet = XLSX.utils.json_to_sheet(rows, { header: columns });
+
+      // Replace first sheet with updated data
+      workbook.Sheets[workbook.SheetNames[0]] = newWorksheet;
+
+      // Write back to file
+      XLSX.writeFile(workbook, filePath);
+
+      res.json({
+        success: true,
+        message: 'Raw data updated successfully',
+        totalRows: rows.length,
+        totalColumns: columns.length
+      });
+    } catch (e) {
+      console.error('Error updating raw data file:', e);
+      res.status(404).json({ error: 'Data file not found or unable to update' });
+    }
+  } catch (error) {
+    console.error('Error updating raw data:', error);
+    res.status(500).json({ error: 'Failed to update raw data' });
   }
 });
 

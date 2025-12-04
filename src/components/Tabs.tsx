@@ -20,6 +20,8 @@ import {
   TableCellsIcon,
   Cog6ToothIcon,
   ArrowDownTrayIcon,
+  BugAntIcon,
+  ClipboardDocumentIcon,
 } from '@heroicons/react/24/outline';
 import { IconTable, IconCheckbox } from '@tabler/icons-react';
 import { API_BASE_URL } from '../config';
@@ -337,8 +339,6 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
   const [showSettingsPopup, setShowSettingsPopup] = useState(false);
   const [significanceLevel, setSignificanceLevel] = useState<95 | 90>(95);
   const [percentageDecimals, setPercentageDecimals] = useState<0 | 1 | 2>(0);
-  // Filter popup state
-  const [showFilterPopup, setShowFilterPopup] = useState(false);
   // Track which net dropdowns are open in the popup
   const [openNetDropdowns, setOpenNetDropdowns] = useState<Record<string, Set<number>>>({});
   const [netSummaryModalState, setNetSummaryModalState] = useState<NetSummaryModalState>(NET_SUMMARY_MODAL_DEFAULT);
@@ -386,6 +386,118 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
   const [showDataCutsView, setShowDataCutsView] = useState(false);
   const [dataCutsLoading, setDataCutsLoading] = useState(false);
   const [dataCutsReady, setDataCutsReady] = useState(false);
+  // Ref to open banner settings from the top-level toolbar while editing
+  const bannerSettingsOpenRef = React.useRef<(() => void) | null>(null);
+  // Banner Specs import (Excel) - for creating banner groups from file
+  const bannerSpecsFileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const handleClickImportBannerSpecs = () => {
+    bannerSpecsFileInputRef.current?.click();
+  };
+  const handleBannerSpecsFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const arrayBuffer = await file.arrayBuffer();
+      const wb = XLSX.read(arrayBuffer, { type: 'array' });
+      if (!wb.SheetNames || wb.SheetNames.length === 0) {
+        alert('No sheets found in the uploaded file.');
+        return;
+      }
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+      if (!rows || rows.length === 0) {
+        alert('The uploaded sheet is empty.');
+        return;
+      }
+      // Find header row and column indices for the three columns
+      let headerRowIndex = -1;
+      let headingCol = -1;
+      let pointCol = -1;
+      let defCol = -1;
+      // Try to detect by exact header match first, then by startsWith
+      for (let i = 0; i < Math.min(rows.length, 10); i++) {
+        const row = rows[i] || [];
+        const lowered = row.map((c: any) => String(c || '').trim().toLowerCase());
+        const idxHeading = lowered.findIndex((c: string) => c === 'banner heading (e.g. gender)' || c.startsWith('banner heading'));
+        const idxPoint = lowered.findIndex((c: string) => c === 'banner point (e.g. male)' || c.startsWith('banner point'));
+        const idxDef = lowered.findIndex((c: string) => c === 'banner definition' || c.startsWith('banner definition'));
+        if (idxHeading !== -1 && idxPoint !== -1 && idxDef !== -1) {
+          headerRowIndex = i;
+          headingCol = idxHeading;
+          pointCol = idxPoint;
+          defCol = idxDef;
+          break;
+        }
+      }
+      if (headerRowIndex === -1) {
+        alert('Could not find required headers: "Banner Heading", "Banner Point", "Banner Definition".');
+        return;
+      }
+      // Build subgroups grouped by heading (preserve order), carry forward blank headings
+      const subGroupMap = new Map<string, { id: string; title: string; cuts: any[] }>();
+      let includeTotal = false;
+      let currentHeading: string | null = null;
+      for (let r = headerRowIndex + 1; r < rows.length; r++) {
+        const row = rows[r] || [];
+        const headingRaw = row[headingCol];
+        const pointRaw = row[pointCol];
+        const defRaw = defCol !== -1 ? row[defCol] : '';
+
+        const headingCell = headingRaw !== undefined && headingRaw !== null ? String(headingRaw).trim() : '';
+        const point = pointRaw !== undefined && pointRaw !== null ? String(pointRaw).trim() : '';
+        const definitionText = defRaw !== undefined && defRaw !== null ? String(defRaw).trim() : '';
+
+        // Skip completely blank rows
+        if (!headingCell && !point) continue;
+
+        // If a heading cell is present and equals "Total", mark and skip; don't set currentHeading
+        if (headingCell && headingCell.toLowerCase() === 'total') {
+          includeTotal = true;
+          continue;
+        }
+
+        // Update current heading when a non-empty, non-total heading is present
+        if (headingCell) {
+          currentHeading = headingCell;
+        }
+
+        // We need a valid heading context and a point to create a cut
+        if (!currentHeading || !point) continue;
+
+        // Ensure subgroup for current heading exists
+        if (!subGroupMap.has(currentHeading)) {
+          subGroupMap.set(currentHeading, { id: `${Date.now()}-${subGroupMap.size + 1}`, title: currentHeading, cuts: [] });
+        }
+        const sub = subGroupMap.get(currentHeading)!;
+        sub.cuts.push({
+          id: `${sub.id}-c${sub.cuts.length + 1}`,
+          title: point,
+          variableName: '',
+          codes: [],
+          definitionText
+        });
+      }
+      if (subGroupMap.size === 0) {
+        alert('No banner headings/points found to import.');
+        return;
+      }
+      const importedGroup: BannerGroup = {
+        id: `import_${Date.now()}`,
+        title: file.name.replace(/\.(xlsx|xls)$/i, '') || 'Imported Banner Specs',
+        groups: Array.from(subGroupMap.values()).map(sg => ({ id: sg.id, title: sg.title, cuts: sg.cuts })),
+        includeTotal
+      };
+      // Add to list and open in editor for review
+      setNewBannerGroups(prev => [...prev, importedGroup]);
+      setEditingBannerGroup(importedGroup);
+      setShowBannerBuilder(true);
+    } catch (err: any) {
+      alert(`Failed to import banner specs: ${err?.message || String(err)}`);
+    } finally {
+      // reset input
+      if (e.target) e.target.value = '';
+    }
+  };
   const [showSingleSelectGridSummary, setShowSingleSelectGridSummary] = useState<Record<string, boolean>>({});
   const [selectedSummaryNets, setSelectedSummaryNets] = useState<Record<string, Set<string>>>({});
   const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Array<{ id: string, selectedNets: string[], baseQuestionNumber: string, customName?: string }>>>({});
@@ -394,6 +506,8 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewDebugInfo, setPreviewDebugInfo] = useState<Record<string, TableDebugEntry>>({});
+  // Track rendered table counts for each variable (for comparison with included counts)
+  const [variableRenderedTableCounts, setVariableRenderedTableCounts] = useState<Record<string, number>>({});
   const getTabSpecsStorageKey = useCallback((suffix: string) => {
     return selectedQuestionnaire?.id ? `tabSpecs_${suffix}_${selectedQuestionnaire.id}` : null;
   }, [selectedQuestionnaire?.id]);
@@ -581,7 +695,9 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     if (!variableName || !tableName) return;
     setVariableTableSelections(prev => {
       const currentSet = prev[variableName];
-      const baseSet = currentSet ? new Set(currentSet) : new Set(initialSelectedNames && initialSelectedNames.length > 0 ? initialSelectedNames : allTableNames);
+      // Initialize with empty Set if no current selection exists
+      // The isTableSelected function handles defaults, so we don't need to pre-populate
+      const baseSet = currentSet ? new Set(currentSet) : new Set(initialSelectedNames || []);
       if (baseSet.has(tableName)) {
         baseSet.delete(tableName);
       } else {
@@ -996,6 +1112,48 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
   }>>([]);
   const [isGeneratingCrosstab, setIsGeneratingCrosstab] = useState(false);
   const [selectedCrosstabBannerId, setSelectedCrosstabBannerId] = useState<string | null>(null);
+  const [exportingBannerId, setExportingBannerId] = useState<string | null>(null);
+  // In-UI Stat debug
+  const [showStatDebug, setShowStatDebug] = useState(false);
+  const [statDebugLogs, setStatDebugLogs] = useState<string[]>([]);
+  const appendStatLog = React.useCallback((msg: string, data?: any) => {
+    const enabled = (globalThis as any).__TABEXPORT_DEBUG_STATS === true || showStatDebug;
+    if (!enabled) return;
+    const line = data !== undefined ? `${msg} ${(() => { try { return JSON.stringify(data); } catch { return String(data); } })()}` : msg;
+    setStatDebugLogs(prev => {
+      const next = [...prev, line];
+      // keep last 300 lines
+      return next.length > 300 ? next.slice(next.length - 300) : next;
+    });
+    // Also mirror to console for easy copying
+    // eslint-disable-next-line no-console
+    console.warn('[STAT DEBUG UI]', msg, data ?? '');
+  }, [showStatDebug]);
+
+  // Silence console messages when tab specs page is active (keep errors for debugging)
+  useEffect(() => {
+    if (qnrViewMode === 'tabSpecs') {
+      // Store original console methods
+      const originalLog = console.log;
+      const originalWarn = console.warn;
+      const originalDebug = console.debug;
+      const originalInfo = console.info;
+
+      // Override console methods to be silent (keep error for actual errors)
+      console.log = () => {};
+      console.warn = () => {};
+      console.debug = () => {};
+      console.info = () => {};
+
+      // Restore original methods when component unmounts or view changes
+      return () => {
+        console.log = originalLog;
+        console.warn = originalWarn;
+        console.debug = originalDebug;
+        console.info = originalInfo;
+      };
+    }
+  }, [qnrViewMode]);
 
   // Load new banner groups from localStorage when questionnaire changes
   useEffect(() => {
@@ -1094,6 +1252,53 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       setHiddenFromBanners(new Set());
     }
   }, [selectedQuestionnaire?.id, variables]);
+
+  // Load saved coding themes from localStorage
+  useEffect(() => {
+    if (selectedQuestionnaire?.id) {
+      const storageKey = `codingThemes_${selectedQuestionnaire.id}`;
+      const stored = localStorage.getItem(storageKey);
+
+      if (stored) {
+        try {
+          const themesMap = JSON.parse(stored);
+          const newMap = new Map<string, Array<{ code: number; theme: string }>>();
+          Object.entries(themesMap).forEach(([varName, themes]) => {
+            newMap.set(varName, themes as Array<{ code: number; theme: string }>);
+          });
+          setSavedCodingThemes(newMap);
+        } catch (e) {
+          console.error('Error loading coding themes from localStorage:', e);
+          setSavedCodingThemes(new Map());
+        }
+      } else {
+        setSavedCodingThemes(new Map());
+      }
+    } else {
+      setSavedCodingThemes(new Map());
+    }
+  }, [selectedQuestionnaire?.id]);
+
+  // Load coded headers debug from localStorage
+  useEffect(() => {
+    if (selectedQuestionnaire?.id) {
+      const storageKey = `codedHeadersDebug_${selectedQuestionnaire.id}`;
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        try {
+          const obj = JSON.parse(stored) as Record<string, string[]>;
+          setCodedHeadersDebug(obj || {});
+        } catch (e) {
+          console.error('Error loading coded headers debug from localStorage:', e);
+          setCodedHeadersDebug({});
+        }
+      } else {
+        setCodedHeadersDebug({});
+      }
+    } else {
+      setCodedHeadersDebug({});
+    }
+  }, [selectedQuestionnaire?.id]);
 
   // Save hiddenFromBanners to localStorage when it changes
   useEffect(() => {
@@ -1396,14 +1601,38 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
   // Wrapper to track all columnMapping changes
   const setColumnMapping = useCallback((mapping: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)) => {
     setColumnMappingStateInternal((prev) => {
-      const newMapping = typeof mapping === 'function' ? mapping(prev) : mapping;
-      return newMapping;
+      const next = typeof mapping === 'function' ? mapping(prev) : mapping;
+      try {
+        const prevSize = Object.keys(prev || {}).length;
+        const nextSize = Object.keys(next || {}).length;
+        const qid = selectedQuestionnaire?.id || 'none';
+        console.log('🟠 [MAPPING STATE] setColumnMapping called', { questionnaireId: qid, prevSize, nextSize });
+        // Persist mapping to localStorage per questionnaire for durability across refreshes
+        if (selectedQuestionnaire && selectedQuestionnaire.id) {
+          const storageKey = `columnMapping_${selectedQuestionnaire.id}`;
+          localStorage.setItem(storageKey, JSON.stringify(next));
+          console.log('🟠 [MAPPING STATE] Saved mapping to localStorage', { storageKey, keys: nextSize });
+        }
+      } catch (e) {
+        console.warn('⚠️ [MAPPING STATE] Failed to persist mapping to localStorage', e);
+      }
+      return next;
     });
-  }, [hasAttemptedMapping]);
+  }, [selectedQuestionnaire]);
   
   const columnMapping = columnMappingState;
   const [columnHeaderSearch, setColumnHeaderSearch] = useState('');
   const [qnrVariableSearch, setQnrVariableSearch] = useState('');
+
+  // Show/hide Variables tab based on upload + initial mapping
+  const canShowVariablesTab = !!uploadedFileInfo && !!hasAttemptedMapping;
+
+  // Prevent viewing Variables tab until a data file is uploaded and mapped
+  useEffect(() => {
+    if (qnrViewMode === 'variables' && !canShowVariablesTab) {
+      setQnrViewMode('data');
+    }
+  }, [qnrViewMode, canShowVariablesTab]);
   const [rawDataSearch, setRawDataSearch] = useState('');
   const [showRawDataSuggestions, setShowRawDataSuggestions] = useState(false);
   const [dataTabView, setDataTabView] = useState<'variables' | 'rawdata' | 'datamap'>('variables');
@@ -1456,6 +1685,8 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
   const [savedCodingThemes, setSavedCodingThemes] = useState<Map<string, Array<{ code: number; theme: string }>>>(new Map());
   const [openEndCodingPage, setOpenEndCodingPage] = useState<1 | 2>(1);
   const [isCombineMode, setIsCombineMode] = useState(false);
+  const [deletingCodedTables, setDeletingCodedTables] = useState<Record<string, boolean>>({});
+  const [codedHeadersDebug, setCodedHeadersDebug] = useState<Record<string, string[]>>({});
 
   // Parse file headers locally
   const parseFileHeaders = useCallback(async (file: File): Promise<string[]> => {
@@ -2584,73 +2815,119 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       }
     ];
 
+    // Helper: build a predicate for a BannerCut supporting AND/OR and numeric/categorical comparisons
+    const makeCutPredicate = (cut: any): ((row: Record<string, any>) => boolean) => {
+      const parseNumeric = (s: any): number | null => {
+        if (s === null || s === undefined || s === '') return null;
+        const n = Number(String(s).trim());
+        return isNaN(n) ? null : n;
+      };
+      const buildNumericChecker = (condStr: string): ((n: number | null) => boolean) => {
+        const s = condStr.trim();
+        const range = s.match(/^(-?\d+(?:\.\d+)?)\s*-\s*(-?\d+(?:\.\d+)?)$/);
+        if (range) {
+          const a = Number(range[1]);
+          const b = Number(range[2]);
+          return (n) => n !== null && n >= a && n <= b;
+        }
+        const left = s.match(/^(-?\d+(?:\.\d+)?)\s*-\s*$/);
+        if (left) {
+          const a = Number(left[1]);
+          return (n) => n !== null && n >= a;
+        }
+        const right = s.match(/^\s*-\s*(-?\d+(?:\.\d+)?)$/);
+        if (right) {
+          const b = Number(right[1]);
+          return (n) => n !== null && n <= b;
+        }
+        const cmp = s.match(/^(>=|<=|>|<|=)\s*(-?\d+(?:\.\d+)?)$/);
+        if (cmp) {
+          const op = cmp[1];
+          const value = Number(cmp[2]);
+          return (n) => {
+            if (n === null) return false;
+            switch (op) {
+              case '>=': return n >= value;
+              case '<=': return n <= value;
+              case '>': return n > value;
+              case '<': return n < value;
+              case '=': return n === value;
+              default: return false;
+            }
+          };
+        }
+        const exact = Number(s);
+        if (!isNaN(exact)) return (n) => n !== null && n === exact;
+        return () => false;
+      };
+      const matchesCategorical = (row: any, varName: string, codes: string[]): boolean => {
+        const header = getColumnHeader(varName);
+        if (!header) return false;
+        const val = row[header];
+        if (val === null || val === undefined || val === '') return false;
+        const s = String(val).trim();
+        const n = Number(s);
+        for (const code of codes) {
+          const codeStr = String(code).trim();
+          if (s === codeStr) return true;
+          const codeNoC = codeStr.replace(/^[rc]/i, '');
+          if (s === codeNoC) return true;
+          if (!isNaN(n) && String(n) === codeNoC) return true;
+        }
+        return false;
+      };
+      const matchesNumeric = (row: any, varName: string, condStr: string): boolean => {
+        const header = getColumnHeader(varName);
+        if (!header) return false;
+        const val = parseNumeric(row[header]);
+        const check = buildNumericChecker(condStr);
+        return check(val);
+      };
+      // Use conditionGroups if present
+      if (cut.conditionGroups && Array.isArray(cut.conditionGroups) && cut.conditionGroups.length > 0) {
+        const group = cut.conditionGroups[0];
+        const op = (group.operator || 'OR').toUpperCase();
+        const conds = group.conditions || [];
+        return (row: any) => {
+          if (op === 'AND') {
+            return conds.every((c: any) => {
+              const c0 = c.codes?.[0] || '';
+              const isNumericCond = !!c.numericCondition || (/^(>=|<=|>|<|=)/.test(c0) || /^\d+-\d+/.test(c0) || /^\d+-/.test(c0));
+              if (isNumericCond) {
+                const expr = c.numericCondition || c0;
+                return matchesNumeric(row, c.variableName, expr);
+              }
+              return matchesCategorical(row, c.variableName, c.codes || []);
+            });
+          } else {
+            return conds.some((c: any) => {
+              const c0 = c.codes?.[0] || '';
+              const isNumericCond = !!c.numericCondition || (/^(>=|<=|>|<|=)/.test(c0) || /^\d+-\d+/.test(c0) || /^\d+-/.test(c0));
+              if (isNumericCond) {
+                const expr = c.numericCondition || c0;
+                return matchesNumeric(row, c.variableName, expr);
+              }
+              return matchesCategorical(row, c.variableName, c.codes || []);
+            });
+          }
+        };
+      }
+      // Fallback: single variable + codes
+      if (cut.variableName && Array.isArray(cut.codes) && cut.codes.length > 0) {
+        return (row: any) => matchesCategorical(row, cut.variableName, cut.codes);
+      }
+      // No conditions: never match
+      return () => false;
+    };
+
     // Add filters for each banner cut
     bannerGroup.groups?.forEach((group: any) => {
       group.cuts.forEach((cut: any) => {
-        const cutVariable = variables.find((v: any) => v.name === cut.variableName);
-        if (!cutVariable) return;
-
-        const cutColumnHeader = getColumnHeader(cut.variableName);
-        if (!cutColumnHeader) return;
-
-        // Debug: Log sample values for first cut to understand matching
-        const debugValues = new Set<string>();
-        if (filteredRows.length > 0 && selectedBannerVariable === 'S1') {
-          filteredRows.slice(0, 10).forEach((row: any) => {
-            const val = row[cutColumnHeader];
-            if (val !== null && val !== undefined && val !== '') {
-              debugValues.add(String(val));
-            }
-          });
-          if (debugValues.size > 0) {
-            console.log(`Cut filter debug for "${cut.title}" (${cut.variableName}): Sample values:`, Array.from(debugValues));
-            console.log(`Cut filter debug: Codes we're checking:`, cut.codes);
-          }
-        }
-
+        const predicate = makeCutPredicate(cut);
         columns.push({
           id: cut.id,
           title: cut.title,
-          filterFn: (row: Record<string, any>) => {
-            const value = row[cutColumnHeader];
-            if (value === null || value === undefined || value === '') return false;
-            
-            const valueStr = String(value).trim();
-            const numValue = Number(valueStr);
-            
-            // Check if value matches stored codes directly
-            const codeStr = cut.codes.map((c: any) => String(c).trim());
-            if (codeStr.includes(valueStr)) {
-              return true;
-            }
-            
-            // Check numeric match (e.g., "1" matches 1, "c1" matches "1")
-            if (!isNaN(numValue)) {
-              for (const code of cut.codes) {
-                const codeStr = String(code).trim();
-                const codeNum = Number(codeStr.replace(/^[rc]/i, ''));
-                if (!isNaN(codeNum) && numValue === codeNum) {
-                  return true;
-                }
-                // Also check if code string matches numeric value
-                if (codeStr === String(numValue)) {
-                  return true;
-                }
-              }
-            }
-            
-            // Check if value matches any of the labels for the stored codes
-            if (cutVariable.codes) {
-              for (const code of cut.codes) {
-                const codeLabel = cutVariable.codes[String(code)] || cutVariable.codes[code];
-                if (codeLabel && String(codeLabel).trim() === valueStr) {
-                  return true;
-                }
-              }
-            }
-            
-            return false;
-          }
+          filterFn: (row: Record<string, any>) => predicate(row)
         });
       });
     });
@@ -3340,7 +3617,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         });
       }
 
-      // Statistical testing function
+      // Statistical testing function for proportions/percentages
       const isSignificant = (p1: number, n1: number, p2: number, n2: number): { is95: boolean; is90: boolean } => {
         if (!n1 || !n2 || n1 <= 0 || n2 <= 0) return { is95: false, is90: false };
         const prop1 = p1 / 100;
@@ -3352,49 +3629,306 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         return { is95: z > 1.96, is90: z > 1.645 && z <= 1.96 };
       };
 
-      const getStatLetters = (code: string, colIdx: number, bannerTableData: any, cutBases: Record<string, number>, isSummaryTable: boolean, isMultiSelectGrid: boolean): { letter: string; is95: boolean }[] => {
+      // Statistical testing function for means (two-sample z-test with pooled variance)
+      const isSignificantForMeans = (mean1: number, n1: number, stdDev1: number, mean2: number, n2: number, stdDev2: number, confidenceLevel: 95 | 90 | 80 = 95): { is95: boolean; is90: boolean } => {
+        if (!n1 || !n2 || n1 <= 0 || n2 <= 0) return { is95: false, is90: false };
+        
+        // If both standard deviations are 0 or very small, and means are equal, no significance
+        const meanDiff = Math.abs(mean1 - mean2);
+        if (meanDiff < 0.0001) return { is95: false, is90: false };
+        
+        // Use a small epsilon to avoid division by zero when standard deviations are very small
+        const epsilon = 0.0001;
+        const adjustedStdDev1 = Math.max(stdDev1, epsilon);
+        const adjustedStdDev2 = Math.max(stdDev2, epsilon);
+        
+        // Calculate pooled standard deviation
+        const variance1 = adjustedStdDev1 * adjustedStdDev1;
+        const variance2 = adjustedStdDev2 * adjustedStdDev2;
+        const pooledVariance = ((n1 - 1) * variance1 + (n2 - 1) * variance2) / (n1 + n2 - 2);
+        const pooledStdDev = Math.sqrt(Math.max(pooledVariance, epsilon * epsilon));
+        
+        // Standard error of the difference between means
+        const se = pooledStdDev * Math.sqrt(1/n1 + 1/n2);
+        if (se === 0 || se < epsilon) return { is95: false, is90: false };
+        
+        // Calculate z-score
+        const z = meanDiff / se;
+        
+        // Get z-critical values based on confidence level
+        const zCritical95 = confidenceLevel === 95 ? 1.96 : confidenceLevel === 90 ? 1.645 : 1.282;
+        const zCritical90 = 1.645;
+        
+        return { 
+          is95: z > zCritical95, 
+          is90: z > zCritical90 && z <= zCritical95 
+        };
+      };
+
+      // Debug helpers for stats in console (activated for S6 only)
+      let currentStatDebugVar = '';
+      let currentStatDebugCode = '';
+      const shouldDebugStats = () => {
+        // Enable global override in DevTools: window.__TABEXPORT_DEBUG_STATS = true
+        const globalFlag = (globalThis as any).__TABEXPORT_DEBUG_STATS === true;
+        return !!globalFlag || showStatDebug;
+      };
+      const logStatDebug = (...args: any[]) => {
+        if (shouldDebugStats()) {
+          // eslint-disable-next-line no-console
+          console.warn('[STAT DEBUG]', ...args);
+          // Mirror into UI panel
+          try {
+            appendStatLog(String(args?.[0] ?? ''), args?.[1]);
+          } catch {}
+        }
+      };
+
+      const getStatLetters = (
+        code: string,
+        colIdx: number,
+        bannerTableData: any,
+        cutBases: Record<string, number>,
+        isSummaryTable: boolean,
+        isMultiSelectGrid: boolean,
+        useMeanForSummary: boolean = false
+      ): { letter: string; is95: boolean }[] => {
         const results: { letter: string; is95: boolean }[] = [];
         const thisCol = bannerCols[colIdx];
-        
-        // Get data from bannerTableData directly
-        let cellData: any;
-        if (isMultiSelectGrid) {
-          const [stmtCode, colCode] = code.split('_');
-          cellData = bannerTableData[colCode]?.[stmtCode];
-        } else {
-          cellData = bannerTableData[code];
+
+        logStatDebug('🔍 getStatLetters CALLED', {
+          var: currentStatDebugVar,
+          code: currentStatDebugCode || code,
+          colIdx,
+          colTitle: thisCol?.title,
+          isSummaryTable,
+          isMultiSelectGrid,
+          useMeanForSummary,
+          bannerColsCount: bannerCols.length,
+          hasBannerTableData: !!bannerTableData,
+          bannerTableDataKeys: bannerTableData ? Object.keys(bannerTableData).slice(0, 10) : []
+        });
+
+        // Resolve code key variations to find data
+        const resolveCodeData = (bd: any, rawCode: string) => {
+          if (!bd) return undefined;
+          const tryKeys = new Set<string>();
+          const c = String(rawCode);
+          tryKeys.add(c);
+          // Remove r/c prefixes
+          const noR = c.replace(/^r/i, '');
+          const noC = c.replace(/^c/i, '');
+          tryKeys.add(noR);
+          tryKeys.add(noC);
+          // Add r/c prefixes
+          tryKeys.add(`r${noR}`);
+          tryKeys.add(`c${noC}`);
+          // Uppercase/lowercase variants
+          const more = Array.from(tryKeys);
+          more.forEach(k => tryKeys.add(k.toUpperCase()));
+          more.forEach(k => tryKeys.add(k.toLowerCase()));
+          for (const k of tryKeys) {
+            if (bd[k]) return bd[k];
+          }
+          return undefined;
+        };
+        const thisCodeData = resolveCodeData(bannerTableData, code) || {};
+        const thisData = thisCodeData?.[thisCol.id] || {};
+        const thisBase = cutBases[thisCol.id] || thisData.base || 0;
+
+        logStatDebug('📊 Code data resolved', {
+          code,
+          foundCodeData: !!thisCodeData && Object.keys(thisCodeData).length > 0,
+          codeDataKeys: Object.keys(thisCodeData).slice(0, 5),
+          thisColId: thisCol?.id,
+          hasThisData: !!thisData && Object.keys(thisData).length > 0,
+          thisDataKeys: Object.keys(thisData),
+          thisBase,
+          cutBasesKeys: Object.keys(cutBases).slice(0, 10)
+        });
+
+        // Derive percentage for this column
+        let thisPct: number = 0;
+        if (typeof thisData.percentage === 'number') {
+          thisPct = thisData.percentage;
+          if (thisPct <= 1) thisPct *= 100; // normalize decimal to percent
+        } else if (typeof thisData.count === 'number' && thisBase > 0) {
+          thisPct = (thisData.count / thisBase) * 100;
+        } else if (isSummaryTable) {
+          // Summary tables: try mean as percent when flagged
+          if (useMeanForSummary && typeof thisData.mean === 'number') {
+            thisPct = thisData.mean; // already scaled as percentage (0-100 or 0-1? elsewhere stored as %)
+            if (thisPct <= 1) thisPct *= 100;
+          } else if (typeof thisData.percentage === 'number') {
+            thisPct = thisData.percentage;
+            if (thisPct <= 1) thisPct *= 100;
+          }
         }
-        
-        const thisCutData = cellData?.[thisCol.id] || { count: 0, percentage: 0, base: 0 };
-        const thisPct = isSummaryTable ? 0 : (thisCutData.percentage || 0);
+        logStatDebug('📈 this column', {
+          var: currentStatDebugVar,
+          code: currentStatDebugCode || code,
+          colIdx,
+          colTitle: thisCol?.title,
+          groupIdx: thisCol?.groupIdx,
+          base: thisBase,
+          pct: thisPct,
+          count: thisData.count,
+          percentage: thisData.percentage,
+          mean: thisData.mean
+        });
+        // Compare against other cuts in the same subgroup; add letter if this is significantly higher
+        let comparisonsMade = 0;
+        let comparisonsSkippedSameCol = 0;
+        let comparisonsSkippedDiffGroup = 0;
+        let comparisonsNotHigher = 0;
 
         bannerCols.forEach((otherCol, otherIdx) => {
-          if (otherIdx === colIdx) return;
-          if (otherCol.groupIdx !== thisCol.groupIdx) return;
-
-          const otherCutData = cellData?.[otherCol.id] || { count: 0, percentage: 0, base: 0 };
-          const otherPct = isSummaryTable ? 0 : (otherCutData.percentage || 0);
-          const thisBase = cutBases[thisCol.id];
-          const otherBase = cutBases[otherCol.id];
-
-          if (thisPct > otherPct) {
-            const sig = isSignificant(thisPct, thisBase, otherPct, otherBase);
-            if (significanceLevel === 95) {
-              // Only show 95% significance letters
-            if (sig.is95) {
-                results.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
-              }
-            } else {
-              // Show both 95% (uppercase) and 90% (lowercase) significance letters
-              if (sig.is95) {
-              results.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
-            } else if (sig.is90) {
-              results.push({ letter: String.fromCharCode(97 + otherIdx), is95: false });
-              }
+          if (otherIdx === colIdx) {
+            comparisonsSkippedSameCol++;
+            return;
+          }
+          if (otherCol.groupIdx !== thisCol.groupIdx) {
+            comparisonsSkippedDiffGroup++;
+            return; // Only within group
+          }
+          const otherCodeData = resolveCodeData(bannerTableData, code) || {};
+          const otherData = otherCodeData?.[otherCol.id] || {};
+          const otherBase = cutBases[otherCol.id] || otherData.base || 0;
+          let otherPct: number = 0;
+          if (typeof otherData.percentage === 'number') {
+            otherPct = otherData.percentage;
+            if (otherPct <= 1) otherPct *= 100;
+          } else if (typeof otherData.count === 'number' && otherBase > 0) {
+            otherPct = (otherData.count / otherBase) * 100;
+          } else if (isSummaryTable) {
+            if (useMeanForSummary && typeof otherData.mean === 'number') {
+              otherPct = otherData.mean;
+              if (otherPct <= 1) otherPct *= 100;
+            } else if (typeof otherData.percentage === 'number') {
+              otherPct = otherData.percentage;
+              if (otherPct <= 1) otherPct *= 100;
             }
           }
+          if (thisPct > otherPct) {
+            comparisonsMade++;
+            const { is95, is90 } = isSignificant(thisPct, thisBase, otherPct, otherBase);
+            logStatDebug('✅ compare vs other (WITHIN GROUP)', {
+              thisCol: thisCol?.title, otherCol: otherCol?.title,
+              thisPct, thisBase, otherPct, otherBase, is95, is90, sigLevel: significanceLevel,
+              letterWouldBe: String.fromCharCode(65 + otherIdx)
+            });
+            if (significanceLevel === 95) {
+              if (is95) results.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+            } else {
+              if (is95) {
+                results.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+              } else if (is90) {
+                results.push({ letter: String.fromCharCode(97 + otherIdx), is95: false });
+              }
+            }
+          } else {
+            comparisonsNotHigher++;
+          }
         });
+
+        logStatDebug('🔄 Within-group comparison summary', {
+          comparisonsMade,
+          comparisonsSkippedSameCol,
+          comparisonsSkippedDiffGroup,
+          comparisonsNotHigher,
+          resultsFromWithinGroup: results.length
+        });
+
+        // Fallback: if no letters within subgroup, compare across all cuts in banner
+        if (results.length === 0) {
+          logStatDebug('⚠️ No within-group results, trying FALLBACK (all cuts)');
+          let fallbackComparisonsMade = 0;
+          let fallbackComparisonsNotHigher = 0;
+
+          bannerCols.forEach((otherCol, otherIdx) => {
+            if (otherIdx === colIdx) return;
+            const otherCodeData = resolveCodeData(bannerTableData, code) || {};
+            const otherData = otherCodeData?.[otherCol.id] || {};
+            const otherBase = cutBases[otherCol.id] || otherData.base || 0;
+            let otherPct: number = 0;
+            if (typeof otherData.percentage === 'number') {
+              otherPct = otherData.percentage;
+              if (otherPct <= 1) otherPct *= 100;
+            } else if (typeof otherData.count === 'number' && otherBase > 0) {
+              otherPct = (otherData.count / otherBase) * 100;
+            } else if (isSummaryTable) {
+              if (useMeanForSummary && typeof otherData.mean === 'number') {
+                otherPct = otherData.mean;
+                if (otherPct <= 1) otherPct *= 100;
+              } else if (typeof otherData.percentage === 'number') {
+                otherPct = otherData.percentage;
+                if (otherPct <= 1) otherPct *= 100;
+              }
+            }
+            if (thisPct > otherPct) {
+              fallbackComparisonsMade++;
+              const { is95, is90 } = isSignificant(thisPct, thisBase, otherPct, otherBase);
+              logStatDebug('✅ fallback compare (all cuts)', {
+                thisCol: thisCol?.title, otherCol: otherCol?.title,
+                thisPct, thisBase, otherPct, otherBase, is95, is90, sigLevel: significanceLevel,
+                letterWouldBe: String.fromCharCode(65 + otherIdx)
+              });
+              if (significanceLevel === 95) {
+                if (is95) results.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+              } else {
+                if (is95) {
+                  results.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                } else if (is90) {
+                  results.push({ letter: String.fromCharCode(97 + otherIdx), is95: false });
+                }
+              }
+            } else {
+              fallbackComparisonsNotHigher++;
+            }
+          });
+
+          logStatDebug('🔄 Fallback comparison summary', {
+            fallbackComparisonsMade,
+            fallbackComparisonsNotHigher,
+            resultsFromFallback: results.length
+          });
+        }
+
+        logStatDebug('🎯 getStatLetters FINAL RESULT', {
+          var: currentStatDebugVar,
+          code: currentStatDebugCode || code,
+          colIdx,
+          resultsCount: results.length,
+          letters: results.map(r => r.letter).join('')
+        });
+
         return results;
+      };
+
+      // Detailed comparisons for debug UI: show inputs and z-scores used
+      const getStatComparisons = (
+        _code: string,
+        _colIdx: number,
+        _bannerTableData: any,
+        _cutBases: Record<string, number>,
+        _isSummaryTable: boolean,
+        _isMultiSelectGrid: boolean,
+        _useMeanForSummary: boolean = false
+      ): Array<{
+        thisCutTitle: string;
+        otherCutTitle: string;
+        thisValue: number;
+        otherValue: number;
+        thisBase: number;
+        otherBase: number;
+        z: number;
+        zCrit95: number;
+        zCrit90: number;
+        is95: boolean;
+        is90: boolean;
+      }> => {
+        // Stats disabled: return no comparisons
+        return [];
       };
 
       // Helper function to check if a table should be included based on variableTableSelections
@@ -3632,26 +4166,6 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               });
             }
             
-            // Base row (metadata)
-            const baseMetadataRow = worksheet.getRow(currentRow);
-            const hasNoRespondents = totalBaseForResp === 0;
-            baseMetadataRow.getCell(2).value = hasNoRespondents ? 'Base: no respondents' : 'Base: All Respondents';
-            baseMetadataRow.getCell(2).font = { 
-              size: 8, 
-              italic: true,
-              color: hasNoRespondents ? { argb: 'FFFF0000' } : { argb: 'FF0000FF' }
-            };
-            baseMetadataRow.height = 16;
-            currentRow++;
-            
-            // If no respondents, make table title and question text red
-            if (hasNoRespondents) {
-              const titleRowToUpdate = worksheet.getRow(tableStartRowForResp);
-              titleRowToUpdate.getCell(2).font = { bold: true, size: 12, color: { argb: 'FFFF0000' } };
-              const questionRowToUpdate = worksheet.getRow(tableStartRowForResp + 1);
-              questionRowToUpdate.getCell(2).font = { size: 11, color: { argb: 'FFFF0000' } };
-            }
-
             // Build header structure (similar to regular table rendering)
             let currentColForResp = 2; // Start at column B
             const headerStartRowForResp = currentRow;
@@ -3819,6 +4333,8 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               dataRowNumForResp++;
             });
             
+            // Stats debug disabled for mean summary tables
+            
             currentRow = dataRowNumForResp;
             tableNumber++;
           });
@@ -3985,6 +4501,25 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               }
             });
           }
+          // Fallback: if bases are missing, derive from bannerTableData by summing counts across all codes
+          const allZero = bannerCols.every(col => (cutBases[col.id] || 0) === 0);
+          if (allZero) {
+            const codeEntries = Object.entries(bannerTableData || {});
+            bannerCols.forEach(col => {
+              let derivedBase = 0;
+              let foundBase = 0;
+              codeEntries.forEach(([code, colData]: any) => {
+                const cell = colData?.[col.id];
+                if (cell && typeof cell.base === 'number' && cell.base > 0) {
+                  foundBase = Math.max(foundBase, cell.base);
+                }
+                if (cell && typeof cell.count === 'number') {
+                  derivedBase += cell.count;
+                }
+              });
+              cutBases[col.id] = foundBase || derivedBase || 0;
+            });
+          }
 
           // Don't throw error if totalBase is 0 - we'll show 0s anyway
 
@@ -4087,26 +4622,27 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             });
           }
 
-          // Base row (metadata)
-          const baseMetadataRow = worksheet.getRow(currentRow);
-          const hasNoRespondents = totalBase === 0;
-          baseMetadataRow.getCell(2).value = hasNoRespondents ? 'Base: no respondents' : 'Base: All Respondents';
-          baseMetadataRow.getCell(2).font = { 
-            size: 8, 
-            italic: true,
-            color: hasNoRespondents ? { argb: 'FFFF0000' } : { argb: 'FF0000FF' } // Red if no respondents, blue otherwise
-          };
-          baseMetadataRow.height = 16;
-          currentRow++;
-          
-          // If no respondents, make table title and question text red
-          if (hasNoRespondents) {
-            // Update the title row (already created earlier)
-            const titleRowToUpdate = worksheet.getRow(tableStartRow);
-            titleRowToUpdate.getCell(2).font = { bold: true, size: 12, color: { argb: 'FFFF0000' } };
-            // Update the question row (created right after title)
-            const questionRowToUpdate = worksheet.getRow(tableStartRow + 1);
-            questionRowToUpdate.getCell(2).font = { size: 11, color: { argb: 'FFFF0000' } };
+          // Debug: show number of codes detected for this table
+          if (shouldDebugStats()) {
+            try {
+              const dataKeys = bannerTableData ? Object.keys(bannerTableData) : [];
+              appendStatLog('codes count', {
+                variable: variable.name,
+                tableName,
+                type: variable.type,
+                codes: sortedCodes.length,
+                dataKeys: dataKeys.length,
+              });
+              if (sortedCodes.length === 0) {
+                appendStatLog('no codes found', {
+                  variable: variable.name,
+                  tableName,
+                  hasVariableCodes: !!variable.codes && Object.keys(variable.codes).length,
+                  hasStatements: !!variable.statements && Object.keys(variable.statements).length,
+                  dataKeys,
+                });
+              }
+            } catch {}
           }
 
           // For single select grids, create individual statement tables (main table already skipped above)
@@ -4146,12 +4682,12 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             // For each statement, create a separate table with its own table number
             statementEntries.forEach(([stmtCode, stmtLabel], stmtIdx) => {
               const statementTableName = `${variable.name}_${stmtCode}`;
-              
+
               // Check if this statement table should be included
               if (!shouldIncludeTable(statementTableName, variable.name)) {
                 return; // Skip this table
               }
-              
+
               // Add 2 blank rows between tables (except for first statement)
               if (stmtIdx > 0 || tableNumber > 1) {
                 currentRow += 2;
@@ -4203,6 +4739,21 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
               // Calculate data for this statement
               const respData: Record<string, { total: number; cuts: Record<string, number> }> = {};
+
+              if (shouldDebugStats()) {
+                appendStatLog('📋 Banner structure (SSG statement table)', {
+                  variable: variable.name,
+                  statement: stmtCode,
+                  bannerColsCount: bannerCols.length,
+                  cols: bannerCols.map((c, idx) => ({
+                    idx,
+                    letter: String.fromCharCode(65 + idx),
+                    title: c.title,
+                    groupIdx: c.groupIdx,
+                    id: c.id
+                  }))
+                });
+              }
               let stmtTotalBase = 0;
               const stmtCutBases: Record<string, number> = {};
               bannerCols.forEach(col => { stmtCutBases[col.id] = 0; });
@@ -4272,14 +4823,6 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               // Base row (metadata) - removed for individual statement tables
               const hasNoRespondents = stmtTotalBase === 0;
               // Skip the base metadata row - don't add it after question text
-
-              // If no respondents, make table title and question text red
-              if (hasNoRespondents) {
-                const titleRowToUpdate = worksheet.getRow(tableStartRow);
-                titleRowToUpdate.getCell(2).font = { bold: true, size: 12, color: { argb: 'FFFF0000' } };
-                const questionRowToUpdate = worksheet.getRow(tableStartRow + 1);
-                questionRowToUpdate.getCell(2).font = { size: 11, color: { argb: 'FFFF0000' } };
-              }
 
               // Build header structure for this statement table
               let currentCol = 2; // Start at column B
@@ -4389,6 +4932,123 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 }
               });
 
+              // Calculate stat letters for all response codes
+              const allStatLettersForStmt: Record<string, Record<number, { letter: string; is95: boolean }[]>> = {};
+
+              codeEntries.forEach(([code]) => {
+                const respDataForCode = respData[code];
+                const totalCount = respDataForCode?.total || 0;
+                const totalPct = stmtTotalBase > 0 ? (totalCount / stmtTotalBase) * 100 : 0;
+
+                // Set debug context
+                currentStatDebugVar = variable.name;
+                currentStatDebugCode = `${stmtCode}_${code}`;
+
+                if (shouldDebugStats()) {
+                  appendStatLog('🚀 row start (SSG statement table)', {
+                    variable: variable.name,
+                    statement: stmtCode,
+                    code,
+                    totalPct,
+                    totalCount,
+                    stmtTotalBase
+                  });
+                }
+
+                const codeStatLetters: Record<number, { letter: string; is95: boolean }[]> = {};
+
+                bannerCols.forEach((col, colIdx) => {
+                  const cutCount = respDataForCode?.cuts[col.id] || 0;
+                  const cutBase = stmtCutBases[col.id] || 0;
+                  const cutPct = cutBase > 0 ? (cutCount / cutBase) * 100 : 0;
+
+                  // Calculate stat letters for this column
+                  const statLettersForCol: { letter: string; is95: boolean }[] = [];
+                  const thisCol = bannerCols[colIdx];
+
+                  if (shouldDebugStats()) {
+                    appendStatLog('📈 this column (SSG)', {
+                      var: variable.name,
+                      statement: stmtCode,
+                      code,
+                      colIdx,
+                      colTitle: thisCol?.title,
+                      groupIdx: thisCol?.groupIdx,
+                      base: cutBase,
+                      pct: cutPct,
+                      count: cutCount
+                    });
+                  }
+
+                  // Compare against other columns in the same group
+                  let comparisonsMade = 0;
+                  let comparisonsSkippedDiffGroup = 0;
+
+                  bannerCols.forEach((otherCol, otherIdx) => {
+                    if (otherIdx === colIdx) return;
+                    if (otherCol.groupIdx !== thisCol.groupIdx) {
+                      comparisonsSkippedDiffGroup++;
+                      return;
+                    }
+
+                    const otherCount = respDataForCode?.cuts[otherCol.id] || 0;
+                    const otherBase = stmtCutBases[otherCol.id] || 0;
+                    const otherPct = otherBase > 0 ? (otherCount / otherBase) * 100 : 0;
+
+                    if (cutPct > otherPct) {
+                      comparisonsMade++;
+                      const { is95, is90 } = isSignificant(cutPct, cutBase, otherPct, otherBase);
+
+                      if (shouldDebugStats()) {
+                        appendStatLog('✅ compare vs other (SSG WITHIN GROUP)', {
+                          thisCol: thisCol?.title,
+                          otherCol: otherCol?.title,
+                          thisPct: cutPct,
+                          thisBase: cutBase,
+                          otherPct,
+                          otherBase,
+                          is95,
+                          is90,
+                          sigLevel: significanceLevel,
+                          letterWouldBe: String.fromCharCode(65 + otherIdx)
+                        });
+                      }
+
+                      if (significanceLevel === 95) {
+                        if (is95) statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                      } else {
+                        if (is95) {
+                          statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                        } else if (is90) {
+                          statLettersForCol.push({ letter: String.fromCharCode(97 + otherIdx), is95: false });
+                        }
+                      }
+                    }
+                  });
+
+                  if (shouldDebugStats()) {
+                    appendStatLog('🔄 Within-group comparison summary (SSG)', {
+                      comparisonsMade,
+                      comparisonsSkippedDiffGroup,
+                      resultsFromWithinGroup: statLettersForCol.length
+                    });
+                  }
+
+                  codeStatLetters[colIdx] = statLettersForCol;
+                });
+
+                if (shouldDebugStats()) {
+                  const letterStrings: Record<string, string> = {};
+                  Object.keys(codeStatLetters).forEach(k => {
+                    const letters = codeStatLetters[Number(k)] || [];
+                    letterStrings[`col${k}`] = letters.map(l => l.letter).join('');
+                  });
+                  appendStatLog('🔤 Actual letters by column (SSG)', letterStrings);
+                }
+
+                allStatLettersForStmt[code] = codeStatLetters;
+              });
+
               // Data rows
               let dataRowNum = headerStartRow + 2;
 
@@ -4441,11 +5101,15 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               });
               dataRowNum++;
 
-              // Response option rows - two rows per response option (count and percentage)
+              // Response option rows - two or three rows per response option (count, percentage, stat letters)
               codeEntries.forEach(([code, codeLabel]) => {
                 const respDataForCode = respData[code];
                 const totalCount = respDataForCode?.total || 0;
                 const totalPct = stmtTotalBase > 0 ? (totalCount / stmtTotalBase) * 100 : 0;
+
+                // Check if this code has any stat letters
+                const codeStatLetters = allStatLettersForStmt[code] || {};
+                const hasAnyStatLetters = Object.values(codeStatLetters).some(letters => letters.length > 0);
 
                 // Count row for this response option
                 const countRow = worksheet.getRow(dataRowNum);
@@ -4457,9 +5121,10 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   left: { style: 'thin' },
                   right: { style: 'thin' }
                 };
-                // Merge label cell across 2 rows (count and percentage)
-                worksheet.mergeCells(dataRowNum, 2, dataRowNum + 1, 2);
-                // Also set border on merged cell in percentage row
+                // Merge label cell across 2 or 3 rows (count, percentage, and optionally stat letters)
+                const mergeEndRow = hasAnyStatLetters ? dataRowNum + 2 : dataRowNum + 1;
+                worksheet.mergeCells(dataRowNum, 2, mergeEndRow, 2);
+                // Also set border on merged cells
                 const pctRowForBorder = worksheet.getRow(dataRowNum + 1);
                 pctRowForBorder.getCell(2).border = {
                   top: { style: 'thin' },
@@ -4467,6 +5132,15 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   left: { style: 'thin' },
                   right: { style: 'thin' }
                 };
+                if (hasAnyStatLetters) {
+                  const statRowForBorder = worksheet.getRow(dataRowNum + 2);
+                  statRowForBorder.getCell(2).border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
+                }
 
                 currentCol = 3;
                 // Total count
@@ -4531,6 +5205,60 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   currentCol++;
                 });
                 dataRowNum++;
+
+                // Stat letters row (if any stat letters exist)
+                if (hasAnyStatLetters) {
+                  const statRow = worksheet.getRow(dataRowNum);
+                  currentCol = 3;
+                  // Total column - no stat letters
+                  statRow.getCell(currentCol).value = '';
+                  statRow.getCell(currentCol).alignment = { horizontal: 'center', vertical: 'middle' };
+                  statRow.getCell(currentCol).border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
+                  currentCol++;
+
+                  // Cut stat letters
+                  bannerCols.forEach((col, colIdx) => {
+                    const statLetters = codeStatLetters[colIdx] || [];
+                    const statLettersStr = statLetters.map(s => s.letter).join('');
+                    const statCell = statRow.getCell(currentCol);
+                    statCell.value = statLettersStr;
+                    statCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    statCell.font = { color: { argb: 'FF0000FF' }, bold: true };
+                    statCell.border = {
+                      top: { style: 'thin' },
+                      bottom: { style: 'thin' },
+                      left: { style: 'thin' },
+                      right: { style: 'thin' }
+                    };
+                    if (statLetters.length > 0) {
+                      statCell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFE6F3FF' } // Light blue background for stat significant
+                      };
+                    }
+                    currentCol++;
+                  });
+                  dataRowNum++;
+
+                  if (shouldDebugStats()) {
+                    appendStatLog('📝 Writing stat letters to Excel (SSG)', {
+                      variable: variable.name,
+                      statement: stmtCode,
+                      code,
+                      hasStatLetters: hasAnyStatLetters,
+                      lettersByCol: Object.keys(codeStatLetters).map(k => ({
+                        colIdx: k,
+                        letters: (codeStatLetters[Number(k)] || []).map(l => l.letter).join('')
+                      }))
+                    });
+                  }
+                }
               });
 
               // Add a blank row before stats
@@ -5195,7 +5923,41 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               }
 
               currentRow = dataRowNum;
-              
+
+              // Add comparison groups details section
+              // Build comparison groups string based on banner groups
+              const groupMapSSG = new Map<number, number[]>();
+              bannerCols.forEach((col, idx) => {
+                const groupIdx = col.groupIdx;
+                if (!groupMapSSG.has(groupIdx)) {
+                  groupMapSSG.set(groupIdx, []);
+                }
+                groupMapSSG.get(groupIdx)!.push(idx);
+              });
+
+              const comparisonGroupsSSG = Array.from(groupMapSSG.values())
+                .map(colIndices =>
+                  colIndices.map(idx => String.fromCharCode(65 + idx)).join('')
+                )
+                .join('/');
+
+              // Comparison groups row
+              const compGroupsRowSSG = worksheet.getRow(currentRow++);
+              compGroupsRowSSG.getCell(2).value = `Comparison Groups: ${comparisonGroupsSSG}`;
+              compGroupsRowSSG.getCell(2).font = { size: 9, italic: true };
+
+              // Uppercase explanation row
+              const upperRowSSG = worksheet.getRow(currentRow++);
+              upperRowSSG.getCell(2).value = 'Uppercase letters indicate significance at the 95% level.';
+              upperRowSSG.getCell(2).font = { size: 9, italic: true };
+
+              // Lowercase explanation row (only if significance level is 90)
+              if (significanceLevel === 90) {
+                const lowerRowSSG = worksheet.getRow(currentRow++);
+                lowerRowSSG.getCell(2).value = 'Lowercase letters indicate significance at the 90% level.';
+                lowerRowSSG.getCell(2).font = { size: 9, italic: true };
+              }
+
               // Increment table number for next statement table
               tableNumber++;
             });
@@ -5321,6 +6083,27 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               }
             });
           }
+          // Fallback: if bases are missing, derive from bannerTableData by summing counts across all codes
+          {
+            const allZero = bannerCols.every(col => (cutBases[col.id] || 0) === 0);
+            if (allZero) {
+              const codeEntries = Object.entries(bannerTableData || {});
+              bannerCols.forEach(col => {
+                let derivedBase = 0;
+                let foundBase = 0;
+                codeEntries.forEach(([code, colData]: any) => {
+                  const cell = colData?.[col.id];
+                  if (cell && typeof cell.base === 'number' && cell.base > 0) {
+                    foundBase = Math.max(foundBase, cell.base);
+                  }
+                  if (cell && typeof cell.count === 'number') {
+                    derivedBase += cell.count;
+                  }
+                });
+                cutBases[col.id] = foundBase || derivedBase || 0;
+              });
+            }
+          }
 
           // Don't throw error if totalBase is 0 - we'll show 0s anyway
 
@@ -5427,6 +6210,9 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           // "If no respondents" check also already handled in first try block above
           // Skip these rows since they're already added above
           // Empty row spacing already provided by currentRow++ after base row in first try block
+
+          // Alias for dataCutsWorksheet (used throughout the code as 'worksheet')
+          const worksheet = dataCutsWorksheet;
 
           // Build header structure matching image format
           let currentCol = 2; // Start at column B
@@ -5777,9 +6563,63 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           
           // Get stat letters for all cuts (we'll use this to determine if we need a 3rd row)
           const allStatLetters: Record<number, { letter: string; is95: boolean }[]> = {};
+          // Set debug variable context
+          currentStatDebugVar = variable.name;
+          currentStatDebugCode = code;
+          if (shouldDebugStats()) {
+            appendStatLog('🚀 row start', { variable: variable.name, code });
+            appendStatLog('📋 Banner structure', {
+              bannerColsCount: bannerCols.length,
+              cols: bannerCols.map((c, idx) => ({
+                idx,
+                letter: String.fromCharCode(65 + idx),
+                title: c.title,
+                groupIdx: c.groupIdx,
+                id: c.id
+              }))
+            });
+          }
+          // Extra debug context when enabled
+          if ((globalThis as any).__TABEXPORT_DEBUG_STATS === true) {
+            // eslint-disable-next-line no-console
+            console.warn('[STAT DEBUG] context', {
+              baseVar: getBaseQuestionNumber(variable.name),
+              variableName: variable.name,
+              responseCode: code,
+              bannerCols: bannerCols.map(c => ({ id: c.id, title: c.title, groupIdx: c.groupIdx })),
+              cutBases,
+              bannerTableDataKeys: bannerTableData ? Object.keys(bannerTableData) : []
+            });
+          }
           bannerCols.forEach((col, colIdx) => {
-            allStatLetters[colIdx] = getStatLetters(code, colIdx, bannerTableData, cutBases, shouldTreatAsSummaryTable, isMultiSelectGrid);
+            allStatLetters[colIdx] = getStatLetters(
+              code,
+              colIdx,
+              bannerTableData,
+              cutBases,
+              shouldTreatAsSummaryTable,
+              isMultiSelectGrid,
+              /* useMeanForSummary */ isNumericGridWithPercentOnly
+            );
           });
+          logStatDebug('computed letters for code', code, allStatLetters);
+          if (shouldDebugStats()) {
+            try {
+              const counts: Record<string, number> = {};
+              Object.keys(allStatLetters).forEach(k => { counts[k] = allStatLetters[Number(k)]?.length || 0; });
+              appendStatLog('📊 letters summary', { variable: variable.name, code, counts });
+
+              // Show actual stat letter strings for each column
+              const letterStrings: Record<string, string> = {};
+              Object.keys(allStatLetters).forEach(k => {
+                const letters = allStatLetters[Number(k)] || [];
+                letterStrings[`col${k}`] = letters.map(l => l.letter).join('');
+              });
+              appendStatLog('🔤 Actual letters by column', letterStrings);
+            } catch {}
+          }
+          // Record stats into debug info for preview (per response row)
+            // Stats debug disabled
           const hasAnyStatLetters = Object.values(allStatLetters).some(letters => letters.length > 0);
           
           // Count row
@@ -5793,12 +6633,13 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             right: { style: 'thin' } // Thick right border for response column
           };
           // Merge label cell across all rows
-          // For numeric grids with % tag only: merge across 1 row (single row with mean %)
-          // For numeric grids with Number tag: merge across 2 rows (sum and percentage)
-          // For other tables: merge based on stat letters
-          const mergeEndRow = isNumericGridWithPercentOnly ? dataRowNum :
-                             (isNumericGridWithNumberTag ? dataRowNum + 1 :
-                             (hasAnyStatLetters ? dataRowNum + 2 : dataRowNum + 1));
+          // New behavior: always add a stat letters row for each response
+          // - Numeric grids with % tag only: 2 rows total (mean %, stat letters)
+          // - Numeric grids with Number tag: 3 rows total (sum, %, stat letters)
+          // - Other tables: 3 rows total (count, %, stat letters)
+          const mergeEndRow = isNumericGridWithPercentOnly ? (dataRowNum + 1) :
+                             (isNumericGridWithNumberTag ? (dataRowNum + 2) :
+                             (dataRowNum + 2));
           worksheet.mergeCells(dataRowNum, 2, mergeEndRow, 2);
           // Also set border on merged cells for percentage row (only if not % tag only)
           if (!isNumericGridWithPercentOnly) {
@@ -5938,14 +6779,6 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 left: { style: 'thin' },
                 right: { style: 'thin' }
               };
-              // Add very light blue background if there's a stat letter
-              if (hasStat) {
-                countCell.fill = {
-                  type: 'pattern',
-                  pattern: 'solid',
-                  fgColor: { argb: 'FFE6F3FF' } // Very light blue
-                };
-              }
               currentCol++;
             });
             dataRowNum++;
@@ -5958,7 +6791,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               // Total percentage (store as decimal: 0.84 = 84%)
               const totalPctCell = pctRow.getCell(currentCol);
               totalPctCell.value = totalPct / 100;
-              totalPctCell.numFmt = '0%';
+              totalPctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
               totalPctCell.alignment = { horizontal: 'center', vertical: 'middle' };
               totalPctCell.border = {
                 top: { style: 'thin' },
@@ -5971,6 +6804,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               // Cut columns - percentages (store as decimal: 0.84 = 84%)
               // For numeric grids with Number tag, show percentage row; for regular summary tables, skip (they show sum and mean instead)
               if (isNumericGridWithNumberTag || !shouldTreatAsSummaryTable) {
+                const __fallbackCutPercents: number[] = [];
                 bannerCols.forEach((col, colIdx) => {
                   const cutData = cellData?.[col.id] || { count: 0, percentage: 0, base: 0, sum: 0, mean: 0 };
                   // For numeric grids with Number tag: calculate percentage using Total row sum for that cut as base
@@ -5978,12 +6812,9 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   const cutPct = isNumericGridWithNumberTag ? 
                                 (cutSumsAll[col.id] > 0 ? ((cutData.sum ?? 0) / cutSumsAll[col.id]) * 100 : 0) :
                                 (cutData.percentage || 0);
-                  const statLetters = allStatLetters[colIdx];
-                  const hasStat = statLetters && statLetters.length > 0;
-                  
                   const pctCell = pctRow.getCell(currentCol);
                   pctCell.value = cutPct / 100;
-                  pctCell.numFmt = '0.0%';
+                  pctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
                   pctCell.alignment = { horizontal: 'center', vertical: 'middle' };
                   pctCell.border = {
                     top: { style: 'thin' },
@@ -5991,29 +6822,64 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                     left: { style: 'thin' },
                     right: { style: 'thin' }
                   };
-                  // Add very light blue background if there's a stat letter
-                  if (hasStat) {
-                    pctCell.fill = {
-                      type: 'pattern',
-                      pattern: 'solid',
-                      fgColor: { argb: 'FFE6F3FF' } // Very light blue
-                    };
-                  }
+                  __fallbackCutPercents[colIdx] = cutPct;
                   currentCol++;
                 });
+                // If model-based letters are empty, compute fallback letters from these percents and cut bases
+                if (!Object.values(allStatLetters).some(arr => arr.length > 0)) {
+                  bannerCols.forEach((thisCol, thisIdx) => {
+                    const thisPct = __fallbackCutPercents[thisIdx] || 0;
+                    const thisBase = cutBases[thisCol.id] || 0;
+                    const letters: { letter: string; is95: boolean }[] = [];
+                    bannerCols.forEach((otherCol, otherIdx) => {
+                      if (otherIdx === thisIdx) return;
+                      if (otherCol.groupIdx !== thisCol.groupIdx) return;
+                      const otherPct = __fallbackCutPercents[otherIdx] || 0;
+                      const otherBase = cutBases[otherCol.id] || 0;
+                      if (thisPct > otherPct) {
+                        const { is95, is90 } = isSignificant(thisPct, thisBase, otherPct, otherBase);
+                        if (significanceLevel === 95) {
+                          if (is95) letters.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                        } else {
+                          if (is95) letters.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                          else if (is90) letters.push({ letter: String.fromCharCode(97 + otherIdx), is95: false });
+                        }
+                      }
+                    });
+                    if (letters.length > 0) {
+                      allStatLetters[thisIdx] = letters;
+                    }
+                  });
+                  logStatDebug('fallback letters (from pct row)', allStatLetters);
+                  if (shouldDebugStats()) {
+                    try {
+                      const counts: Record<string, number> = {};
+                      Object.keys(allStatLetters).forEach(k => { counts[k] = allStatLetters[Number(k)]?.length || 0; });
+                      appendStatLog('fallback letters summary', { variable: variable.name, code, counts });
+                    } catch {}
+                  }
+                }
               }
               dataRowNum++;
             }
           }
 
-          // Statistical significance row (only if there are any stat letters)
-          if (hasAnyStatLetters) {
+          // Statistical significance row (always rendered; may be empty)
+          {
             const statRow = worksheet.getRow(dataRowNum);
+            // Ensure merged label cell (col B) shows border on this row too
+            statRow.getCell(2).border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
             currentCol = 3; // Start at column C (Total column)
 
             // Total column - empty
-            statRow.getCell(currentCol).value = '';
-            statRow.getCell(currentCol).border = {
+            const totalStatCell = statRow.getCell(currentCol);
+            totalStatCell.value = '';
+            totalStatCell.border = {
               top: { style: 'thin' },
               bottom: { style: 'thin' },
               left: { style: 'thin' },
@@ -6021,30 +6887,35 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             };
             currentCol++;
 
-            // Cut columns - stat letters in red
+            // Cut columns - stat letters formatted as "(A) (B) ..."
             bannerCols.forEach((col, colIdx) => {
-              const statLetters = allStatLetters[colIdx];
-              const statLettersStr = statLetters.length > 0 ? statLetters.map(s => s.letter).join('') : '';
-              const hasStat = statLetters && statLetters.length > 0;
-              
+              const statLetters = allStatLetters[colIdx] || [];
+              const statLettersStr = statLetters.length > 0
+                ? statLetters.map(s => `(${s.letter})`).join(' ')
+                : '';
+
+              if (shouldDebugStats()) {
+                appendStatLog('📝 Writing stat letters to Excel', {
+                  variable: currentStatDebugVar,
+                  code: currentStatDebugCode,
+                  colIdx,
+                  colTitle: col.title,
+                  statLettersCount: statLetters.length,
+                  statLettersStr,
+                  cellCol: currentCol
+                });
+              }
+
               const statCell = statRow.getCell(currentCol);
               statCell.value = statLettersStr;
               statCell.alignment = { horizontal: 'center', vertical: 'middle' };
-              statCell.font = { color: { argb: 'FF0000FF' }, bold: true }; // Blue color
+              statCell.font = { color: { argb: 'FF0000FF' }, bold: true };
               statCell.border = {
                 top: { style: 'thin' },
                 bottom: { style: 'thin' },
                 left: { style: 'thin' },
                 right: { style: 'thin' }
               };
-              // Add very light blue background if there's a stat letter
-              if (hasStat) {
-                statCell.fill = {
-                  type: 'pattern',
-                  pattern: 'solid',
-                  fgColor: { argb: 'FFE6F3FF' } // Very light blue
-                };
-              }
               currentCol++;
             });
             dataRowNum++;
@@ -8439,8 +9310,11 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     const tables: string[] = [];
     const baseName = variable.name;
     const isSingleSelectGrid = variable.type?.toLowerCase().includes('single select grid') && !(variable as any).isSummaryTable;
+    const isSingleSelect = variable.type?.toLowerCase().includes('single select') && !variable.type?.toLowerCase().includes('grid');
     const isNumericGrid = variable.type?.toLowerCase().includes('numeric grid');
     const isMultiSelectGrid = variable.type?.toLowerCase().includes('multi-select grid');
+    const isOpenEnd = variable.type?.toLowerCase().includes('open end') && !variable.type?.toLowerCase().includes('list');
+    const isOpenEndList = variable.type?.toLowerCase().includes('open end list');
     const hasPercentTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('%');
     const hasNumberTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number');
     const isNumericGridWithPercentOnly = isNumericGrid && hasPercentTag && !hasNumberTag && variable.statements;
@@ -8450,17 +9324,83 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       return tables;
     }
 
+    // Determine if Verbatim Summary exists (coded) for open ends
+    const verbatimSummaryId = `${baseName}_VerbatimSummary`;
+    const savedThemes = savedCodingThemes.get(baseName) || [];
+    const baseLowerForOE = baseName.replace(/^Q/, '').toLowerCase();
+    const hasCodeColumns =
+      (fullRawData?.columns || []).some(col => {
+        const cl = String(col).toLowerCase();
+        return (cl.startsWith(baseLowerForOE + 'r') || cl.startsWith('q' + baseLowerForOE + 'r')) && /r\d+$/.test(cl);
+      });
+    const hasCodedVerbatim = isOpenEnd && (savedThemes.length > 0 || hasCodeColumns);
+
     const selections = variableTableSelections[baseName];
+    const hasSelectionsForVariable = baseName in variableTableSelections;
+    const hasNonEmptySelections = hasSelectionsForVariable && selections && selections.size > 0;
     const shouldInclude = (tableName: string) => {
-      if (!selections) return true;
-      return selections.has(tableName);
+      // If non-empty selections exist for this variable, check if this table is selected
+      if (hasNonEmptySelections) {
+        return selections!.has(tableName);
+      }
+      
+      // If no selections saved OR selections are empty, use defaults:
+      // This ensures preview works even when nothing is selected yet
+      if (isNumericGrid) {
+        // For numeric grids, only include summary tables by default
+        const isSummaryTable =
+          tableName.endsWith('_MeanSummaryTable') ||
+          tableName.endsWith('_SumSummaryTable') ||
+          tableName.includes('_NetSummaryTable');
+        return isSummaryTable;
+      }
+      
+      if (isOpenEnd || isOpenEndList) {
+        // For open ends, only include Verbatim Summary if coded
+        if (isOpenEnd && hasCodedVerbatim && tableName === verbatimSummaryId) {
+          return true;
+        }
+        return false;
+      }
+      
+      // For other variable types (including numeric questions), include tables by default
+      // This allows preview and exports to work even if user hasn't configured Tab Specs yet
+      return true;
     };
 
+    // Check if this is a regular numeric variable (not a grid)
+    const isNumericQuestion = variable.type?.toLowerCase().includes('numeric') && 
+                              !variable.type?.toLowerCase().includes('grid') &&
+                              !variable.type?.toLowerCase().includes('list');
+    
     if (!isSingleSelectGrid && !isNumericGrid && !isMultiSelectGrid) {
-      if (!(variable as any).isSummaryTable || !variable.statements) {
+      // For regular variables (not grids), include the base table if selected
+      // Exclude only if it's explicitly a summary table variable
+      if (!(variable as any).isSummaryTable) {
         if (shouldInclude(baseName)) {
           tables.push(baseName);
         }
+        
+        // For numeric questions with statements, also check if statement-specific tables are selected
+        // (e.g., "S10_r1" for numeric questions with statements)
+        // NOTE: Single-select questions should NOT have statement tables - only the base Frequency Table
+        if (isNumericQuestion && variable.statements) {
+          Object.keys(variable.statements).forEach(stmtCode => {
+            const statementTableName = `${baseName}_${stmtCode}`;
+            if (shouldInclude(statementTableName)) {
+              tables.push(statementTableName);
+            }
+          });
+        }
+        // Explicitly exclude statement tables for single-select questions (even if somehow in selections)
+        // Single-select questions should only have the base Frequency Table
+      }
+    }
+
+    // Include coded verbatim summary table when selected and themes exist
+    if (isOpenEnd) {
+      if (shouldInclude(verbatimSummaryId) && (savedThemes.length > 0 || hasCodeColumns)) {
+        tables.push(verbatimSummaryId);
       }
     }
 
@@ -8475,10 +9415,9 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       });
       
       // Add individual statement tables
+      // Use format: question number _statement code (e.g., "S14_r1") to match Tab Specs UI
       Object.keys(variable.statements).forEach(stmtCode => {
-        const stmtText = variable.statements[stmtCode];
-        // Use format: question number _statement text (e.g., "S14_Statement 1")
-        const tableName = `${baseName}_${stmtText}`;
+        const tableName = `${baseName}_${stmtCode}`;
         if (shouldInclude(tableName)) {
           tables.push(tableName);
         }
@@ -8562,8 +9501,14 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       }
     }
 
+    // For single-select questions (not grids), ensure only the base table is included
+    // Filter out any statement tables that might have been incorrectly selected
+    if (isSingleSelect && !isSingleSelectGrid && !isNumericGrid && !isMultiSelectGrid) {
+      return tables.filter(tableName => tableName === baseName);
+    }
+
     return tables;
-  }, [questionnaireQuestions, variableTableSelections, netSummaryTableSelectedCodes]);
+  }, [questionnaireQuestions, variableTableSelections, netSummaryTableSelectedCodes, savedCodingThemes, fullRawData]);
 
   const previewTableList = useMemo(() => {
     if (!previewVariable) return [];
@@ -8664,13 +9609,30 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     localStorage.setItem(key, JSON.stringify(variableHoldResponseCodes));
   }, [variableHoldResponseCodes, getTabSpecsStorageKey, selectedQuestionnaire?.id]);
 
+  // Silence noisy console logs during heavy workbook builds
+  const runWithSilencedConsoleLogs = async <T,>(fn: () => Promise<T>): Promise<T> => {
+    const originalLog = console.log;
+    const originalDebug = console.debug;
+    const originalInfo = console.info;
+    try {
+      console.log = () => {};
+      console.debug = () => {};
+      console.info = () => {};
+      return await fn();
+    } finally {
+      console.log = originalLog;
+      console.debug = originalDebug;
+      console.info = originalInfo;
+    }
+  };
+
 
   // Export Tab Specs tables to Excel
   // This function exports all tables configured in Tab Specs to an Excel workbook
   // All tables are placed in a single "Data Cuts" worksheet with a Table of Contents
   // Shows Total column + banner cut columns, with counts and percentages on separate rows
   // Respects all tab spec settings: table selections, stats selections, nets, and sort by frequency
-  const buildTabSpecsWorkbook = useCallback(async (variablesSubset: Variable[]): Promise<{ workbook: ExcelJS.Workbook; sampleSize: number; debugInfo: Record<string, TableDebugEntry> }> => {
+  const buildTabSpecsWorkbook = useCallback(async (variablesSubset: Variable[], bannerGroupOverride?: BannerGroup): Promise<{ workbook: ExcelJS.Workbook; sampleSize: number; debugInfo: Record<string, TableDebugEntry> }> => {
     if (!fullRawData || !variablesSubset.length) {
       throw new Error('Data not available for export. Please ensure data is loaded.');
     }
@@ -8678,22 +9640,417 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     try {
       const workbook = new ExcelJS.Workbook();
 
-      // Get the selected banner group (use first banner if none selected)
-      const selectedBannerGroup = newBannerGroups[0];
+      // Statistical testing function for proportions/percentages
+      const isSignificant = (p1: number, n1: number, p2: number, n2: number): { is95: boolean; is90: boolean } => {
+        if (!n1 || !n2 || n1 <= 0 || n2 <= 0) return { is95: false, is90: false };
+        const prop1 = p1 / 100;
+        const prop2 = p2 / 100;
+        const pooledProp = (prop1 * n1 + prop2 * n2) / (n1 + n2);
+        const se = Math.sqrt(pooledProp * (1 - pooledProp) * (1/n1 + 1/n2));
+        if (se === 0) return { is95: false, is90: false };
+        const z = Math.abs(prop1 - prop2) / se;
+        return { is95: z > 1.96, is90: z > 1.645 && z <= 1.96 };
+      };
+
+      // Statistical testing function for means (two-sample z-test with pooled variance)
+      const isSignificantForMeans = (mean1: number, n1: number, stdDev1: number, mean2: number, n2: number, stdDev2: number, confidenceLevel: 95 | 90 | 80 = 95): { is95: boolean; is90: boolean } => {
+        if (!n1 || !n2 || n1 <= 0 || n2 <= 0) return { is95: false, is90: false };
+        
+        // If both standard deviations are 0 or very small, and means are equal, no significance
+        const meanDiff = Math.abs(mean1 - mean2);
+        if (meanDiff < 0.0001) return { is95: false, is90: false };
+        
+        // Use a small epsilon to avoid division by zero when standard deviations are very small
+        const epsilon = 0.0001;
+        const adjustedStdDev1 = Math.max(stdDev1, epsilon);
+        const adjustedStdDev2 = Math.max(stdDev2, epsilon);
+        
+        // Calculate pooled standard deviation
+        const variance1 = adjustedStdDev1 * adjustedStdDev1;
+        const variance2 = adjustedStdDev2 * adjustedStdDev2;
+        const pooledVariance = ((n1 - 1) * variance1 + (n2 - 1) * variance2) / (n1 + n2 - 2);
+        const pooledStdDev = Math.sqrt(Math.max(pooledVariance, epsilon * epsilon));
+        
+        // Standard error of the difference between means
+        const se = pooledStdDev * Math.sqrt(1/n1 + 1/n2);
+        if (se === 0 || se < epsilon) return { is95: false, is90: false };
+        
+        // Calculate z-score
+        const z = meanDiff / se;
+        
+        // Get z-critical values based on confidence level
+        const zCritical95 = confidenceLevel === 95 ? 1.96 : confidenceLevel === 90 ? 1.645 : 1.282;
+        const zCritical90 = 1.645;
+        
+        return { 
+          is95: z > zCritical95, 
+          is90: z > zCritical90 && z <= zCritical95 
+        };
+      };
+
+      // Debug helpers
+      let currentStatDebugVar = '';
+      let currentStatDebugCode = '';
+      const shouldDebugStats = () => {
+        const globalFlag = (globalThis as any).__TABEXPORT_DEBUG_STATS === true;
+        return !!globalFlag || showStatDebug;
+      };
+      const logStatDebug = (...args: any[]) => {
+        if (shouldDebugStats()) {
+          // eslint-disable-next-line no-console
+          console.warn('[STAT DEBUG]', ...args);
+          // Mirror into UI panel
+          try {
+            appendStatLog(String(args?.[0] ?? ''), args?.[1]);
+          } catch {}
+        }
+      };
+
+      // Yield helpers to keep UI responsive during heavy loops
+      const makeYielder = (interval: number) => {
+        let counter = 0;
+        return async () => {
+          counter++;
+          if (counter % interval === 0) {
+            await new Promise<void>((resolve) => {
+              // Give the browser a frame to paint
+              requestAnimationFrame(() => resolve());
+            });
+          }
+        };
+      };
+      const yieldPerVariable = makeYielder(1);   // yield each variable
+      const yieldPerTable = makeYielder(2);      // yield every 2 tables
+
+      // Helper to get column header
+      const getColumnHeader = (varName: string): string | null => {
+        const variations = [
+          varName,
+          varName.startsWith('Q') ? varName : `Q${varName}`,
+          varName.startsWith('Q') ? varName.substring(1) : varName
+        ];
+
+        for (const variation of variations) {
+          if (columnMapping[variation]) {
+            return columnMapping[variation];
+          }
+          const matchingKey = Object.keys(columnMapping).find(
+            key => key.toLowerCase() === variation.toLowerCase()
+          );
+          if (matchingKey) {
+            return columnMapping[matchingKey];
+          }
+        }
+
+        if (fullRawData.columns) {
+          for (const variation of variations) {
+            const directMatch = fullRawData.columns.find(
+              col => col.toLowerCase() === variation.toLowerCase()
+            );
+            if (directMatch) {
+              return directMatch;
+            }
+          }
+        }
+
+        return null;
+      };
+
+      // Build a row predicate from a BannerCut (supports AND/OR condition groups, numeric and categorical)
+      const makeCutPredicate = (cut: BannerCut): ((row: any) => boolean) => {
+        const parseNumeric = (s: any): number | null => {
+          if (s === null || s === undefined || s === '') return null;
+          const n = Number(String(s).trim());
+          return isNaN(n) ? null : n;
+        };
+        const buildNumericChecker = (condStr: string): ((n: number | null) => boolean) => {
+          const s = condStr.trim();
+          // range "a-b"
+          const range = s.match(/^(-?\d+(?:\.\d+)?)\s*-\s*(-?\d+(?:\.\d+)?)$/);
+          if (range) {
+            const a = Number(range[1]);
+            const b = Number(range[2]);
+            return (n) => n !== null && n >= a && n <= b;
+          }
+          // open-ended "a-" or "-b"
+          const left = s.match(/^(-?\d+(?:\.\d+)?)\s*-\s*$/);
+          if (left) {
+            const a = Number(left[1]);
+            return (n) => n !== null && n >= a;
+          }
+          const right = s.match(/^\s*-\s*(-?\d+(?:\.\d+)?)$/);
+          if (right) {
+            const b = Number(right[1]);
+            return (n) => n !== null && n <= b;
+          }
+          // comparators
+          const cmp = s.match(/^(>=|<=|>|<|=)\s*(-?\d+(?:\.\d+)?)$/);
+          if (cmp) {
+            const op = cmp[1];
+            const value = Number(cmp[2]);
+            return (n) => {
+              if (n === null) return false;
+              switch (op) {
+                case '>=': return n >= value;
+                case '<=': return n <= value;
+                case '>': return n > value;
+                case '<': return n < value;
+                case '=': return n === value;
+                default: return false;
+              }
+            };
+          }
+          // fallback: exact number
+          const exact = Number(s);
+          if (!isNaN(exact)) {
+            return (n) => n !== null && n === exact;
+          }
+          // unknown, never matches
+          return () => false;
+        };
+        const matchesCategorical = (row: any, varName: string, codes: string[]): boolean => {
+          const header = getColumnHeader(varName);
+          if (!header) return false;
+          const val = row[header];
+          if (val === null || val === undefined || val === '') return false;
+          const s = String(val).trim();
+          const n = Number(s);
+          for (const code of codes) {
+            if (s === code) return true;
+            const codeNoC = code.replace(/^c/i, '');
+            if (s === codeNoC) return true;
+            if (!isNaN(n) && String(n) === codeNoC) return true;
+          }
+          return false;
+        };
+        const matchesNumeric = (row: any, varName: string, condStr: string): boolean => {
+          const header = getColumnHeader(varName);
+          if (!header) return false;
+          const val = parseNumeric(row[header]);
+          const check = buildNumericChecker(condStr);
+          return check(val);
+        };
+        // If conditionGroups present, honor them
+        if ((cut as any).conditionGroups && (cut as any).conditionGroups.length > 0) {
+          const group = (cut as any).conditionGroups[0] as BannerConditionGroup;
+          const op = (group.operator || 'OR').toUpperCase() as 'OR' | 'AND';
+          const conds = group.conditions || [];
+          return (row: any) => {
+            if (op === 'AND') {
+              return conds.every((c: any) => {
+                if (c.codes && c.codes.length > 0) return matchesCategorical(row, c.variableName, c.codes);
+                if (c.codes && c.codes[0] && /^[><=]/.test(c.codes[0])) return matchesNumeric(row, c.variableName, c.codes[0]);
+                if (c.numericCondition) return matchesNumeric(row, c.variableName, c.numericCondition);
+                return false;
+              });
+            } else {
+              return conds.some((c: any) => {
+                if (c.codes && c.codes.length > 0) return matchesCategorical(row, c.variableName, c.codes);
+                if (c.codes && c.codes[0] && /^[><=]/.test(c.codes[0])) return matchesNumeric(row, c.variableName, c.codes[0]);
+                if (c.numericCondition) return matchesNumeric(row, c.variableName, c.numericCondition);
+                return false;
+              });
+            }
+          };
+        }
+        // Fallback to legacy single-variable + codes
+        if (cut.variableName && (cut.codes?.length || 0) > 0) {
+          return (row: any) => matchesCategorical(row, cut.variableName, cut.codes!);
+        }
+        // No conditions: never filter (treat as Total-like)
+        return () => false;
+      };
+
+      // Get the selected banner group (use override or first banner)
+      const selectedBannerGroup = bannerGroupOverride || newBannerGroups[0];
       if (!selectedBannerGroup) {
         throw new Error('No banner group found. Please create a banner in the Banners tab first.');
+      }
+      // Only log for B8 to reduce console noise
+      const isB8Variable = variablesSubset.some(v => v.name === 'B8');
+      if (isB8Variable && ((globalThis as any).__TABEXPORT_DEBUG_STATS === true || showStatDebug)) {
+        appendStatLog('export start', {
+          bannerTitle: selectedBannerGroup.title,
+          variablesCount: (variablesSubset?.length ?? 0)
+        });
       }
 
       // Filter variables that should be exported
       const variablesToExport = variablesSubset.filter(v => {
+        // Exclude summary table variables
         if (v.name.endsWith('_Summary Tables') || ((v as any).isSummaryTable && !(v as any).isScaleSummary)) {
           return false;
         }
-        if (hiddenFromBanners.has(v.name)) {
+        
+        // Only include variables that have tables explicitly selected in Tab Specs
+        const tables = getTablesForVariable(v);
+        if (tables.length === 0) {
           return false;
         }
-        const tables = getTablesForVariable(v);
-        return tables.length > 0;
+        
+        // Check if variable is mapped (has a column mapping)
+        // For grid variables, check if at least some cells are mapped
+        const isGridVariable = v.type?.toLowerCase().includes('grid');
+        const baseColHeader = getColumnHeader(v.name);
+        
+        // Check if this is a multi-select question (not grid)
+        const isMultiSelectQuestion = v.type?.toLowerCase().includes('multi-select') && !v.type?.toLowerCase().includes('grid');
+        // Check if this is a multi-select grid
+        const isMultiSelectGridVariable = v.type?.toLowerCase().includes('multi-select grid');
+        
+        if (!baseColHeader && isGridVariable) {
+          // For grid variables, check if any grid cells are mapped
+          let hasMappedCells = false;
+          if (v.statements && questionnaireQuestions) {
+            const baseNumber = v.name.replace(/^Q/, '');
+            const question = questionnaireQuestions.find(q => {
+              const qNum = q.number || q.id;
+              return qNum === baseNumber || qNum === baseNumber.replace(/^Q/, '') || String(qNum) === String(baseNumber);
+            });
+            
+            if (question && question.responseOptions) {
+              const columnCodes: string[] = [];
+              question.responseOptions.forEach((_: any, respIdx: number) => {
+                columnCodes.push(`c${respIdx + 1}`);
+              });
+              
+              // Check if at least one statement+column combination is mapped
+              for (const [stmtCode] of Object.entries(v.statements)) {
+                let normalizedCode = stmtCode;
+                if (!/^r\d+/i.test(stmtCode) && /^\d+$/.test(stmtCode)) {
+                  normalizedCode = `r${stmtCode}`;
+                }
+                for (const columnCode of columnCodes) {
+                  const cellHeader = `Q${v.name}${normalizedCode}${columnCode}`;
+                  const variations = [cellHeader, cellHeader.replace(/^Q/, ''), `${v.name}${normalizedCode}${columnCode}`];
+                  for (const variation of variations) {
+                    if (columnMapping[variation]) {
+                      hasMappedCells = true;
+                      break;
+                    }
+                    const match = Object.keys(columnMapping).find(k => k.toLowerCase() === variation.toLowerCase());
+                    if (match) {
+                      hasMappedCells = true;
+                      break;
+                    }
+                  }
+                  if (hasMappedCells) break;
+                }
+                if (hasMappedCells) break;
+              }
+            }
+          }
+          
+          if (!hasMappedCells) {
+            // Grid variable has no mapped cells, exclude it
+            return false;
+          }
+        } else if (!baseColHeader && isMultiSelectQuestion) {
+          // For multi-select questions, check if any response columns are mapped (QB8r1, QB8r2, etc.)
+          let hasMappedResponseColumns = false;
+          const baseNumber = v.name.replace(/^Q/, '');
+          
+          if (v.codes) {
+            // Check each response code for a mapped column
+            for (const code of Object.keys(v.codes)) {
+              const codeNum = code.replace(/^[rc]/i, '');
+              // Multi-select columns use 'r' prefix (e.g., QB8r1, QB8r2)
+              const expectedHeaders = [
+                `Q${baseNumber}r${codeNum}`,
+                `${baseNumber}r${codeNum}`,
+                `QB${baseNumber}r${codeNum}`,
+                `B${baseNumber}r${codeNum}`
+              ];
+              
+              for (const expectedHeader of expectedHeaders) {
+                // Check column mapping
+                if (columnMapping[expectedHeader]) {
+                  hasMappedResponseColumns = true;
+                  break;
+                }
+                // Case-insensitive check
+                const match = Object.keys(columnMapping).find(k => k.toLowerCase() === expectedHeader.toLowerCase());
+                if (match) {
+                  hasMappedResponseColumns = true;
+                  break;
+                }
+                // Check if column exists directly in raw data
+                if (fullRawData?.columns) {
+                  const directMatch = fullRawData.columns.find((col: string) => col.toLowerCase() === expectedHeader.toLowerCase());
+                  if (directMatch) {
+                    hasMappedResponseColumns = true;
+                    break;
+                  }
+                }
+              }
+              if (hasMappedResponseColumns) break;
+            }
+          }
+          
+          if (!hasMappedResponseColumns) {
+            // Multi-select variable has no mapped response columns, exclude it
+            return false;
+          }
+        } else if (!baseColHeader && isMultiSelectGridVariable) {
+          // For multi-select grids, check if any cell columns are mapped (QB2r1c1, QB2r1c2, etc.)
+          // Multi-select grids have statements (rows) and codes (columns)
+          let hasMappedCells = false;
+          const baseNumber = v.name.replace(/^Q/, '');
+          
+          if (v.statements && v.codes) {
+            // Check some statement+column combinations for mapped cells
+            const stmtCodes = Object.keys(v.statements).slice(0, 3); // Check first 3 statements
+            const colCodes = Object.keys(v.codes).slice(0, 3); // Check first 3 columns
+            
+            for (const stmtCode of stmtCodes) {
+              let normalizedStmtCode = stmtCode;
+              if (!/^r\d+/i.test(stmtCode) && /^\d+$/.test(stmtCode)) {
+                normalizedStmtCode = `r${stmtCode}`;
+              }
+              
+              for (const colCode of colCodes) {
+                // Multi-select grid cell headers: QB2r1c1
+                const expectedHeaders = [
+                  `Q${baseNumber}${normalizedStmtCode}${colCode}`,
+                  `${baseNumber}${normalizedStmtCode}${colCode}`,
+                  `Q${v.name}${normalizedStmtCode}${colCode}`,
+                  `${v.name}${normalizedStmtCode}${colCode}`
+                ];
+                
+                for (const expectedHeader of expectedHeaders) {
+                  if (columnMapping[expectedHeader]) {
+                    hasMappedCells = true;
+                    break;
+                  }
+                  const match = Object.keys(columnMapping).find(k => k.toLowerCase() === expectedHeader.toLowerCase());
+                  if (match) {
+                    hasMappedCells = true;
+                    break;
+                  }
+                  if (fullRawData?.columns) {
+                    const directMatch = fullRawData.columns.find((col: string) => col.toLowerCase() === expectedHeader.toLowerCase());
+                    if (directMatch) {
+                      hasMappedCells = true;
+                      break;
+                    }
+                  }
+                }
+                if (hasMappedCells) break;
+              }
+              if (hasMappedCells) break;
+            }
+          }
+          
+          if (!hasMappedCells) {
+            // Multi-select grid has no mapped cells, exclude it
+            return false;
+          }
+        } else if (!baseColHeader) {
+          // Non-grid, non-multi-select variable is not mapped, exclude it
+          return false;
+        }
+        
+        return true;
       });
 
       let tableNumber = 1;
@@ -8755,40 +10112,6 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         return { frequencyMap, totalCount, codes };
       };
 
-      // Helper to get column header
-      const getColumnHeader = (varName: string): string | null => {
-        const variations = [
-          varName,
-          varName.startsWith('Q') ? varName : `Q${varName}`,
-          varName.startsWith('Q') ? varName.substring(1) : varName
-        ];
-
-        for (const variation of variations) {
-          if (columnMapping[variation]) {
-            return columnMapping[variation];
-          }
-          const matchingKey = Object.keys(columnMapping).find(
-            key => key.toLowerCase() === variation.toLowerCase()
-          );
-          if (matchingKey) {
-            return columnMapping[matchingKey];
-          }
-        }
-
-        if (fullRawData.columns) {
-          for (const variation of variations) {
-            const directMatch = fullRawData.columns.find(
-              col => col.toLowerCase() === variation.toLowerCase()
-            );
-            if (directMatch) {
-              return directMatch;
-            }
-          }
-        }
-
-        return null;
-      };
-
       // Helper to calculate stats for numeric data
       const calculateStats = (values: number[]) => {
         if (values.length === 0) return null;
@@ -8817,7 +10140,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
       // Build banner columns structure with group information
       const bannerGroup = selectedBannerGroup;
-      const bannerCols: Array<{ id: string; title: string; groupTitle: string; groupIdx: number; colHeader?: string; codes: string[] }> = [];
+      const bannerCols: Array<{ id: string; title: string; groupTitle: string; groupIdx: number; colHeader?: string; codes: string[]; matchesRow: (row:any)=>boolean }> = [];
       const groupStructure: Array<{ title: string; cutCount: number; startIdx: number }> = [];
       if (bannerGroup.groups) {
         let cutIdx = 0;
@@ -8836,11 +10159,23 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               groupTitle: g.title,
               groupIdx: gIdx,
               colHeader: getColumnHeader(cut.variableName),
-              codes: cut.codes || []
+              codes: cut.codes || [],
+              matchesRow: makeCutPredicate(cut as any)
             });
             cutIdx++;
           });
         });
+      }
+      // Only log for B8 to reduce console noise (reuse isB8Variable declared above)
+      if (isB8Variable && shouldDebugStats()) {
+        try {
+          appendStatLog('banner cuts', {
+            count: bannerCols.length,
+            letters: bannerCols.map((c, i) => `${String.fromCharCode(65 + i)}:${c.title}`),
+            ids: bannerCols.map(c => c.id),
+            groups: groupStructure.map(g => ({ title: g.title, cuts: g.cutCount }))
+          });
+        } catch {}
       }
 
       // Create Table of Contents worksheet
@@ -8854,12 +10189,45 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       const tablePositions: Array<{ tableNumber: number; tableName: string; rowNumber: number; variable: Variable }> = [];
 
       for (const variable of variablesToExport) {
+        const isS6Variable = variable.name === 'S6';
+        if (isS6Variable && ((globalThis as any).__TABEXPORT_DEBUG_STATS === true || showStatDebug)) {
+          // eslint-disable-next-line no-console
+          console.warn('[STAT DEBUG S6] variable begin', { variable: variable.name, type: variable.type });
+          appendStatLog('[S6] variable begin', { variable: variable.name, type: variable.type });
+        }
+        await yieldPerVariable();
         const tables = getTablesForVariable(variable);
+        
+        // Debug: Log tables for preview mode (when only one variable is being exported)
+        const isPreviewMode = variablesSubset.length === 1 && variablesSubset[0] === variable;
+        const isMultiSelectQuestion = variable.type?.toLowerCase().includes('multi-select') && !variable.type?.toLowerCase().includes('grid');
+        const isB8Debug = variable.name === 'B8';
+        if (isB8Debug) {
+          appendStatLog('[B8] Variable info', { variable: variable.name, type: variable.type, isMultiSelect: isMultiSelectQuestion, tables, selections: variableTableSelections[variable.name] ? Array.from(variableTableSelections[variable.name]) : 'none' });
+        }
+        
+        if (isS6Variable && ((globalThis as any).__TABEXPORT_DEBUG_STATS === true || showStatDebug)) {
+          // eslint-disable-next-line no-console
+          console.warn('[STAT DEBUG S6] tables selected', { variable: variable.name, tables });
+          appendStatLog('[S6] tables selected', { variable: variable.name, tables });
+        }
 
-        for (const tableName of tables) {
+                          for (const tableName of tables) {
+          // Debug: Log when processing each table for B8
+          if (isB8Debug) {
+            appendStatLog('[B8] Processing table', { tableName, variable: variable.name, type: variable.type });
+          }
+          const isS6Debug = variable.name === 'S6' && ((globalThis as any).__TABEXPORT_DEBUG_STATS === true || showStatDebug);
+          if (isS6Debug) {
+            // eslint-disable-next-line no-console
+            console.warn('[STAT DEBUG S6] building table', { variable: variable.name, tableName });
+            appendStatLog('[S6] building table', { variable: variable.name, tableName });
+          }
+          await yieldPerTable();
           // Check if this is a NetSummaryTable for single select grid
           const isSingleSelectGrid = variable.type?.toLowerCase().includes('single select grid');
           const isNetSummaryTable = isSingleSelectGrid && tableName.includes('_NetSummaryTable');
+          const isVerbatimSummary = tableName.endsWith('_VerbatimSummary');
           
           // Add spacing between tables (except for first table)
           if (tableNumber > 1) {
@@ -8874,6 +10242,289 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           const isSumSummaryTable = isNumericGrid && tableName.endsWith('_SumSummaryTable');
           const isNumericGridSummaryTable = isMeanSummaryTable || isSumSummaryTable;
           
+          // Check if this is a single select grid individual table (must be declared before use at line 12117)
+          const isSingleSelectGridIndividualTable = variable.type?.toLowerCase().includes('single select grid') && 
+            variable.statements && 
+            Object.keys(variable.statements).length > 0 &&
+            !tableName.endsWith('_MeanSummaryTable');
+          
+          // Handle Verbatim Summary table for coded open ends
+          if (isVerbatimSummary) {
+            // Record position for TOC
+            tablePositions.push({ tableNumber, tableName, rowNumber: currentRow, variable });
+            // Title
+            const baseQuestionNumber = getBaseQuestionNumber(variable.name);
+            const tableTitle = `Table ${tableNumber}: ${baseQuestionNumber}: Verbatim Summary`;
+            const titleRow = dataCutsWorksheet.getRow(currentRow++);
+            titleRow.getCell(2).value = tableTitle;
+            titleRow.getCell(2).font = { bold: true, size: 12 };
+            // Question text
+            const questionRow = dataCutsWorksheet.getRow(currentRow++);
+            questionRow.getCell(2).value = variable.description || variable.name;
+            questionRow.getCell(2).font = { size: 11 };
+
+            // Build 3-row header (Total + banner groups)
+            const headerStartRow = currentRow;
+            const groupTitleRow = headerStartRow;
+            const cutTitleRow = headerStartRow + 1;
+            const statLetterRow = headerStartRow + 2;
+            let currentCol = 2;
+            // Row label cell
+            const rowLabelCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(currentCol);
+            rowLabelCell.value = '';
+            rowLabelCell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+            dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, statLetterRow, currentCol);
+            [cutTitleRow, statLetterRow].forEach(r => {
+              const cell = dataCutsWorksheet.getRow(r).getCell(currentCol);
+              cell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+            });
+            currentCol++;
+            // Total column
+            const totalGroupCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(currentCol);
+            totalGroupCell.value = 'Total';
+            totalGroupCell.alignment = { horizontal: 'center', vertical: 'middle' };
+            totalGroupCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            totalGroupCell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFD14A2D' } };
+            totalGroupCell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+            dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, cutTitleRow, currentCol);
+            const totalCutCell = dataCutsWorksheet.getRow(cutTitleRow).getCell(currentCol);
+            totalCutCell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFD14A2D' } };
+            totalCutCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            totalCutCell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+            const totalStatCell = dataCutsWorksheet.getRow(statLetterRow).getCell(currentCol);
+            totalStatCell.value = '';
+            totalStatCell.alignment = { horizontal:'center', vertical:'middle' };
+            totalStatCell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFD14A2D' } };
+            totalStatCell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+            currentCol++;
+            // Banner groups
+            groupStructure.forEach((group) => {
+              const groupStartCol = currentCol;
+              const groupCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(groupStartCol);
+              groupCell.value = group.title;
+              groupCell.alignment = { horizontal:'center', vertical:'middle' };
+              groupCell.font = { bold:true, color:{ argb:'FFFFFFFF' } };
+              groupCell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFD14A2D' } };
+              groupCell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+              if (group.cutCount > 1) {
+                dataCutsWorksheet.mergeCells(groupTitleRow, groupStartCol, groupTitleRow, groupStartCol + group.cutCount - 1);
+              }
+              for (let i=0;i<group.cutCount;i++) {
+                const cutCol = groupStartCol + i;
+                const bannerCol = bannerCols[group.startIdx + i];
+                const cutCell = dataCutsWorksheet.getRow(cutTitleRow).getCell(cutCol);
+                cutCell.value = bannerCol.title;
+                cutCell.alignment = { horizontal:'center', vertical:'middle' };
+                cutCell.font = { bold:true, color:{ argb:'FFFFFFFF' } };
+                cutCell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFD14A2D' } };
+                cutCell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+                const statCell = dataCutsWorksheet.getRow(statLetterRow).getCell(cutCol);
+                const statLetter = String.fromCharCode(65 + group.startIdx + i);
+                statCell.value = `(${statLetter})`;
+                statCell.alignment = { horizontal:'center', vertical:'middle' };
+                statCell.font = { bold:true, color:{ argb:'FFFFFFFF' } };
+                statCell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFD14A2D' } };
+                statCell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+              }
+              currentCol += group.cutCount;
+            });
+            currentRow += 3;
+
+            // Gather coded columns and theme labels
+            const baseLower = variable.name.replace(/^Q/, '').toLowerCase();
+            const codeColumns = (fullRawData.columns || []).filter(col => {
+              const cl = String(col).toLowerCase();
+              return (cl.startsWith(baseLower + 'r') || cl.startsWith('q' + baseLower + 'r')) && /r\d+$/.test(cl);
+            });
+            const savedThemes = savedCodingThemes.get(variable.name) || [];
+            const themeMap = new Map<number, string>(savedThemes.map(t => [t.code, t.theme]));
+            const parseCodeNum = (col: string) => {
+              const m = col.match(/r(\d+)$/i);
+              return m ? parseInt(m[1], 10) : NaN;
+            };
+            const sortedCodeCols = [...codeColumns].sort((a,b) => (parseCodeNum(a) || 0) - (parseCodeNum(b) || 0));
+            // Helper for coded value truthiness
+            const isCodedValue = (val: any): boolean => {
+              if (val === null || val === undefined) return false;
+              if (typeof val === 'number') return val >= 1;
+              if (typeof val === 'boolean') return val === true;
+              const s = String(val).trim().toLowerCase();
+              return s === '1' || s === '1.0' || s === 'true' || s === 'yes' || s === 'y';
+            };
+            // Compute total responding (any code) overall and per cut
+            let totalRespondingOverall = 0;
+            const totalRespondingByCut: Record<string, number> = {};
+            bannerCols.forEach(col => { totalRespondingByCut[col.id] = 0; });
+            fullRawData.rows.forEach(r => {
+              const hasAny = sortedCodeCols.some(c => isCodedValue(r[c]));
+              if (!hasAny) return;
+              totalRespondingOverall++;
+              bannerCols.forEach(col => {
+                if (col.matchesRow(r)) {
+                  totalRespondingByCut[col.id]++;
+                }
+              });
+            });
+            // Base row (total responding) - styled same as other questions
+            {
+              const baseRow = dataCutsWorksheet.getRow(currentRow++);
+              // Label cell (column B)
+              const labelCell = baseRow.getCell(2);
+              labelCell.value = 'Base (total answering):';
+              labelCell.alignment = { horizontal: 'left', vertical: 'middle' };
+              labelCell.font = { bold: true };
+              labelCell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+              labelCell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFF2F2F2' } };
+              // Total column (column C)
+              let bc = 3;
+              const totalCell = baseRow.getCell(bc++);
+              totalCell.value = totalRespondingOverall;
+              totalCell.alignment = { horizontal: 'center', vertical: 'middle' };
+              totalCell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+              totalCell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFF2F2F2' } };
+              // One cell per banner cut
+              bannerCols.forEach(col => {
+                const cell = baseRow.getCell(bc++);
+                cell.value = totalRespondingByCut[col.id] || 0;
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                cell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+                cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFF2F2F2' } };
+              });
+            }
+            // For each code: count row + percentage row
+            sortedCodeCols.forEach(colName => {
+              const codeNum = parseCodeNum(colName);
+              if (isNaN(codeNum)) return;
+              const rowLabel = themeMap.get(codeNum) || `Code ${codeNum}`;
+              // Count row
+              const countRow = dataCutsWorksheet.getRow(currentRow++);
+              let c = 2;
+              const labelCell = countRow.getCell(c++);
+              labelCell.value = rowLabel;
+              labelCell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+              let totalCount = 0;
+              fullRawData.rows.forEach(r => { if (isCodedValue(r[colName])) totalCount++; });
+              const totalCell = countRow.getCell(c++);
+              totalCell.value = totalCount;
+              totalCell.alignment = { horizontal:'center' };
+              totalCell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+              const cutCounts: Record<string, number> = {};
+              groupStructure.forEach(group => {
+                for (let i=0;i<group.cutCount;i++) {
+                  const banner = bannerCols[group.startIdx + i];
+                  let cutCount = 0;
+              fullRawData.rows.forEach(r => {
+                if (!isCodedValue(r[colName])) return;
+                if (banner.matchesRow(r)) {
+                  cutCount++;
+                }
+              });
+                  cutCounts[banner.id] = cutCount;
+                  const cutCell = countRow.getCell(c++);
+                  cutCell.value = cutCount;
+                  cutCell.alignment = { horizontal:'center' };
+                  cutCell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+                }
+              });
+              // Percentage row
+              const pctRow = dataCutsWorksheet.getRow(currentRow++);
+              let pc = 2;
+              const pctLabelCell = pctRow.getCell(pc++);
+              pctLabelCell.value = '';
+              pctLabelCell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+              const totalPctCell = pctRow.getCell(pc++);
+              const totalPct = totalRespondingOverall > 0 ? totalCount / totalRespondingOverall : 0;
+              totalPctCell.value = totalPct;
+              totalPctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+              totalPctCell.alignment = { horizontal:'center' };
+              totalPctCell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+              bannerCols.forEach(col => {
+                const cutBase = totalRespondingByCut[col.id] || 0;
+                const cutPct = cutBase > 0 ? (cutCounts[col.id] || 0) / cutBase : 0;
+                const cell = pctRow.getCell(pc++);
+                cell.value = cutPct;
+                cell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+                cell.alignment = { horizontal:'center' };
+                cell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+              });
+
+              // Stat letters row for verbatim summary (compare cut percentages within each group)
+              // Build per-cut percents (0-100)
+              const cutPercents: Record<string, number> = {};
+              bannerCols.forEach(col => {
+                const base = totalRespondingByCut[col.id] || 0;
+                cutPercents[col.id] = base > 0 ? ((cutCounts[col.id] || 0) / base) * 100 : 0;
+              });
+              const statLettersByColIdx: Record<number, string> = {};
+              bannerCols.forEach((thisCol, thisIdx) => {
+                const letters: string[] = [];
+                bannerCols.forEach((otherCol, otherIdx) => {
+                  if (otherIdx === thisIdx) return;
+                  if (otherCol.groupIdx !== thisCol.groupIdx) return;
+                  const n1 = totalRespondingByCut[thisCol.id] || 0;
+                  const n2 = totalRespondingByCut[otherCol.id] || 0;
+                  const p1 = cutPercents[thisCol.id] || 0;
+                  const p2 = cutPercents[otherCol.id] || 0;
+                  if (p1 <= p2) return;
+                  if (!n1 || !n2) return;
+                  const prop1 = p1 / 100;
+                  const prop2 = p2 / 100;
+                  const pooled = (prop1 * n1 + prop2 * n2) / (n1 + n2);
+                  const se = Math.sqrt(pooled * (1 - pooled) * (1 / n1 + 1 / n2));
+                  if (se === 0) return;
+                  const z = Math.abs(prop1 - prop2) / se;
+                  const is95 = z > 1.96;
+                  const is90 = z > 1.645 && z <= 1.96;
+                  if (significanceLevel === 95) {
+                    if (is95) letters.push(String.fromCharCode(65 + otherIdx));
+                  } else {
+                    if (is95) {
+                      letters.push(String.fromCharCode(65 + otherIdx));
+                    } else if (is90) {
+                      letters.push(String.fromCharCode(97 + otherIdx));
+                    }
+                  }
+                });
+                if (letters.length > 0) {
+                  statLettersByColIdx[thisIdx] = letters.join('');
+                }
+              });
+              if (Object.keys(statLettersByColIdx).length > 0) {
+                const statRow = dataCutsWorksheet.getRow(currentRow++);
+                let sc = 2;
+                const label = statRow.getCell(sc++);
+                label.value = '';
+                label.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+                const totalStat = statRow.getCell(sc++);
+                totalStat.value = '';
+                totalStat.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+                bannerCols.forEach((_, colIdx) => {
+                  const cell = statRow.getCell(sc++);
+                  const letters = statLettersByColIdx[colIdx] || '';
+                  cell.value = letters;
+                  cell.alignment = { horizontal:'center', vertical:'middle' };
+                  // Blue, bold stat letters
+                  cell.font = { color: { argb: 'FF0000FF' }, bold: true };
+                  // Light blue background on stat letter cell
+                  cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFDBEAFE' } };
+                  cell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+                  // Also highlight corresponding Count and % cells for this response row
+                  if (letters) {
+                    // Count row is currentRow - 2, pct row is currentRow - 1
+                    const countCell = dataCutsWorksheet.getRow(currentRow - 2).getCell(2 + colIdx + 1); // +1 to offset total column
+                    const pctCell = dataCutsWorksheet.getRow(currentRow - 1).getCell(2 + colIdx + 1);
+                    [countCell, pctCell].forEach(target => {
+                      target.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFDBEAFE' } };
+                    });
+                  }
+                });
+              }
+            });
+
+            tableNumber++;
+            continue;
+          }
+
           // Handle NetSummaryTable for single select grids
           if (isNetSummaryTable) {
             // Extract net index from table name (e.g., "QB3_NetSummaryTable_0" -> 0)
@@ -8897,7 +10548,8 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           });
 
             // Table title
-            const tableTitle = `Table ${tableNumber}: ${net.name}`;
+            const baseQuestionNumber = getBaseQuestionNumber(variable.name);
+            const tableTitle = `Table ${tableNumber}: ${baseQuestionNumber}: ${net.name}`;
             const titleRow = dataCutsWorksheet.getRow(currentRow++);
             titleRow.getCell(2).value = tableTitle;
             titleRow.getCell(2).font = { bold: true, size: 12 };
@@ -8929,22 +10581,6 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   cutBases[col.id] = baseValue;
                 }
               });
-            }
-            
-            // Base metadata
-            const hasNoRespondents = totalBase === 0;
-            const baseRow = dataCutsWorksheet.getRow(currentRow++);
-            baseRow.getCell(2).value = hasNoRespondents ? 'Base: no respondents' : 'Base: All Respondents';
-            baseRow.getCell(2).font = {
-              size: 8,
-              italic: true,
-              color: { argb: hasNoRespondents ? 'FFFF0000' : 'FF0000FF' }
-            };
-            
-            // If no respondents, make table title and question text red
-            if (hasNoRespondents) {
-              titleRow.getCell(2).font = { bold: true, size: 12, color: { argb: 'FFFF0000' } };
-              questionRow.getCell(2).font = { size: 11, color: { argb: 'FFFF0000' } };
             }
             
             // Build 3-row header structure (same as other summary tables)
@@ -9213,9 +10849,52 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             }
             
             // Check if all total bases are the same
-            const allBasesSame = statementDataList.length > 0 && 
+            const allBasesSame = statementDataList.length > 0 &&
               statementDataList.every(data => data.stmtTotalBase === statementDataList[0].stmtTotalBase);
-            
+
+            // Calculate stat letters for all statements before rendering
+            const allStatLettersNetSummary: Record<string, Record<number, { letter: string; is95: boolean }[]>> = {};
+
+            statementDataList.forEach((data) => {
+              const { stmtCode, stmtCutBases, netCutCounts } = data;
+              const codeStatLetters: Record<number, { letter: string; is95: boolean }[]> = {};
+
+              bannerCols.forEach((thisCol, colIdx) => {
+                const thisBase = stmtCutBases[thisCol.id] || 0;
+                const thisCount = netCutCounts[thisCol.id] || 0;
+                const thisPct = thisBase > 0 ? (thisCount / thisBase) * 100 : 0;
+                const statLettersForCol: { letter: string; is95: boolean }[] = [];
+
+                // Within-group comparisons ONLY
+                bannerCols.forEach((otherCol, otherIdx) => {
+                  if (otherIdx === colIdx) return;
+                  if (otherCol.groupIdx !== thisCol.groupIdx) return;
+
+                  const otherBase = stmtCutBases[otherCol.id] || 0;
+                  const otherCount = netCutCounts[otherCol.id] || 0;
+                  const otherPct = otherBase > 0 ? (otherCount / otherBase) * 100 : 0;
+
+                  if (thisPct > otherPct) {
+                    const { is95, is90 } = isSignificant(thisPct, thisBase, otherPct, otherBase);
+
+                    if (significanceLevel === 95) {
+                      if (is95) statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                    } else {
+                      if (is95) {
+                        statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                      } else if (is90) {
+                        statLettersForCol.push({ letter: String.fromCharCode(97 + otherIdx), is95: false });
+                      }
+                    }
+                  }
+                });
+
+                codeStatLetters[colIdx] = statLettersForCol;
+              });
+
+              allStatLettersNetSummary[stmtCode] = codeStatLetters;
+            });
+
             // Second pass: Render statements
             statementDataList.forEach((data, idx) => {
               const { stmtCode, stmtLabel, stmtTotalBase, stmtCutBases, netTotalCount, netCutCounts } = data;
@@ -9290,10 +10969,23 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 right: { style: 'thin' }
               };
               let col = 4;
-              bannerCols.forEach(bannerCol => {
-                countRow.getCell(col).value = netCutCounts[bannerCol.id] || 0;
-                countRow.getCell(col).alignment = { horizontal: 'center' };
-                countRow.getCell(col).border = {
+              bannerCols.forEach((bannerCol, colIdx) => {
+                const countCell = countRow.getCell(col);
+                countCell.value = netCutCounts[bannerCol.id] || 0;
+                countCell.alignment = { horizontal: 'center' };
+
+                // Add blue highlighting if this cell has stat letters
+                const statLettersForCode = allStatLettersNetSummary[stmtCode] || {};
+                const statLetters = statLettersForCode[colIdx] || [];
+                if (statLetters.length > 0) {
+                  countCell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFE6F3FF' }
+                  };
+                }
+
+                countCell.border = {
                   top: { style: 'thin' },
                   bottom: { style: 'thin' },
                   left: { style: 'thin' },
@@ -9312,7 +11004,477 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 right: { style: 'thin' }
               };
               const totalPct = stmtTotalBase > 0 ? (netTotalCount / stmtTotalBase) * 100 : 0;
-              pctRow.getCell(3).value = formatPercentage(totalPct);
+              const totalPctCell = pctRow.getCell(3);
+              totalPctCell.value = totalPct / 100; // Store as decimal for percentage format
+              totalPctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+              totalPctCell.alignment = { horizontal: 'center' };
+              totalPctCell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              col = 4;
+              bannerCols.forEach((bannerCol, colIdx) => {
+                const cutPct = stmtCutBases[bannerCol.id] > 0 ? (netCutCounts[bannerCol.id] / stmtCutBases[bannerCol.id]) * 100 : 0;
+                const cutPctCell = pctRow.getCell(col);
+                cutPctCell.value = cutPct / 100; // Store as decimal for percentage format
+                cutPctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+                cutPctCell.alignment = { horizontal: 'center' };
+
+                // Add blue highlighting if this cell has stat letters
+                const statLettersForCode = allStatLettersNetSummary[stmtCode] || {};
+                const statLetters = statLettersForCode[colIdx] || [];
+                if (statLetters.length > 0) {
+                  cutPctCell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFE6F3FF' }
+                  };
+                }
+
+                cutPctCell.border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                col++;
+              });
+
+              // Stat letters row
+              const statLettersForCode = allStatLettersNetSummary[stmtCode] || {};
+              const hasAnyStatLettersForCode = Object.values(statLettersForCode).some(arr => arr && arr.length > 0);
+
+              if (hasAnyStatLettersForCode) {
+                const statRow = dataCutsWorksheet.getRow(currentRow++);
+                statRow.getCell(2).value = '';
+                statRow.getCell(2).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+
+                statRow.getCell(3).value = '';
+                statRow.getCell(3).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+
+                col = 4;
+                bannerCols.forEach((bannerCol, colIdx) => {
+                  const statLetters = statLettersForCode[colIdx] || [];
+                  const statLettersStr = statLetters.map(s => s.letter).join('');
+                  const statCell = statRow.getCell(col);
+                  statCell.value = statLettersStr;
+                  statCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                  if (statLetters.length > 0) {
+                    statCell.fill = {
+                      type: 'pattern',
+                      pattern: 'solid',
+                      fgColor: { argb: 'FFE6F3FF' }
+                    };
+                  }
+                  statCell.border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
+                  col++;
+                });
+              }
+            });
+
+            // Add comparison groups details section
+            // Build comparison groups string based on banner groups
+            const groupMapNetSummary = new Map<number, number[]>();
+            bannerCols.forEach((col, idx) => {
+              const groupIdx = col.groupIdx;
+              if (!groupMapNetSummary.has(groupIdx)) {
+                groupMapNetSummary.set(groupIdx, []);
+              }
+              groupMapNetSummary.get(groupIdx)!.push(idx);
+            });
+
+            const comparisonGroupsNetSummary = Array.from(groupMapNetSummary.values())
+              .map(colIndices =>
+                colIndices.map(idx => String.fromCharCode(65 + idx)).join('')
+              )
+              .join('/');
+
+            // Comparison groups row
+            const compGroupsRowNetSummary = dataCutsWorksheet.getRow(currentRow++);
+            compGroupsRowNetSummary.getCell(2).value = `Comparison Groups: ${comparisonGroupsNetSummary}`;
+            compGroupsRowNetSummary.getCell(2).font = { size: 9, italic: true };
+
+            // Uppercase explanation row
+            const upperRowNetSummary = dataCutsWorksheet.getRow(currentRow++);
+            upperRowNetSummary.getCell(2).value = 'Uppercase letters indicate significance at the 95% level.';
+            upperRowNetSummary.getCell(2).font = { size: 9, italic: true };
+
+            // Lowercase explanation row (only if significance level is 90)
+            if (significanceLevel === 90) {
+              const lowerRowNetSummary = dataCutsWorksheet.getRow(currentRow++);
+              lowerRowNetSummary.getCell(2).value = 'Lowercase letters indicate significance at the 90% level.';
+              lowerRowNetSummary.getCell(2).font = { size: 9, italic: true };
+            }
+
+            tableNumber++;
+            continue;
+          }
+
+          // Check if this is a regular numeric question (not a grid) - handle BEFORE creating title/question rows
+          const isNumericQuestion = variable.type?.toLowerCase().includes('numeric') && 
+                                    !variable.type?.toLowerCase().includes('grid') &&
+                                    !variable.type?.toLowerCase().includes('list');
+          
+          // Handle numeric questions - create frequency distribution table
+          // MUST be done BEFORE creating title/question rows, as it creates its own structure
+          if (isNumericQuestion && tableName === variable.name) {
+            if (isB8Debug) {
+              appendStatLog('[B8] Entering numeric question handling block (first location)', { tableName, variable: variable.name });
+            }
+            
+            // Calculate banner table data for this variable (needed for banner cuts matching)
+            const bannerTableData = calculateBannerTableDataForVariable(variable, variable.name, bannerGroup);
+            
+            // Find the column header for this numeric variable
+            // Check base variable name first (e.g., "S9" or "QS9")
+            let numericColHeader = getColumnHeader(variable.name);
+            
+            // If not found and variable has statements, try statement-specific mappings (e.g., "S9r1" or "QS9r1")
+            if (!numericColHeader && variable.statements && Object.keys(variable.statements).length > 0) {
+              // Try each statement code
+              for (const stmtCode of Object.keys(variable.statements)) {
+                // Try variations: baseName + stmtCode (e.g., "S9r1", "QS9r1")
+                const baseName = variable.name;
+                const variations = [
+                  `${baseName}${stmtCode}`,
+                  `Q${baseName}${stmtCode}`,
+                  baseName.startsWith('Q') ? `${baseName}${stmtCode}` : `Q${baseName}${stmtCode}`,
+                  baseName.startsWith('Q') ? `${baseName.substring(1)}${stmtCode}` : `${baseName}${stmtCode}`
+                ];
+                
+                for (const variation of variations) {
+                  if (columnMapping[variation]) {
+                    numericColHeader = columnMapping[variation];
+                    break;
+                  }
+                  const matchingKey = Object.keys(columnMapping).find(
+                    key => key.toLowerCase() === variation.toLowerCase()
+                  );
+                  if (matchingKey) {
+                    numericColHeader = columnMapping[matchingKey];
+                    break;
+                  }
+                  
+                  // Also check direct column match
+                  if (fullRawData.columns) {
+                    const directMatch = fullRawData.columns.find(
+                      col => col.toLowerCase() === variation.toLowerCase()
+                    );
+                    if (directMatch) {
+                      numericColHeader = directMatch;
+                      break;
+                    }
+                  }
+                }
+                
+                if (numericColHeader) break;
+              }
+            }
+            
+            if (!numericColHeader) {
+              if (isB8Debug) {
+                appendStatLog('[B8] ERROR: No column header found for numeric variable', { variable: variable.name, statements: variable.statements ? Object.keys(variable.statements) : 'none' });
+              }
+              // Skip this table if not mapped
+              tableNumber++;
+              continue;
+            }
+            
+            // Collect all unique numeric values and build frequency distribution
+            const uniqueNumericValues = new Set<number>();
+            const frequencyMap: Record<number, { total: number; cuts: Record<string, number> }> = {};
+            let totalBase = 0;
+            const cutBases: Record<string, number> = {};
+            bannerCols.forEach(col => { cutBases[col.id] = 0; });
+            
+            // First pass: collect all unique numeric values
+            if (fullRawData && fullRawData.rows) {
+              fullRawData.rows.forEach((row: any) => {
+                const val = row[numericColHeader];
+                if (val !== null && val !== undefined && val !== '') {
+                  const numVal = parseFloat(String(val));
+                  if (!isNaN(numVal)) {
+                    uniqueNumericValues.add(numVal);
+                  }
+                }
+              });
+            }
+            
+            // Sort numeric values
+            const sortedNumericValues = Array.from(uniqueNumericValues).sort((a, b) => a - b);
+            
+            // Initialize frequency map for each numeric value
+            sortedNumericValues.forEach(numVal => {
+              frequencyMap[numVal] = { total: 0, cuts: {} };
+              bannerCols.forEach(col => { frequencyMap[numVal].cuts[col.id] = 0; });
+            });
+            
+            // Second pass: count frequencies and match banner cuts
+            if (fullRawData && fullRawData.rows) {
+              fullRawData.rows.forEach((row: any) => {
+                const val = row[numericColHeader];
+                if (val === null || val === undefined || val === '') return;
+                const numVal = parseFloat(String(val));
+                if (isNaN(numVal)) return;
+                
+                totalBase++;
+                frequencyMap[numVal].total++;
+                
+                // Check which banner cuts this row matches
+                bannerCols.forEach(col => {
+                  if (col.matchesRow(row)) {
+                    cutBases[col.id]++;
+                    frequencyMap[numVal].cuts[col.id]++;
+                  }
+                });
+              });
+            }
+            
+            
+            // Record position for TOC
+            tablePositions.push({ tableNumber, tableName, rowNumber: currentRow, variable });
+            
+            // Table title
+            const baseQuestionNumber = getBaseQuestionNumber(variable.name);
+            const tableTitle = `Table ${tableNumber}: ${baseQuestionNumber}`;
+            const titleRow = dataCutsWorksheet.getRow(currentRow++);
+            titleRow.getCell(2).value = tableTitle;
+            titleRow.getCell(2).font = { bold: true, size: 12 };
+            
+            // Question text
+            const questionRow = dataCutsWorksheet.getRow(currentRow++);
+            questionRow.getCell(2).value = variable.description || variable.name;
+            questionRow.getCell(2).font = { size: 11 };
+            
+            // Build 3-row header (Total + banner groups) - same as other tables
+            const headerStartRow = currentRow;
+            const groupTitleRow = headerStartRow;
+            const cutTitleRow = headerStartRow + 1;
+            const statLetterRow = headerStartRow + 2;
+            let currentCol = 2;
+            
+            // Row label cell (merged across all 3 rows)
+            const rowLabelCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(currentCol);
+            rowLabelCell.value = '';
+            rowLabelCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, statLetterRow, currentCol);
+            [cutTitleRow, statLetterRow].forEach(r => {
+              const cell = dataCutsWorksheet.getRow(r).getCell(currentCol);
+              cell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+            });
+            currentCol++;
+            
+            // Total column
+            const totalGroupCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(currentCol);
+            totalGroupCell.value = 'Total';
+            totalGroupCell.alignment = { horizontal: 'center', vertical: 'middle' };
+            totalGroupCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            totalGroupCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+            totalGroupCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, cutTitleRow, currentCol);
+            const totalCutCell = dataCutsWorksheet.getRow(cutTitleRow).getCell(currentCol);
+            totalCutCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+            totalCutCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            totalCutCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            const totalStatCell = dataCutsWorksheet.getRow(statLetterRow).getCell(currentCol);
+            totalStatCell.value = '';
+            totalStatCell.alignment = { horizontal: 'center', vertical: 'middle' };
+            totalStatCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+            totalStatCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            currentCol++;
+            
+            // Banner groups
+            groupStructure.forEach((group) => {
+              const groupStartCol = currentCol;
+              const groupCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(groupStartCol);
+              groupCell.value = group.title;
+              groupCell.alignment = { horizontal: 'center', vertical: 'middle' };
+              groupCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+              groupCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+              groupCell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              if (group.cutCount > 1) {
+                dataCutsWorksheet.mergeCells(groupTitleRow, groupStartCol, groupTitleRow, groupStartCol + group.cutCount - 1);
+              }
+              for (let i = 0; i < group.cutCount; i++) {
+                const cutCol = groupStartCol + i;
+                const bannerCol = bannerCols[group.startIdx + i];
+                const cutCell = dataCutsWorksheet.getRow(cutTitleRow).getCell(cutCol);
+                cutCell.value = bannerCol.title;
+                cutCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                cutCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                cutCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+                cutCell.border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                const statCell = dataCutsWorksheet.getRow(statLetterRow).getCell(cutCol);
+                const statLetter = String.fromCharCode(65 + group.startIdx + i);
+                statCell.value = `(${statLetter})`;
+                statCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                statCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                statCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+                statCell.border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+              }
+              currentCol += group.cutCount;
+            });
+            currentRow += 3;
+            
+            // Base row
+            const baseRow = dataCutsWorksheet.getRow(currentRow++);
+            baseRow.getCell(2).value = 'Base (total responding):';
+            baseRow.getCell(2).font = { bold: true };
+            baseRow.getCell(2).fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFE8E8E8' }
+            };
+            baseRow.getCell(2).border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            baseRow.getCell(3).value = totalBase;
+            baseRow.getCell(3).alignment = { horizontal: 'center' };
+            baseRow.getCell(3).fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFE8E8E8' }
+            };
+            baseRow.getCell(3).border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            let baseCol = 4;
+            bannerCols.forEach(bannerCol => {
+              baseRow.getCell(baseCol).value = cutBases[bannerCol.id] || 0;
+              baseRow.getCell(baseCol).alignment = { horizontal: 'center' };
+              baseRow.getCell(baseCol).fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFE8E8E8' }
+              };
+              baseRow.getCell(baseCol).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              baseCol++;
+            });
+            
+            // Render frequency distribution rows
+            sortedNumericValues.forEach(numVal => {
+              const valueKey = numVal.toString();
+              const valueData = numericData[valueKey];
+              if (!valueData) return;
+              
+              // Count row
+              const countRow = dataCutsWorksheet.getRow(currentRow++);
+              countRow.getCell(2).value = numVal;
+              countRow.getCell(2).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              
+              // Total count
+              const totalCount = valueData['total']?.count || 0;
+              countRow.getCell(3).value = totalCount;
+              countRow.getCell(3).alignment = { horizontal: 'center' };
+              countRow.getCell(3).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              
+              // Banner cut counts
+              let col = 4;
+              bannerCols.forEach(bannerCol => {
+                const cutCount = valueData[bannerCol.id]?.count || 0;
+                countRow.getCell(col).value = cutCount;
+                countRow.getCell(col).alignment = { horizontal: 'center' };
+                countRow.getCell(col).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                col++;
+              });
+              
+              // Percentage row
+              const pctRow = dataCutsWorksheet.getRow(currentRow++);
+              pctRow.getCell(2).value = '';
+              pctRow.getCell(2).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              
+              // Total percentage
+              const totalPct = valueData['total']?.percentage || 0;
+              pctRow.getCell(3).value = totalPct / 100;
+              pctRow.getCell(3).numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
               pctRow.getCell(3).alignment = { horizontal: 'center' };
               pctRow.getCell(3).border = {
                 top: { style: 'thin' },
@@ -9320,10 +11482,14 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 left: { style: 'thin' },
                 right: { style: 'thin' }
               };
+              
+              // Banner cut percentages
               col = 4;
               bannerCols.forEach(bannerCol => {
-                const cutPct = stmtCutBases[bannerCol.id] > 0 ? (netCutCounts[bannerCol.id] / stmtCutBases[bannerCol.id]) * 100 : 0;
-                pctRow.getCell(col).value = formatPercentage(cutPct);
+                const cutBase = cutBases[bannerCol.id] || 0;
+                const cutPct = valueData[bannerCol.id]?.percentage || 0;
+                pctRow.getCell(col).value = cutPct / 100;
+                pctRow.getCell(col).numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
                 pctRow.getCell(col).alignment = { horizontal: 'center' };
                 pctRow.getCell(col).border = {
                   top: { style: 'thin' },
@@ -9335,37 +11501,712 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               });
             });
             
+            // Add stats rows if enabled
+            const statsKey = variable.name;
+            const statsSelections = getStatsSelectionsForVariable(statsKey);
+            const isNumeric = variable.type?.toLowerCase().includes('numeric');
+            if (isNumeric && Object.values(statsSelections).some(v => v)) {
+              // Calculate stats from frequency distribution
+              let totalCount = 0;
+              let sum = 0;
+              let sumSquares = 0;
+              let min = Infinity;
+              let max = -Infinity;
+              let modeValue: number | null = null;
+              let modeCount = -1;
+              
+              sortedNumericValues.forEach(numVal => {
+                const valueKey = numVal.toString();
+                const count = numericData[valueKey]?.['total']?.count || 0;
+                totalCount += count;
+                sum += numVal * count;
+                sumSquares += numVal * numVal * count;
+                if (numVal < min) min = numVal;
+                if (numVal > max) max = numVal;
+                if (count > modeCount) {
+                  modeCount = count;
+                  modeValue = numVal;
+                }
+              });
+              
+              if (totalCount > 0) {
+                const mean = sum / totalCount;
+                const variance = Math.max(sumSquares / totalCount - mean * mean, 0);
+                const stdDev = Math.sqrt(variance);
+                const sorted = [...sortedNumericValues];
+                const median = sorted.length % 2 === 0
+                  ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+                  : sorted[Math.floor(sorted.length / 2)];
+                
+                const statsRows = [
+                  { label: 'Mean', key: 'mean', value: mean },
+                  { label: 'Sum', key: 'sum', value: sum },
+                  { label: 'Median', key: 'median', value: median },
+                  { label: 'Mode', key: 'mode', value: modeValue },
+                  { label: 'Std Dev', key: 'stdDev', value: stdDev },
+                  { label: 'Min', key: 'min', value: min },
+                  { label: 'Max', key: 'max', value: max },
+                ];
+                
+                statsRows.forEach(stat => {
+                  if (statsSelections[stat.key]) {
+                    const statRow = dataCutsWorksheet.getRow(currentRow++);
+                    statRow.getCell(2).value = stat.label + ':';
+                    statRow.getCell(2).font = { bold: true, italic: true };
+                    statRow.getCell(2).fill = {
+                      type: 'pattern',
+                      pattern: 'solid',
+                      fgColor: { argb: 'FFE8E8E8' }
+                    };
+                    statRow.getCell(2).border = {
+                      top: { style: 'thin' },
+                      bottom: { style: 'thin' },
+                      left: { style: 'thin' },
+                      right: { style: 'thin' }
+                    };
+                    
+                    // Total stat value
+                    statRow.getCell(3).value = stat.value;
+                    statRow.getCell(3).numFmt = stat.key === 'sum' ? '0' : '0.00';
+                    statRow.getCell(3).alignment = { horizontal: 'center' };
+                    statRow.getCell(3).fill = {
+                      type: 'pattern',
+                      pattern: 'solid',
+                      fgColor: { argb: 'FFE8E8E8' }
+                    };
+                    statRow.getCell(3).border = {
+                      top: { style: 'thin' },
+                      bottom: { style: 'thin' },
+                      left: { style: 'thin' },
+                      right: { style: 'thin' }
+                    };
+                    
+                    // Banner cut stats (calculate per cut)
+                    let col = 4;
+                    bannerCols.forEach(bannerCol => {
+                      const cutBase = cutBases[bannerCol.id] || 0;
+                      let cutStatValue: number = 0;
+                      
+                      if (cutBase > 0) {
+                        if (stat.key === 'mean') {
+                          let cutSum = 0;
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            cutSum += numVal * (numericData[valueKey]?.[bannerCol.id]?.count || 0);
+                          });
+                          cutStatValue = cutSum / cutBase;
+                        } else if (stat.key === 'sum') {
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            cutStatValue += numVal * (numericData[valueKey]?.[bannerCol.id]?.count || 0);
+                          });
+                        } else if (stat.key === 'median') {
+                          const cutValues: number[] = [];
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            const count = numericData[valueKey]?.[bannerCol.id]?.count || 0;
+                            for (let i = 0; i < count; i++) {
+                              cutValues.push(numVal);
+                            }
+                          });
+                          cutValues.sort((a, b) => a - b);
+                          cutStatValue = cutValues.length % 2 === 0
+                            ? (cutValues[cutValues.length / 2 - 1] + cutValues[cutValues.length / 2]) / 2
+                            : cutValues[Math.floor(cutValues.length / 2)];
+                        } else if (stat.key === 'mode') {
+                          let cutModeCount = -1;
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            const count = numericData[valueKey]?.[bannerCol.id]?.count || 0;
+                            if (count > cutModeCount) {
+                              cutModeCount = count;
+                              cutStatValue = numVal;
+                            }
+                          });
+                        } else if (stat.key === 'stdDev') {
+                          let cutSum = 0;
+                          let cutSumSquares = 0;
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            const count = numericData[valueKey]?.[bannerCol.id]?.count || 0;
+                            cutSum += numVal * count;
+                            cutSumSquares += numVal * numVal * count;
+                          });
+                          const cutMean = cutSum / cutBase;
+                          const cutVariance = Math.max(cutSumSquares / cutBase - cutMean * cutMean, 0);
+                          cutStatValue = Math.sqrt(cutVariance);
+                        } else if (stat.key === 'min') {
+                          cutStatValue = Infinity;
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            if ((numericData[valueKey]?.[bannerCol.id]?.count || 0) > 0 && numVal < cutStatValue) {
+                              cutStatValue = numVal;
+                            }
+                          });
+                        } else if (stat.key === 'max') {
+                          cutStatValue = -Infinity;
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            if ((numericData[valueKey]?.[bannerCol.id]?.count || 0) > 0 && numVal > cutStatValue) {
+                              cutStatValue = numVal;
+                            }
+                          });
+                        }
+                      }
+                      
+                      statRow.getCell(col).value = cutStatValue;
+                      statRow.getCell(col).numFmt = stat.key === 'sum' ? '0' : '0.00';
+                      statRow.getCell(col).alignment = { horizontal: 'center' };
+                      statRow.getCell(col).fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFE8E8E8' }
+                      };
+                      statRow.getCell(col).border = {
+                        top: { style: 'thin' },
+                        bottom: { style: 'thin' },
+                        left: { style: 'thin' },
+                        right: { style: 'thin' }
+                      };
+                      col++;
+                    });
+                  }
+                });
+              }
+            }
+            
             tableNumber++;
             continue;
           }
 
-          // Record position for TOC
-          tablePositions.push({
-            tableNumber,
-            tableName,
-            rowNumber: currentRow,
-            variable
-          });
-          
-          // Table title - format appropriately for summary tables
-          let displayTableName = tableName;
-          if (isMeanSummaryTable) {
-            displayTableName = 'Mean Summary Table';
-          } else if (isSumSummaryTable) {
-            displayTableName = 'Sum Summary Table';
-          }
-          const tableTitle = `Table ${tableNumber}: ${displayTableName}`;
-          const titleRow = dataCutsWorksheet.getRow(currentRow++);
-          titleRow.getCell(2).value = tableTitle;
-          titleRow.getCell(2).font = { bold: true, size: 12 };
-          
-          // Question text
-          const questionRow = dataCutsWorksheet.getRow(currentRow++);
+          // Only create title/question rows here for SUMMARY tables (Mean/Sum Summary Tables)
+          // Regular tables (including multi-select) will have their title created later
+          if (isNumericGridSummaryTable) {
+            // Record position for TOC
+            tablePositions.push({
+              tableNumber,
+              tableName,
+              rowNumber: currentRow,
+              variable
+            });
+            
+            // Table title - format appropriately for summary tables
+            let displayTableName = tableName;
+            if (isMeanSummaryTable) {
+              const baseQuestionNumber = getBaseQuestionNumber(variable.name);
+              displayTableName = `${baseQuestionNumber}: Mean Summary Table`;
+            } else if (isSumSummaryTable) {
+              const baseQuestionNumber = getBaseQuestionNumber(variable.name);
+              displayTableName = `${baseQuestionNumber}: Sum Summary Table`;
+            }
+            const tableTitle = `Table ${tableNumber}: ${displayTableName}`;
+            const titleRow = dataCutsWorksheet.getRow(currentRow++);
+            titleRow.getCell(2).value = tableTitle;
+            titleRow.getCell(2).font = { bold: true, size: 12 };
+            
+            // Question text
+            const questionRow = dataCutsWorksheet.getRow(currentRow++);
             questionRow.getCell(2).value = variable.description || variable.name;
             questionRow.getCell(2).font = { size: 11 };
+          }
 
           // Calculate banner table data for this variable
           const bannerTableData = calculateBannerTableDataForVariable(variable, variable.name, bannerGroup);
+
+          // Debug: Log for B8 only
+          if (isB8Debug) {
+            appendStatLog('[B8] Banner table data calculated', {
+              tableName,
+              variableType: variable.type,
+              isNumericQuestion,
+              tableNameMatches: tableName === variable.name,
+              bannerTableData: bannerTableData ? {
+                hasData: true,
+                keys: Object.keys(bannerTableData),
+                keysLength: Object.keys(bannerTableData).length,
+                sampleEntry: bannerTableData[Object.keys(bannerTableData)[0]]
+              } : 'null or empty',
+              currentRow
+            });
+          }
+          
+          // Handle numeric questions - create frequency distribution table
+          // MUST be done BEFORE building headers, as it creates its own structure
+          if (isNumericQuestion && tableName === variable.name) {
+            if (isB8Debug) {
+              appendStatLog('[B8] Entering numeric question handling block (second location)', { tableName, variable: variable.name });
+            }
+            
+            // Use calculateBannerTableDataForVariable to get frequency distribution (same as Variables tab)
+            const numericData = calculateBannerTableDataForVariable(variable, variable.name, bannerGroup);
+            
+            if (!numericData || Object.keys(numericData).length === 0) {
+              if (isB8Debug) {
+                appendStatLog('[B8] ERROR: No data returned from calculateBannerTableDataForVariable', { variable: variable.name });
+              }
+              // Skip this table if no data
+              tableNumber++;
+              continue;
+            }
+            
+            // Extract sorted numeric values from the data keys
+            const sortedNumericValues = Object.keys(numericData)
+              .map(v => parseFloat(v))
+              .filter(v => !isNaN(v))
+              .sort((a, b) => a - b);
+            
+            // Get bases from the data structure
+            const totalBase = numericData[sortedNumericValues[0]?.toString() || '']?.['total']?.base || 0;
+            const cutBases: Record<string, number> = {};
+            bannerCols.forEach(col => {
+              cutBases[col.id] = numericData[sortedNumericValues[0]?.toString() || '']?.[col.id]?.base || 0;
+            });
+            
+            if (isPreviewMode) {
+              // eslint-disable-next-line no-console
+              console.log('[Preview Debug - buildTabSpecsWorkbook] Frequency distribution from calculateBannerTableDataForVariable:', {
+                uniqueValues: sortedNumericValues.length,
+                sortedValues: sortedNumericValues.slice(0, 10),
+                totalBase,
+                cutBases,
+                sampleData: sortedNumericValues.slice(0, 3).map(v => ({
+                  value: v,
+                  total: numericData[v.toString()]?.['total'],
+                  sampleCut: numericData[v.toString()]?.[bannerCols[0]?.id]
+                }))
+              });
+            }
+            
+            // Record position for TOC
+            tablePositions.push({ tableNumber, tableName, rowNumber: currentRow, variable });
+            
+            // Table title
+            const baseQuestionNumber = getBaseQuestionNumber(variable.name);
+            const tableTitle = `Table ${tableNumber}: ${baseQuestionNumber}`;
+            const titleRow = dataCutsWorksheet.getRow(currentRow++);
+            titleRow.getCell(2).value = tableTitle;
+            titleRow.getCell(2).font = { bold: true, size: 12 };
+            
+            // Question text
+            const questionRow = dataCutsWorksheet.getRow(currentRow++);
+            questionRow.getCell(2).value = variable.description || variable.name;
+            questionRow.getCell(2).font = { size: 11 };
+            
+            // Build 3-row header (Total + banner groups) - same as other tables
+            const headerStartRow = currentRow;
+            const groupTitleRow = headerStartRow;
+            const cutTitleRow = headerStartRow + 1;
+            const statLetterRow = headerStartRow + 2;
+            let currentCol = 2;
+            
+            // Row label cell (merged across all 3 rows)
+            const rowLabelCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(currentCol);
+            rowLabelCell.value = '';
+            rowLabelCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, statLetterRow, currentCol);
+            [cutTitleRow, statLetterRow].forEach(r => {
+              const cell = dataCutsWorksheet.getRow(r).getCell(currentCol);
+              cell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+            });
+            currentCol++;
+            
+            // Total column
+            const totalGroupCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(currentCol);
+            totalGroupCell.value = 'Total';
+            totalGroupCell.alignment = { horizontal: 'center', vertical: 'middle' };
+            totalGroupCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            totalGroupCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+            totalGroupCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, cutTitleRow, currentCol);
+            const totalCutCell = dataCutsWorksheet.getRow(cutTitleRow).getCell(currentCol);
+            totalCutCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+            totalCutCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            totalCutCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            const totalStatCell = dataCutsWorksheet.getRow(statLetterRow).getCell(currentCol);
+            totalStatCell.value = '';
+            totalStatCell.alignment = { horizontal: 'center', vertical: 'middle' };
+            totalStatCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+            totalStatCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            currentCol++;
+            
+            // Banner groups
+            groupStructure.forEach((group) => {
+              const groupStartCol = currentCol;
+              const groupCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(groupStartCol);
+              groupCell.value = group.title;
+              groupCell.alignment = { horizontal: 'center', vertical: 'middle' };
+              groupCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+              groupCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+              groupCell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              if (group.cutCount > 1) {
+                dataCutsWorksheet.mergeCells(groupTitleRow, groupStartCol, groupTitleRow, groupStartCol + group.cutCount - 1);
+              }
+              for (let i = 0; i < group.cutCount; i++) {
+                const cutCol = groupStartCol + i;
+                const bannerCol = bannerCols[group.startIdx + i];
+                const cutCell = dataCutsWorksheet.getRow(cutTitleRow).getCell(cutCol);
+                cutCell.value = bannerCol.title;
+                cutCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                cutCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                cutCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+                cutCell.border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                const statCell = dataCutsWorksheet.getRow(statLetterRow).getCell(cutCol);
+                const statLetter = String.fromCharCode(65 + group.startIdx + i);
+                statCell.value = `(${statLetter})`;
+                statCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                statCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                statCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+                statCell.border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+              }
+              currentCol += group.cutCount;
+            });
+            currentRow += 3;
+            
+            // Base row
+            const baseRow = dataCutsWorksheet.getRow(currentRow++);
+            baseRow.getCell(2).value = 'Base (total responding):';
+            baseRow.getCell(2).font = { bold: true };
+            baseRow.getCell(2).fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFE8E8E8' }
+            };
+            baseRow.getCell(2).border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            baseRow.getCell(3).value = totalBase;
+            baseRow.getCell(3).alignment = { horizontal: 'center' };
+            baseRow.getCell(3).fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFE8E8E8' }
+            };
+            baseRow.getCell(3).border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            let baseCol = 4;
+            bannerCols.forEach(bannerCol => {
+              baseRow.getCell(baseCol).value = cutBases[bannerCol.id] || 0;
+              baseRow.getCell(baseCol).alignment = { horizontal: 'center' };
+              baseRow.getCell(baseCol).fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFE8E8E8' }
+              };
+              baseRow.getCell(baseCol).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              baseCol++;
+            });
+            
+            // Render frequency distribution rows
+            sortedNumericValues.forEach(numVal => {
+              const valueKey = numVal.toString();
+              const valueData = numericData[valueKey];
+              if (!valueData) return;
+              
+              // Count row
+              const countRow = dataCutsWorksheet.getRow(currentRow++);
+              countRow.getCell(2).value = numVal;
+              countRow.getCell(2).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              
+              // Total count
+              const totalCount = valueData['total']?.count || 0;
+              countRow.getCell(3).value = totalCount;
+              countRow.getCell(3).alignment = { horizontal: 'center' };
+              countRow.getCell(3).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              
+              // Banner cut counts
+              let col = 4;
+              bannerCols.forEach(bannerCol => {
+                const cutCount = valueData[bannerCol.id]?.count || 0;
+                countRow.getCell(col).value = cutCount;
+                countRow.getCell(col).alignment = { horizontal: 'center' };
+                countRow.getCell(col).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                col++;
+              });
+              
+              // Percentage row
+              const pctRow = dataCutsWorksheet.getRow(currentRow++);
+              pctRow.getCell(2).value = '';
+              pctRow.getCell(2).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              
+              // Total percentage
+              const totalPct = valueData['total']?.percentage || 0;
+              pctRow.getCell(3).value = totalPct / 100;
+              pctRow.getCell(3).numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+              pctRow.getCell(3).alignment = { horizontal: 'center' };
+              pctRow.getCell(3).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              
+              // Banner cut percentages
+              col = 4;
+              bannerCols.forEach(bannerCol => {
+                const cutBase = cutBases[bannerCol.id] || 0;
+                const cutPct = valueData[bannerCol.id]?.percentage || 0;
+                pctRow.getCell(col).value = cutPct / 100;
+                pctRow.getCell(col).numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+                pctRow.getCell(col).alignment = { horizontal: 'center' };
+                pctRow.getCell(col).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                col++;
+              });
+            });
+            
+            // Add stats rows if enabled
+            const statsKey = variable.name;
+            const statsSelections = getStatsSelectionsForVariable(statsKey);
+            const isNumeric = variable.type?.toLowerCase().includes('numeric');
+            if (isNumeric && Object.values(statsSelections).some(v => v)) {
+              // Calculate stats from frequency distribution
+              let totalCount = 0;
+              let sum = 0;
+              let sumSquares = 0;
+              let min = Infinity;
+              let max = -Infinity;
+              let modeValue: number | null = null;
+              let modeCount = -1;
+              
+              sortedNumericValues.forEach(numVal => {
+                const valueKey = numVal.toString();
+                const count = numericData[valueKey]?.['total']?.count || 0;
+                totalCount += count;
+                sum += numVal * count;
+                sumSquares += numVal * numVal * count;
+                if (numVal < min) min = numVal;
+                if (numVal > max) max = numVal;
+                if (count > modeCount) {
+                  modeCount = count;
+                  modeValue = numVal;
+                }
+              });
+              
+              if (totalCount > 0) {
+                const mean = sum / totalCount;
+                const variance = Math.max(sumSquares / totalCount - mean * mean, 0);
+                const stdDev = Math.sqrt(variance);
+                const sorted = [...sortedNumericValues];
+                const median = sorted.length % 2 === 0
+                  ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+                  : sorted[Math.floor(sorted.length / 2)];
+                
+                const statsRows = [
+                  { label: 'Mean', key: 'mean', value: mean },
+                  { label: 'Sum', key: 'sum', value: sum },
+                  { label: 'Median', key: 'median', value: median },
+                  { label: 'Mode', key: 'mode', value: modeValue },
+                  { label: 'Std Dev', key: 'stdDev', value: stdDev },
+                  { label: 'Min', key: 'min', value: min },
+                  { label: 'Max', key: 'max', value: max },
+                ];
+                
+                statsRows.forEach(stat => {
+                  if (statsSelections[stat.key]) {
+                    const statRow = dataCutsWorksheet.getRow(currentRow++);
+                    statRow.getCell(2).value = stat.label + ':';
+                    statRow.getCell(2).font = { bold: true, italic: true };
+                    statRow.getCell(2).fill = {
+                      type: 'pattern',
+                      pattern: 'solid',
+                      fgColor: { argb: 'FFE8E8E8' }
+                    };
+                    statRow.getCell(2).border = {
+                      top: { style: 'thin' },
+                      bottom: { style: 'thin' },
+                      left: { style: 'thin' },
+                      right: { style: 'thin' }
+                    };
+                    
+                    // Total stat value
+                    statRow.getCell(3).value = stat.value;
+                    statRow.getCell(3).numFmt = stat.key === 'sum' ? '0' : '0.00';
+                    statRow.getCell(3).alignment = { horizontal: 'center' };
+                    statRow.getCell(3).fill = {
+                      type: 'pattern',
+                      pattern: 'solid',
+                      fgColor: { argb: 'FFE8E8E8' }
+                    };
+                    statRow.getCell(3).border = {
+                      top: { style: 'thin' },
+                      bottom: { style: 'thin' },
+                      left: { style: 'thin' },
+                      right: { style: 'thin' }
+                    };
+                    
+                    // Banner cut stats (calculate per cut)
+                    let col = 4;
+                    bannerCols.forEach(bannerCol => {
+                      const cutBase = cutBases[bannerCol.id] || 0;
+                      let cutStatValue: number = 0;
+                      
+                      if (cutBase > 0) {
+                        if (stat.key === 'mean') {
+                          let cutSum = 0;
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            cutSum += numVal * (numericData[valueKey]?.[bannerCol.id]?.count || 0);
+                          });
+                          cutStatValue = cutSum / cutBase;
+                        } else if (stat.key === 'sum') {
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            cutStatValue += numVal * (numericData[valueKey]?.[bannerCol.id]?.count || 0);
+                          });
+                        } else if (stat.key === 'median') {
+                          const cutValues: number[] = [];
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            const count = numericData[valueKey]?.[bannerCol.id]?.count || 0;
+                            for (let i = 0; i < count; i++) {
+                              cutValues.push(numVal);
+                            }
+                          });
+                          cutValues.sort((a, b) => a - b);
+                          cutStatValue = cutValues.length % 2 === 0
+                            ? (cutValues[cutValues.length / 2 - 1] + cutValues[cutValues.length / 2]) / 2
+                            : cutValues[Math.floor(cutValues.length / 2)];
+                        } else if (stat.key === 'mode') {
+                          let cutModeCount = -1;
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            const count = numericData[valueKey]?.[bannerCol.id]?.count || 0;
+                            if (count > cutModeCount) {
+                              cutModeCount = count;
+                              cutStatValue = numVal;
+                            }
+                          });
+                        } else if (stat.key === 'stdDev') {
+                          let cutSum = 0;
+                          let cutSumSquares = 0;
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            const count = numericData[valueKey]?.[bannerCol.id]?.count || 0;
+                            cutSum += numVal * count;
+                            cutSumSquares += numVal * numVal * count;
+                          });
+                          const cutMean = cutSum / cutBase;
+                          const cutVariance = Math.max(cutSumSquares / cutBase - cutMean * cutMean, 0);
+                          cutStatValue = Math.sqrt(cutVariance);
+                        } else if (stat.key === 'min') {
+                          cutStatValue = Infinity;
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            if ((numericData[valueKey]?.[bannerCol.id]?.count || 0) > 0 && numVal < cutStatValue) {
+                              cutStatValue = numVal;
+                            }
+                          });
+                        } else if (stat.key === 'max') {
+                          cutStatValue = -Infinity;
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            if ((numericData[valueKey]?.[bannerCol.id]?.count || 0) > 0 && numVal > cutStatValue) {
+                              cutStatValue = numVal;
+                            }
+                          });
+                        }
+                      }
+                      
+                      statRow.getCell(col).value = cutStatValue;
+                      statRow.getCell(col).numFmt = stat.key === 'sum' ? '0' : '0.00';
+                      statRow.getCell(col).alignment = { horizontal: 'center' };
+                      statRow.getCell(col).fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFE8E8E8' }
+                      };
+                      statRow.getCell(col).border = {
+                        top: { style: 'thin' },
+                        bottom: { style: 'thin' },
+                        left: { style: 'thin' },
+                        right: { style: 'thin' }
+                      };
+                      col++;
+                    });
+                  }
+                });
+              }
+            }
+            
+            tableNumber++;
+            continue;
+          }
 
           const isMultiSelectGridVariable = variable.type?.toLowerCase().includes('multi-select grid');
           const extractGridColumnCode = (): string | null => {
@@ -9380,8 +12221,19 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           const activeGridColumnCode = extractGridColumnCode();
           const activeGridColumnData = activeGridColumnCode ? (bannerTableData as any)[activeGridColumnCode] : null;
           const isMultiSelectGridColumnTable = !!activeGridColumnData && typeof activeGridColumnData === 'object';
+          
+          // Declare sampleStatements at this scope so it can be used in tableDebugInfo
+          let sampleStatements: Array<{
+            key: string;
+            label: string;
+            totalCount: number;
+            totalPercentage: number;
+            totalBase: number;
+            cutCounts: Array<{ title: string; count: number; percentage: number }>;
+          }> | undefined = undefined;
+          
           if (isMultiSelectGridColumnTable) {
-            const sampleStatements = Object.entries(activeGridColumnData || {})
+            sampleStatements = Object.entries(activeGridColumnData || {})
               .filter(([stmtKey, stmtData]) => stmtKey !== 'total' && stmtData && typeof stmtData === 'object')
               .slice(0, 5)
               .map(([stmtKey, stmtData]) => {
@@ -9405,6 +12257,50 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   cutCounts,
                 };
               });
+          }
+
+          // Record position for TOC (for regular tables)
+          // Also define tableTitle here for use in tableDebugInfo
+          let tableTitle = '';
+          if (!isNumericGridSummaryTable && !isNetSummaryTable && !isVerbatimSummary && !isSingleSelectGridIndividualTable && !isNumericQuestion) {
+            tablePositions.push({ tableNumber, tableName, rowNumber: currentRow, variable });
+            
+            // Write table title for regular tables
+            const baseQuestionNumber = getBaseQuestionNumber(variable.name);
+            
+            // For multi-select grid column tables, format as "QuestionNumber_ColumnCode (ColumnLabel)"
+            // Must match getTablesForVariable format: `${baseName}_${colCode} (${colLabel})`
+            if (isMultiSelectGridColumnTable && activeGridColumnCode && variable.codes) {
+              const columnLabel = variable.codes[activeGridColumnCode] || activeGridColumnCode;
+              tableTitle = `Table ${tableNumber}: ${baseQuestionNumber}_${activeGridColumnCode} (${columnLabel})`;
+            } else {
+              tableTitle = `Table ${tableNumber}: ${baseQuestionNumber}`;
+            }
+            
+            const titleRow = dataCutsWorksheet.getRow(currentRow++);
+            titleRow.getCell(2).value = tableTitle;
+            titleRow.getCell(2).font = { bold: true, size: 12 };
+            
+            // Question text
+            const questionRow = dataCutsWorksheet.getRow(currentRow++);
+            questionRow.getCell(2).value = variable.description || variable.name;
+            questionRow.getCell(2).font = { size: 11 };
+          } else if (isNumericGridSummaryTable) {
+            // For summary tables, tableTitle was already set above
+            const baseQuestionNumber = getBaseQuestionNumber(variable.name);
+            if (isMeanSummaryTable) {
+              tableTitle = `Table ${tableNumber}: ${baseQuestionNumber}: Mean Summary Table`;
+            } else if (isSumSummaryTable) {
+              tableTitle = `Table ${tableNumber}: ${baseQuestionNumber}: Sum Summary Table`;
+            }
+          } else {
+            // For other table types, use a generic title
+            const baseQuestionNumber = getBaseQuestionNumber(variable.name);
+            tableTitle = `Table ${tableNumber}: ${baseQuestionNumber}`;
+          }
+          
+          // Record debug info for this table
+          if (isMultiSelectGridColumnTable && sampleStatements) {
             tableDebugInfo[tableTitle] = {
               tableTitle,
               variableName: variable.name,
@@ -9413,7 +12309,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               columnCode: activeGridColumnCode || null,
               sampleStatements,
             };
-          } else if (!tableDebugInfo[tableTitle]) {
+          } else if (tableTitle && !tableDebugInfo[tableTitle]) {
             tableDebugInfo[tableTitle] = {
               tableTitle,
               variableName: variable.name,
@@ -9443,20 +12339,15 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             });
           }
 
-          // Base metadata
-          const hasNoRespondents = totalBase === 0;
-          const baseRow = dataCutsWorksheet.getRow(currentRow++);
-          baseRow.getCell(2).value = hasNoRespondents ? 'Base: no respondents' : 'Base: All Respondents';
-          baseRow.getCell(2).font = {
-            size: 8,
-            italic: true,
-            color: { argb: hasNoRespondents ? 'FFFF0000' : 'FF0000FF' }
-          };
-
-          // If no respondents, make table title and question text red
-          if (hasNoRespondents) {
-            titleRow.getCell(2).font = { bold: true, size: 12, color: { argb: 'FFFF0000' } };
-              questionRow.getCell(2).font = { size: 11, color: { argb: 'FFFF0000' } };
+          // Debug for B8: Check if we have codes to render
+          if (isB8Debug) {
+            appendStatLog('[B8] Before building headers', {
+              totalBase,
+              cutBasesCount: Object.keys(cutBases).length,
+              firstCodeDataExists: !!firstCodeData,
+              bannerTableDataKeys: Object.keys(bannerTableData),
+              isMultiSelectGridColumnTable
+            });
           }
 
           // Build 3-row header structure
@@ -9748,14 +12639,15 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             });
 
             // Calculate grid data for all statements across all columns
-            const gridData: Record<string, { total: { sum: number; base: number; mean: number }; cuts: Record<string, { sum: number; base: number; mean: number }> }> = {};
+            const gridData: Record<string, { total: { sum: number; base: number; mean: number; stdDev: number }; cuts: Record<string, { sum: number; base: number; mean: number; stdDev: number; values: number[] }> }> = {};
             let totalSumAll = 0;
             const cutSumsAll: Record<string, number> = {};
             bannerCols.forEach(col => { cutSumsAll[col.id] = 0; });
 
             statementEntries.forEach(([stmtCode]) => {
-              gridData[stmtCode] = { total: { sum: 0, base: 0, mean: 0 }, cuts: {} };
-              bannerCols.forEach(col => { gridData[stmtCode].cuts[col.id] = { sum: 0, base: 0, mean: 0 }; });
+              gridData[stmtCode] = { total: { sum: 0, base: 0, mean: 0, stdDev: 0 }, cuts: {} };
+              bannerCols.forEach(col => { gridData[stmtCode].cuts[col.id] = { sum: 0, base: 0, mean: 0, stdDev: 0, values: [] }; });
+              const totalValues: number[] = [];
 
               // Sum across all columns for this statement
               columnCodes.forEach(columnCode => {
@@ -9772,6 +12664,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   gridData[stmtCode].total.sum += numVal;
                   gridData[stmtCode].total.base++;
                   totalSumAll += numVal;
+                  totalValues.push(numVal);
 
                   // Check which banner cuts this row matches
                   bannerCols.forEach(col => {
@@ -9810,6 +12703,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                         gridData[stmtCode].cuts[col.id].sum += numVal;
                         gridData[stmtCode].cuts[col.id].base++;
                         cutSumsAll[col.id] += numVal;
+                        gridData[stmtCode].cuts[col.id].values.push(numVal);
                         break;
                       }
                     }
@@ -9817,22 +12711,88 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 });
               });
 
-              // Calculate means
+              // Calculate means and standard deviations
               if (gridData[stmtCode].total.base > 0) {
                 gridData[stmtCode].total.mean = gridData[stmtCode].total.sum / gridData[stmtCode].total.base;
+                if (totalValues.length > 1) {
+                  const variance = totalValues.reduce((acc, val) => acc + Math.pow(val - gridData[stmtCode].total.mean, 2), 0) / totalValues.length;
+                  gridData[stmtCode].total.stdDev = Math.sqrt(variance);
+                }
               }
               bannerCols.forEach(col => {
-                if (gridData[stmtCode].cuts[col.id].base > 0) {
-                  gridData[stmtCode].cuts[col.id].mean = gridData[stmtCode].cuts[col.id].sum / gridData[stmtCode].cuts[col.id].base;
+                const cutData = gridData[stmtCode].cuts[col.id];
+                if (cutData.base > 0) {
+                  cutData.mean = cutData.sum / cutData.base;
+                  if (cutData.values.length > 1) {
+                    const variance = cutData.values.reduce((acc, val) => acc + Math.pow(val - cutData.mean, 2), 0) / cutData.values.length;
+                    cutData.stdDev = Math.sqrt(variance);
+                  } else if (cutData.values.length === 1) {
+                    cutData.stdDev = 0;
+                  }
                 }
               });
+            });
+
+            // Calculate stat letters for all statements before rendering
+            const allStatLettersSummary: Record<string, Record<number, { letter: string; is95: boolean }[]>> = {};
+
+            statementEntries.forEach(([stmtCode]) => {
+              const data = gridData[stmtCode];
+              if (!data) return;
+
+              const codeStatLetters: Record<number, { letter: string; is95: boolean }[]> = {};
+
+              bannerCols.forEach((thisCol, colIdx) => {
+                // For sum summary: use percentage values for testing
+                // For mean summary: use mean values for testing
+                const thisValue = isSumSummaryTable
+                  ? (cutSumsAll[thisCol.id] > 0 ? (data.cuts[thisCol.id].sum / cutSumsAll[thisCol.id]) * 100 : 0)
+                  : data.cuts[thisCol.id].mean;
+                const thisBase = data.cuts[thisCol.id].base;
+                const thisStdDev = isMeanSummaryTable ? data.cuts[thisCol.id].stdDev : 0;
+                const statLettersForCol: { letter: string; is95: boolean }[] = [];
+                const confidenceLevel = bannerGroup.confidenceLevel || 95;
+
+                // Within-group comparisons ONLY
+                bannerCols.forEach((otherCol, otherIdx) => {
+                  if (otherIdx === colIdx) return;
+                  if (otherCol.groupIdx !== thisCol.groupIdx) return;
+
+                  const otherValue = isSumSummaryTable
+                    ? (cutSumsAll[otherCol.id] > 0 ? (data.cuts[otherCol.id].sum / cutSumsAll[otherCol.id]) * 100 : 0)
+                    : data.cuts[otherCol.id].mean;
+                  const otherBase = data.cuts[otherCol.id].base;
+                  const otherStdDev = isMeanSummaryTable ? data.cuts[otherCol.id].stdDev : 0;
+
+                  if (thisValue > otherValue) {
+                    // Use appropriate statistical test based on table type
+                    const { is95, is90 } = isMeanSummaryTable
+                      ? isSignificantForMeans(thisValue, thisBase, thisStdDev, otherValue, otherBase, otherStdDev, confidenceLevel)
+                      : isSignificant(thisValue, thisBase, otherValue, otherBase);
+
+                    if (significanceLevel === 95) {
+                      if (is95) statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                    } else {
+                      if (is95) {
+                        statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                      } else if (is90) {
+                        statLettersForCol.push({ letter: String.fromCharCode(97 + otherIdx), is95: false });
+                      }
+                    }
+                  }
+                });
+
+                codeStatLetters[colIdx] = statLettersForCol;
+              });
+
+              allStatLettersSummary[stmtCode] = codeStatLetters;
             });
 
             // Render summary table rows
             statementEntries.forEach(([stmtCode, stmtLabel]) => {
               const data = gridData[stmtCode];
               if (!data) return;
-              
+
               if (isSumSummaryTable) {
                 // Sum Summary Table: Show sum and percentage rows
                 const sumRow = dataCutsWorksheet.getRow(currentRow++);
@@ -9882,9 +12842,11 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
                 // Total percentage
                 const totalPct = totalSumAll > 0 ? (data.total.sum / totalSumAll) * 100 : 0;
-                pctRow.getCell(3).value = formatPercentage(totalPct);
-                pctRow.getCell(3).alignment = { horizontal: 'center' };
-                pctRow.getCell(3).border = {
+                const totalPctCell = pctRow.getCell(3);
+                totalPctCell.value = totalPct / 100; // Store as decimal for percentage format
+                totalPctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+                totalPctCell.alignment = { horizontal: 'center' };
+                totalPctCell.border = {
                   top: { style: 'thin' },
                   bottom: { style: 'thin' },
                   left: { style: 'thin' },
@@ -9893,12 +12855,26 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
                 // Banner cut percentages
                 col = 4;
-                bannerCols.forEach(bannerCol => {
+                bannerCols.forEach((bannerCol, colIdx) => {
                   const cutTotalSum = cutSumsAll[bannerCol.id] || 0;
                   const cutPct = cutTotalSum > 0 ? (data.cuts[bannerCol.id].sum / cutTotalSum) * 100 : 0;
-                  pctRow.getCell(col).value = formatPercentage(cutPct);
-                  pctRow.getCell(col).alignment = { horizontal: 'center' };
-                  pctRow.getCell(col).border = {
+                  const cutPctCell = pctRow.getCell(col);
+                  cutPctCell.value = cutPct / 100; // Store as decimal for percentage format
+                  cutPctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+                  cutPctCell.alignment = { horizontal: 'center' };
+
+                  // Add blue highlighting if this cell has stat letters
+                  const statLettersForCode = allStatLettersSummary[stmtCode] || {};
+                  const statLetters = statLettersForCode[colIdx] || [];
+                  if (statLetters.length > 0) {
+                    cutPctCell.fill = {
+                      type: 'pattern',
+                      pattern: 'solid',
+                      fgColor: { argb: 'FFE6F3FF' }
+                    };
+                  }
+
+                  cutPctCell.border = {
                     top: { style: 'thin' },
                     bottom: { style: 'thin' },
                     left: { style: 'thin' },
@@ -9906,6 +12882,52 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   };
                   col++;
                 });
+
+                // Stat letters row
+                const statLettersForCode = allStatLettersSummary[stmtCode] || {};
+                const hasAnyStatLettersForCode = Object.values(statLettersForCode).some(arr => arr && arr.length > 0);
+
+                if (hasAnyStatLettersForCode) {
+                  const statRow = dataCutsWorksheet.getRow(currentRow++);
+                  statRow.getCell(2).value = '';
+                  statRow.getCell(2).border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
+
+                  statRow.getCell(3).value = '';
+                  statRow.getCell(3).border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
+
+                  col = 4;
+                  bannerCols.forEach((bannerCol, colIdx) => {
+                    const statLetters = statLettersForCode[colIdx] || [];
+                    const statLettersStr = statLetters.map(s => s.letter).join('');
+                    const statCell = statRow.getCell(col);
+                    statCell.value = statLettersStr;
+                    statCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    if (statLetters.length > 0) {
+                      statCell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFE6F3FF' }
+                      };
+                    }
+                    statCell.border = {
+                      top: { style: 'thin' },
+                      bottom: { style: 'thin' },
+                      left: { style: 'thin' },
+                      right: { style: 'thin' }
+                    };
+                    col++;
+                  });
+                }
               } else if (isMeanSummaryTable) {
                 // Mean Summary Table: Show single row with mean
                 const meanRow = dataCutsWorksheet.getRow(currentRow++);
@@ -9930,11 +12952,24 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
                 // Banner cut means
                 let col = 4;
-                bannerCols.forEach(bannerCol => {
-                  meanRow.getCell(col).value = data.cuts[bannerCol.id].mean;
-                  meanRow.getCell(col).numFmt = '0.00';
-                  meanRow.getCell(col).alignment = { horizontal: 'center' };
-                  meanRow.getCell(col).border = {
+                bannerCols.forEach((bannerCol, colIdx) => {
+                  const meanCell = meanRow.getCell(col);
+                  meanCell.value = data.cuts[bannerCol.id].mean;
+                  meanCell.numFmt = '0.00';
+                  meanCell.alignment = { horizontal: 'center' };
+
+                  // Add blue highlighting if this cell has stat letters
+                  const statLettersForCode = allStatLettersSummary[stmtCode] || {};
+                  const statLetters = statLettersForCode[colIdx] || [];
+                  if (statLetters.length > 0) {
+                    meanCell.fill = {
+                      type: 'pattern',
+                      pattern: 'solid',
+                      fgColor: { argb: 'FFE6F3FF' }
+                    };
+                  }
+
+                  meanCell.border = {
                     top: { style: 'thin' },
                     bottom: { style: 'thin' },
                     left: { style: 'thin' },
@@ -9942,8 +12977,88 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   };
                   col++;
                 });
+
+                // Stat letters row
+                const statLettersForCode = allStatLettersSummary[stmtCode] || {};
+                const hasAnyStatLettersForCode = Object.values(statLettersForCode).some(arr => arr && arr.length > 0);
+
+                if (hasAnyStatLettersForCode) {
+                  const statRow = dataCutsWorksheet.getRow(currentRow++);
+                  statRow.getCell(2).value = '';
+                  statRow.getCell(2).border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
+
+                  statRow.getCell(3).value = '';
+                  statRow.getCell(3).border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
+
+                  col = 4;
+                  bannerCols.forEach((bannerCol, colIdx) => {
+                    const statLetters = statLettersForCode[colIdx] || [];
+                    const statLettersStr = statLetters.map(s => s.letter).join('');
+                    const statCell = statRow.getCell(col);
+                    statCell.value = statLettersStr;
+                    statCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    if (statLetters.length > 0) {
+                      statCell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFE6F3FF' }
+                      };
+                    }
+                    statCell.border = {
+                      top: { style: 'thin' },
+                      bottom: { style: 'thin' },
+                      left: { style: 'thin' },
+                      right: { style: 'thin' }
+                    };
+                    col++;
+                  });
+                }
               }
             });
+
+            // Add comparison groups details section
+            // Build comparison groups string based on banner groups
+            const groupMapSummary = new Map<number, number[]>();
+            bannerCols.forEach((col, idx) => {
+              const groupIdx = col.groupIdx;
+              if (!groupMapSummary.has(groupIdx)) {
+                groupMapSummary.set(groupIdx, []);
+              }
+              groupMapSummary.get(groupIdx)!.push(idx);
+            });
+
+            const comparisonGroupsSummary = Array.from(groupMapSummary.values())
+              .map(colIndices =>
+                colIndices.map(idx => String.fromCharCode(65 + idx)).join('')
+              )
+              .join('/');
+
+            // Comparison groups row
+            const compGroupsRowSummary = dataCutsWorksheet.getRow(currentRow++);
+            compGroupsRowSummary.getCell(2).value = `Comparison Groups: ${comparisonGroupsSummary}`;
+            compGroupsRowSummary.getCell(2).font = { size: 9, italic: true };
+
+            // Uppercase explanation row
+            const upperRowSummary = dataCutsWorksheet.getRow(currentRow++);
+            upperRowSummary.getCell(2).value = 'Uppercase letters indicate significance at the 95% level.';
+            upperRowSummary.getCell(2).font = { size: 9, italic: true };
+
+            // Lowercase explanation row (only if significance level is 90)
+            if (significanceLevel === 90) {
+              const lowerRowSummary = dataCutsWorksheet.getRow(currentRow++);
+              lowerRowSummary.getCell(2).value = 'Lowercase letters indicate significance at the 90% level.';
+              lowerRowSummary.getCell(2).font = { size: 9, italic: true };
+            }
 
             // Skip regular response code processing for summary tables
             tableNumber++;
@@ -10102,10 +13217,12 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   };
                   
                   // Total percentage
-                  const totalPct = totalBase > 0 ? (freqData.total / totalBase) * 100 : 0;
-                  pctRow.getCell(3).value = formatPercentage(totalPct);
-                  pctRow.getCell(3).alignment = { horizontal: 'center' };
-                  pctRow.getCell(3).border = {
+                  const totalPct = valueData['total']?.percentage || 0;
+                  const totalPctCell = pctRow.getCell(3);
+                  totalPctCell.value = totalPct / 100; // Store as decimal for percentage format
+                  totalPctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+                  totalPctCell.alignment = { horizontal: 'center' };
+                  totalPctCell.border = {
                     top: { style: 'thin' },
                     bottom: { style: 'thin' },
                     left: { style: 'thin' },
@@ -10117,9 +13234,11 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   bannerCols.forEach(bannerCol => {
                     const cutBase = cutBases[bannerCol.id] || 0;
                     const cutPct = cutBase > 0 ? ((freqData.cuts[bannerCol.id] || 0) / cutBase) * 100 : 0;
-                    pctRow.getCell(col).value = formatPercentage(cutPct);
-                    pctRow.getCell(col).alignment = { horizontal: 'center' };
-                    pctRow.getCell(col).border = {
+                    const cutPctCell = pctRow.getCell(col);
+                    cutPctCell.value = cutPct / 100; // Store as decimal for percentage format
+                    cutPctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+                    cutPctCell.alignment = { horizontal: 'center' };
+                    cutPctCell.border = {
                       top: { style: 'thin' },
                       bottom: { style: 'thin' },
                       left: { style: 'thin' },
@@ -10323,13 +13442,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             }
           }
 
-          // Check if this is a single select grid individual table
-          const isSingleSelectGridIndividualTable = variable.type?.toLowerCase().includes('single select grid') && 
-            variable.statements && 
-            Object.keys(variable.statements).length > 0 &&
-            !tableName.endsWith('_MeanSummaryTable');
-          
-          // Handle single select grid individual tables
+          // Handle single select grid individual tables (isSingleSelectGridIndividualTable already declared earlier)
           if (isSingleSelectGridIndividualTable) {
             // Extract statement text from table name (e.g., "S14_Statement 1" -> "Statement 1")
             const baseName = variable.name;
@@ -10338,9 +13451,12 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             let matchedStmtText: string | null = null;
             
             // Find the statement that matches the table name
+            // Table names use format: baseName_stmtCode (e.g., "S14_r1") to match Tab Specs UI
+            // Also try matching with statement text format (e.g., "S14_Statement 1") for backward compatibility
             Object.entries(variable.statements).forEach(([stmtCode, stmtText]) => {
-              const expectedTableName = `${baseName}_${stmtText}`;
-              if (tableName === expectedTableName) {
+              const expectedTableNameByCode = `${baseName}_${stmtCode}`;
+              const expectedTableNameByText = `${baseName}_${stmtText}`;
+              if (tableName === expectedTableNameByCode || tableName === expectedTableNameByText) {
                 matchedStmtCode = stmtCode;
                 matchedStmtText = String(stmtText);
               }
@@ -10503,7 +13619,129 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   }
                 });
               }
-              
+
+              // Calculate stat letters for all response options
+              const allStatLettersDataCuts: Record<string, Record<number, { letter: string; is95: boolean }[]>> = {};
+
+              responseOptionValues.forEach((respOpt) => {
+                const freqData = frequencyMap[respOpt.code] || { total: 0, cuts: {} };
+                const totalPct = valueData['total']?.percentage || 0;
+
+                // Set debug context
+                currentStatDebugVar = variable.name;
+                currentStatDebugCode = `${normalizedStmtCode}_${respOpt.code}`;
+
+                // Only debug first code of each statement AND only for S6
+                const isFirstCode = responseOptionValues[0]?.code === respOpt.code;
+                const isS6 = variable.name === 'S6';
+                if (shouldDebugStats() && isFirstCode && isS6) {
+                  appendStatLog('🚀 STATEMENT START (Data&Cuts SSG)', {
+                    variable: variable.name,
+                    statement: normalizedStmtCode,
+                    totalBase
+                  });
+
+                  // Show cutBases for debugging
+                  const cutBasesInfo: Record<string, any> = {};
+                  bannerCols.forEach((col, idx) => {
+                    cutBasesInfo[`col${idx}_${col.title}`] = cutBases[col.id] || 0;
+                  });
+                  appendStatLog('📊 cutBases (Data&Cuts SSG)', cutBasesInfo);
+                }
+
+                const codeStatLetters: Record<number, { letter: string; is95: boolean }[]> = {};
+
+                bannerCols.forEach((col, colIdx) => {
+                  const cutCount = freqData.cuts[col.id] || 0;
+                  const cutBase = cutBases[col.id] || 0;
+                  const cutPct = cutBase > 0 ? (cutCount / cutBase) * 100 : 0;
+
+                  const statLettersForCol: { letter: string; is95: boolean }[] = [];
+                  const thisCol = bannerCols[colIdx];
+
+                  // Compare against other columns in the same group
+                  let comparisonsMade = 0;
+                  let comparisonsSkippedDiffGroup = 0;
+
+                  bannerCols.forEach((otherCol, otherIdx) => {
+                    if (otherIdx === colIdx) return;
+                    if (otherCol.groupIdx !== thisCol.groupIdx) {
+                      comparisonsSkippedDiffGroup++;
+                      return;
+                    }
+
+                    const otherCount = freqData.cuts[otherCol.id] || 0;
+                    const otherBase = cutBases[otherCol.id] || 0;
+                    const otherPct = otherBase > 0 ? (otherCount / otherBase) * 100 : 0;
+
+                    if (cutPct > otherPct) {
+                      comparisonsMade++;
+                      const { is95, is90 } = isSignificant(cutPct, cutBase, otherPct, otherBase);
+
+                      if (significanceLevel === 95) {
+                        if (is95) statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                      } else {
+                        if (is95) {
+                          statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                        } else if (is90) {
+                          statLettersForCol.push({ letter: String.fromCharCode(97 + otherIdx), is95: false });
+                        }
+                      }
+                    }
+                  });
+
+                  // Fallback: compare across all cuts if no letters found
+                  if (statLettersForCol.length === 0) {
+                    bannerCols.forEach((otherCol, otherIdx) => {
+                      if (otherIdx === colIdx) return;
+
+                      const otherCount = freqData.cuts[otherCol.id] || 0;
+                      const otherBase = cutBases[otherCol.id] || 0;
+                      const otherPct = otherBase > 0 ? (otherCount / otherBase) * 100 : 0;
+
+                      if (cutPct > otherPct) {
+                        const { is95, is90 } = isSignificant(cutPct, cutBase, otherPct, otherBase);
+
+                        if (significanceLevel === 95) {
+                          if (is95) statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                        } else {
+                          if (is95) {
+                            statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                          } else if (is90) {
+                            statLettersForCol.push({ letter: String.fromCharCode(97 + otherIdx), is95: false });
+                          }
+                        }
+                      }
+                    });
+                  }
+
+                  codeStatLetters[colIdx] = statLettersForCol;
+                });
+
+                if (shouldDebugStats() && isFirstCode && isS6) {
+                  const letterStrings: Record<string, string> = {};
+                  let hasAnyLetters = false;
+                  Object.keys(codeStatLetters).forEach(k => {
+                    const letters = codeStatLetters[Number(k)] || [];
+                    const letterStr = letters.map(l => l.letter).join('');
+                    if (letterStr) {
+                      letterStrings[`col${k}_${bannerCols[Number(k)]?.title}`] = letterStr;
+                      hasAnyLetters = true;
+                    }
+                  });
+                  if (hasAnyLetters) {
+                    appendStatLog('✅ Stat letters found (Data&Cuts SSG)', letterStrings);
+                  } else {
+                    appendStatLog('❌ NO stat letters (Data&Cuts SSG)', {
+                      statement: normalizedStmtCode,
+                      code: respOpt.code
+                    });
+                  }
+                }
+
+                allStatLettersDataCuts[respOpt.code] = codeStatLetters;
+              });
+
               // Add Base (total responding) row BEFORE rendering response options
               const STATS_GREY_SELECT_GRID = 'FFE8E8E8'; // Lighter grey for base and stats rows
               const baseRespondingRow = dataCutsWorksheet.getRow(currentRow++);
@@ -10606,10 +13844,12 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 };
                 
                 // Total percentage
-                const totalPct = totalBase > 0 ? (freqData.total / totalBase) * 100 : 0;
-                pctRow.getCell(3).value = `${totalPct.toFixed(1)}%`;
-                pctRow.getCell(3).alignment = { horizontal: 'center' };
-                pctRow.getCell(3).border = {
+                const totalPct = valueData['total']?.percentage || 0;
+                const totalPctCell = pctRow.getCell(3);
+                totalPctCell.value = totalPct / 100; // Store as decimal for percentage format
+                totalPctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+                totalPctCell.alignment = { horizontal: 'center' };
+                totalPctCell.border = {
                   top: { style: 'thin' },
                   bottom: { style: 'thin' },
                   left: { style: 'thin' },
@@ -10621,9 +13861,11 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 bannerCols.forEach(bannerCol => {
                   const cutBase = cutBases[bannerCol.id] || 0;
                   const cutPct = cutBase > 0 ? ((freqData.cuts[bannerCol.id] || 0) / cutBase) * 100 : 0;
-                  pctRow.getCell(col).value = `${cutPct.toFixed(1)}%`;
-                  pctRow.getCell(col).alignment = { horizontal: 'center' };
-                  pctRow.getCell(col).border = {
+                  const cutPctCell = pctRow.getCell(col);
+                  cutPctCell.value = cutPct / 100; // Store as decimal for percentage format
+                  cutPctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+                  cutPctCell.alignment = { horizontal: 'center' };
+                  cutPctCell.border = {
                     top: { style: 'thin' },
                     bottom: { style: 'thin' },
                     left: { style: 'thin' },
@@ -10631,6 +13873,55 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   };
                   col++;
                 });
+
+                // Stat letters row (if any stat letters exist for this response option)
+                const statLettersForCode = allStatLettersDataCuts[respOpt.code] || {};
+                const hasAnyStatLettersForCode = Object.values(statLettersForCode).some(arr => arr && arr.length > 0);
+
+                if (hasAnyStatLettersForCode) {
+                  const statRow = dataCutsWorksheet.getRow(currentRow++);
+                  statRow.getCell(2).value = '';
+                  statRow.getCell(2).border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
+
+                  // Total column - no stat letters for total
+                  statRow.getCell(3).value = '';
+                  statRow.getCell(3).border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
+
+                  // Banner cut stat letters
+                  col = 4;
+                  bannerCols.forEach((bannerCol, colIdx) => {
+                    const statLetters = statLettersForCode[colIdx] || [];
+                    const statLettersStr = statLetters.map(s => s.letter).join('');
+                    const statCell = statRow.getCell(col);
+                    statCell.value = statLettersStr;
+                    statCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    statCell.font = { color: { argb: 'FF0000FF' }, bold: true };
+                    if (statLetters.length > 0) {
+                      statCell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFE6F3FF' }
+                      };
+                    }
+                    statCell.border = {
+                      top: { style: 'thin' },
+                      bottom: { style: 'thin' },
+                      left: { style: 'thin' },
+                      right: { style: 'thin' }
+                    };
+                    col++;
+                  });
+                }
               });
               
               // Update totalBase for display
@@ -10728,14 +14019,16 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                     
                     // Total percentage
                     const totalPct = totalBase > 0 ? (netTotalCount / totalBase) * 100 : 0;
-                    pctRow.getCell(3).value = `${totalPct.toFixed(1)}%`;
-                    pctRow.getCell(3).alignment = { horizontal: 'center' };
-                    pctRow.getCell(3).fill = {
+                    const totalPctCell = pctRow.getCell(3);
+                    totalPctCell.value = totalPct / 100; // Store as decimal for percentage format
+                    totalPctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+                    totalPctCell.alignment = { horizontal: 'center' };
+                    totalPctCell.fill = {
                       type: 'pattern',
                       pattern: 'solid',
                       fgColor: { argb: STATS_GREY_SELECT_GRID }
                     };
-                    pctRow.getCell(3).border = {
+                    totalPctCell.border = {
                       top: { style: 'thin' },
                       bottom: { style: 'thin' },
                       left: { style: 'thin' },
@@ -10747,9 +14040,11 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                     bannerCols.forEach(bannerCol => {
                       const cutBase = cutBases[bannerCol.id] || 0;
                       const cutPct = cutBase > 0 ? (netCutCounts[bannerCol.id] / cutBase) * 100 : 0;
-                      pctRow.getCell(col).value = `${cutPct.toFixed(1)}%`;
-                      pctRow.getCell(col).alignment = { horizontal: 'center' };
-                      pctRow.getCell(col).fill = {
+                      const cutPctCell = pctRow.getCell(col);
+                      cutPctCell.value = cutPct / 100; // Store as decimal for percentage format
+                      cutPctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+                      cutPctCell.alignment = { horizontal: 'center' };
+                      cutPctCell.fill = {
                         type: 'pattern',
                         pattern: 'solid',
                         fgColor: { argb: STATS_GREY_SELECT_GRID }
@@ -10773,44 +14068,29 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           }
 
           // Check if this is an open end question - use frequency distribution from raw data
-          const isOpenEndType = variable.type?.toLowerCase().includes('open end') && 
+          const isOpenEndType = variable.type?.toLowerCase().includes('open end') &&
                                 !variable.type?.toLowerCase().includes('list');
-          
+
           // For open end questions, calculate frequency distribution from raw data
           if (isOpenEndType) {
             const freqData = calculateFrequencyData(variable, tableName);
             if (freqData && freqData.codes.length > 0) {
-              // Render frequency distribution table for open end
+              // Pre-calculate all counts, bases, and percentages for stat testing
+              const openEndData: Record<string, { count: number; base: number; pct: number; cutData: Record<string, { count: number; base: number; pct: number }> }> = {};
+
               freqData.codes.forEach((codeItem) => {
                 const code = codeItem.code;
                 const codeLabel = codeItem.text;
-                const frequency = freqData.frequencyMap[code] || 0;
-                const percentage = freqData.totalCount > 0 ? (frequency / freqData.totalCount) * 100 : 0;
-                
-                // Count row
-                const countRow = dataCutsWorksheet.getRow(currentRow++);
-                countRow.getCell(2).value = codeLabel;
-                countRow.getCell(2).border = {
-                  top: { style: 'thin' },
-                  bottom: { style: 'thin' },
-                  left: { style: 'thin' },
-                  right: { style: 'thin' }
+
+                openEndData[code] = {
+                  count: freqData.frequencyMap[code] || 0,
+                  base: freqData.totalCount,
+                  pct: freqData.totalCount > 0 ? ((freqData.frequencyMap[code] || 0) / freqData.totalCount) * 100 : 0,
+                  cutData: {}
                 };
-                
-                // Total count
-                countRow.getCell(3).value = frequency;
-                countRow.getCell(3).alignment = { horizontal: 'center' };
-                countRow.getCell(3).border = {
-                  top: { style: 'thin' },
-                  bottom: { style: 'thin' },
-                  left: { style: 'thin' },
-                  right: { style: 'thin' }
-                };
-                
-                // Banner cut counts - calculate from raw data
-                let col = 4;
+
+                // Calculate cut data for each banner column
                 bannerCols.forEach(bannerCol => {
-                  // Find the cut from banner group
                   let cut: any = null;
                   if (bannerGroup.groups) {
                     for (const g of bannerGroup.groups) {
@@ -10821,92 +14101,10 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                       }
                     }
                   }
-                  
+
                   let cutCount = 0;
-                  if (cut && fullRawData.rows) {
-                    const cutColHeader = getColumnHeader(cut.variableName);
-                    if (cutColHeader) {
-                      fullRawData.rows.forEach((row: any) => {
-                        const value = row[getColumnHeader(variable.name) || ''];
-                        if (value !== null && value !== undefined && value !== '') {
-                          const strValue = String(value).trim();
-                          if (strValue === code || strValue === codeLabel) {
-                            // Check if row matches this banner cut
-                            const bannerVal = row[cutColHeader];
-                            if (bannerVal !== null && bannerVal !== undefined && bannerVal !== '') {
-                              const bannerValStr = String(bannerVal).trim();
-                              const numBannerVal = Number(bannerValStr);
-                              const codes = cut.codes || [];
-                              for (const cutCode of codes) {
-                                let matches = false;
-                                if (bannerValStr === cutCode) matches = true;
-                                else if (!isNaN(numBannerVal) && String(numBannerVal) === cutCode) matches = true;
-                                else {
-                                  const codeNoC = cutCode.replace(/^c/i, '');
-                                  if (bannerValStr === codeNoC || (!isNaN(numBannerVal) && !isNaN(Number(codeNoC)) && numBannerVal === Number(codeNoC))) {
-                                    matches = true;
-                                  }
-                                }
-                                if (matches) {
-                                  cutCount++;
-                                  break;
-                                }
-                              }
-                            }
-                          }
-                        }
-                      });
-                    }
-                  }
-                  
-                  countRow.getCell(col).value = cutCount;
-                  countRow.getCell(col).alignment = { horizontal: 'center' };
-                  countRow.getCell(col).border = {
-                    top: { style: 'thin' },
-                    bottom: { style: 'thin' },
-                    left: { style: 'thin' },
-                    right: { style: 'thin' }
-                  };
-                  col++;
-                });
-                
-                // Percentage row
-                const pctRow = dataCutsWorksheet.getRow(currentRow++);
-                pctRow.getCell(2).value = '';
-                pctRow.getCell(2).border = {
-                  top: { style: 'thin' },
-                  bottom: { style: 'thin' },
-                  left: { style: 'thin' },
-                  right: { style: 'thin' }
-                };
-                
-                // Total percentage
-                pctRow.getCell(3).value = `${percentage.toFixed(1)}%`;
-                pctRow.getCell(3).alignment = { horizontal: 'center' };
-                pctRow.getCell(3).border = {
-                  top: { style: 'thin' },
-                  bottom: { style: 'thin' },
-                  left: { style: 'thin' },
-                  right: { style: 'thin' }
-                };
-                
-                // Banner cut percentages
-                col = 4;
-                bannerCols.forEach(bannerCol => {
-                  // Calculate cut base for percentage
                   let cutBase = 0;
-                  let cutCount = 0;
-                  let cut: any = null;
-                  if (bannerGroup.groups) {
-                    for (const g of bannerGroup.groups) {
-                      const foundCut = g.cuts.find((c: any) => c.id === bannerCol.id);
-                      if (foundCut) {
-                        cut = foundCut;
-                        break;
-                      }
-                    }
-                  }
-                  
+
                   if (cut && fullRawData.rows) {
                     const cutColHeader = getColumnHeader(cut.variableName);
                     const varColHeader = getColumnHeader(variable.name);
@@ -10943,11 +14141,103 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                       });
                     }
                   }
-                  
-                  const cutPct = cutBase > 0 ? (cutCount / cutBase) * 100 : 0;
-                  pctRow.getCell(col).value = `${cutPct.toFixed(1)}%`;
-                  pctRow.getCell(col).alignment = { horizontal: 'center' };
-                  pctRow.getCell(col).border = {
+
+                  openEndData[code].cutData[bannerCol.id] = {
+                    count: cutCount,
+                    base: cutBase,
+                    pct: cutBase > 0 ? (cutCount / cutBase) * 100 : 0
+                  };
+                });
+              });
+
+              // Calculate stat letters for all codes
+              const allStatLettersOpenEnd: Record<string, Record<number, { letter: string; is95: boolean }[]>> = {};
+
+              freqData.codes.forEach((codeItem) => {
+                const code = codeItem.code;
+                const codeStatLetters: Record<number, { letter: string; is95: boolean }[]> = {};
+
+                bannerCols.forEach((thisCol, colIdx) => {
+                  const thisPct = openEndData[code].cutData[thisCol.id]?.pct || 0;
+                  const thisBase = openEndData[code].cutData[thisCol.id]?.base || 0;
+                  const statLettersForCol: { letter: string; is95: boolean }[] = [];
+
+                  // Within-group comparisons ONLY
+                  bannerCols.forEach((otherCol, otherIdx) => {
+                    if (otherIdx === colIdx) return;
+                    if (otherCol.groupIdx !== thisCol.groupIdx) return;
+
+                    const otherPct = openEndData[code].cutData[otherCol.id]?.pct || 0;
+                    const otherBase = openEndData[code].cutData[otherCol.id]?.base || 0;
+
+                    if (thisPct > otherPct) {
+                      const { is95, is90 } = isSignificant(thisPct, thisBase, otherPct, otherBase);
+
+                      if (significanceLevel === 95) {
+                        if (is95) statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                      } else {
+                        if (is95) {
+                          statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                        } else if (is90) {
+                          statLettersForCol.push({ letter: String.fromCharCode(97 + otherIdx), is95: false });
+                        }
+                      }
+                    }
+                  });
+
+                  codeStatLetters[colIdx] = statLettersForCol;
+                });
+
+                allStatLettersOpenEnd[code] = codeStatLetters;
+              });
+
+              // Render frequency distribution table for open end
+              freqData.codes.forEach((codeItem) => {
+                const code = codeItem.code;
+                const codeLabel = codeItem.text;
+                const frequency = freqData.frequencyMap[code] || 0;
+                const percentage = freqData.totalCount > 0 ? (frequency / freqData.totalCount) * 100 : 0;
+                
+                // Count row
+                const countRow = dataCutsWorksheet.getRow(currentRow++);
+                countRow.getCell(2).value = codeLabel;
+                countRow.getCell(2).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                
+                // Total count
+                countRow.getCell(3).value = frequency;
+                countRow.getCell(3).alignment = { horizontal: 'center' };
+                countRow.getCell(3).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                
+                // Banner cut counts - use pre-calculated data
+                let col = 4;
+                bannerCols.forEach((bannerCol, colIdx) => {
+                  const cutCount = openEndData[code].cutData[bannerCol.id]?.count || 0;
+                  const countCell = countRow.getCell(col);
+                  countCell.value = cutCount;
+                  countCell.alignment = { horizontal: 'center' };
+
+                  // Add blue highlighting if this cell has stat letters
+                  const statLettersForCode = allStatLettersOpenEnd[code] || {};
+                  const statLetters = statLettersForCode[colIdx] || [];
+                  if (statLetters.length > 0) {
+                    countCell.fill = {
+                      type: 'pattern',
+                      pattern: 'solid',
+                      fgColor: { argb: 'FFE6F3FF' }
+                    };
+                  }
+
+                  countCell.border = {
                     top: { style: 'thin' },
                     bottom: { style: 'thin' },
                     left: { style: 'thin' },
@@ -10955,15 +14245,670 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   };
                   col++;
                 });
+                
+                // Percentage row
+                const pctRow = dataCutsWorksheet.getRow(currentRow++);
+                pctRow.getCell(2).value = '';
+                pctRow.getCell(2).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                
+                // Total percentage
+                const totalPctCell = pctRow.getCell(3);
+                totalPctCell.value = percentage / 100; // Store as decimal for percentage format
+                totalPctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+                totalPctCell.alignment = { horizontal: 'center' };
+                totalPctCell.border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                
+                // Banner cut percentages - use pre-calculated data
+                col = 4;
+                bannerCols.forEach((bannerCol, colIdx) => {
+                  const cutPct = openEndData[code].cutData[bannerCol.id]?.pct || 0;
+                  const cutPctCell = pctRow.getCell(col);
+                  cutPctCell.value = cutPct / 100; // Store as decimal for percentage format
+                  cutPctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+                  cutPctCell.alignment = { horizontal: 'center' };
+
+                  // Add blue highlighting if this cell has stat letters
+                  const statLettersForCode = allStatLettersOpenEnd[code] || {};
+                  const statLetters = statLettersForCode[colIdx] || [];
+                  if (statLetters.length > 0) {
+                    cutPctCell.fill = {
+                      type: 'pattern',
+                      pattern: 'solid',
+                      fgColor: { argb: 'FFE6F3FF' }
+                    };
+                  }
+
+                  cutPctCell.border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
+                  col++;
+                });
+
+                // Stat letters row (if any stat letters exist for this code)
+                const statLettersForCode = allStatLettersOpenEnd[code] || {};
+                const hasAnyStatLettersForCode = Object.values(statLettersForCode).some(arr => arr && arr.length > 0);
+
+                if (hasAnyStatLettersForCode) {
+                  const statRow = dataCutsWorksheet.getRow(currentRow++);
+                  statRow.getCell(2).value = '';
+                  statRow.getCell(2).border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
+
+                  // Total column - no stat letters for total
+                  statRow.getCell(3).value = '';
+                  statRow.getCell(3).border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
+
+                  // Banner cut stat letters
+                  col = 4;
+                  bannerCols.forEach((bannerCol, colIdx) => {
+                    const statLetters = statLettersForCode[colIdx] || [];
+                    const statLettersStr = statLetters.map(s => s.letter).join('');
+                    const statCell = statRow.getCell(col);
+                    statCell.value = statLettersStr;
+                    statCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    if (statLetters.length > 0) {
+                      statCell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFE6F3FF' }
+                      };
+                    }
+                    statCell.border = {
+                      top: { style: 'thin' },
+                      bottom: { style: 'thin' },
+                      left: { style: 'thin' },
+                      right: { style: 'thin' }
+                    };
+                    col++;
+                  });
+                }
               });
-              
+
+              // Add comparison groups details section
+              // Build comparison groups string based on banner groups
+              const groupMapOpenEnd = new Map<number, number[]>();
+              bannerCols.forEach((col, idx) => {
+                const groupIdx = col.groupIdx;
+                if (!groupMapOpenEnd.has(groupIdx)) {
+                  groupMapOpenEnd.set(groupIdx, []);
+                }
+                groupMapOpenEnd.get(groupIdx)!.push(idx);
+              });
+
+              const comparisonGroupsOpenEnd = Array.from(groupMapOpenEnd.values())
+                .map(colIndices =>
+                  colIndices.map(idx => String.fromCharCode(65 + idx)).join('')
+                )
+                .join('/');
+
+              // Comparison groups row
+              const compGroupsRowOpenEnd = dataCutsWorksheet.getRow(currentRow++);
+              compGroupsRowOpenEnd.getCell(2).value = `Comparison Groups: ${comparisonGroupsOpenEnd}`;
+              compGroupsRowOpenEnd.getCell(2).font = { size: 9, italic: true };
+
+              // Uppercase explanation row
+              const upperRowOpenEnd = dataCutsWorksheet.getRow(currentRow++);
+              upperRowOpenEnd.getCell(2).value = 'Uppercase letters indicate significance at the 95% level.';
+              upperRowOpenEnd.getCell(2).font = { size: 9, italic: true };
+
+              // Lowercase explanation row (only if significance level is 90)
+              if (significanceLevel === 90) {
+                const lowerRowOpenEnd = dataCutsWorksheet.getRow(currentRow++);
+                lowerRowOpenEnd.getCell(2).value = 'Lowercase letters indicate significance at the 90% level.';
+                lowerRowOpenEnd.getCell(2).font = { size: 9, italic: true };
+              }
+
               // Skip regular response code processing for open end questions
               tableNumber++;
               continue;
             }
           }
 
+          // Check if this is a regular numeric question (not a grid)
+          // Handle numeric questions - create frequency distribution table
+          if (isNumericQuestion && tableName === variable.name) {
+            if (isB8Debug) {
+              appendStatLog('[B8] Entering numeric question handling block (third location)', { tableName, variable: variable.name });
+            }
+            // Find the column header for this numeric variable
+            // Check base variable name first (e.g., "S9" or "QS9")
+            let numericColHeader = getColumnHeader(variable.name);
+            
+            // If not found and variable has statements, try statement-specific mappings (e.g., "S9r1" or "QS9r1")
+            if (!numericColHeader && variable.statements && Object.keys(variable.statements).length > 0) {
+              // Try each statement code
+              for (const stmtCode of Object.keys(variable.statements)) {
+                // Try variations: baseName + stmtCode (e.g., "S9r1", "QS9r1")
+                const baseName = variable.name;
+                const variations = [
+                  `${baseName}${stmtCode}`,
+                  `Q${baseName}${stmtCode}`,
+                  baseName.startsWith('Q') ? `${baseName}${stmtCode}` : `Q${baseName}${stmtCode}`,
+                  baseName.startsWith('Q') ? `${baseName.substring(1)}${stmtCode}` : `${baseName}${stmtCode}`
+                ];
+                
+                for (const variation of variations) {
+                  if (columnMapping[variation]) {
+                    numericColHeader = columnMapping[variation];
+                    break;
+                  }
+                  const matchingKey = Object.keys(columnMapping).find(
+                    key => key.toLowerCase() === variation.toLowerCase()
+                  );
+                  if (matchingKey) {
+                    numericColHeader = columnMapping[matchingKey];
+                    break;
+                  }
+                  
+                  // Also check direct column match
+                  if (fullRawData.columns) {
+                    const directMatch = fullRawData.columns.find(
+                      col => col.toLowerCase() === variation.toLowerCase()
+                    );
+                    if (directMatch) {
+                      numericColHeader = directMatch;
+                      break;
+                    }
+                  }
+                }
+                
+                if (numericColHeader) break;
+              }
+            }
+            
+            // Use calculateBannerTableDataForVariable to get frequency distribution (same as Variables tab)
+            const numericData = calculateBannerTableDataForVariable(variable, variable.name, bannerGroup);
+            
+            if (!numericData || Object.keys(numericData).length === 0) {
+              if (isB8Debug) {
+                appendStatLog('[B8] ERROR: No numeric data returned', { variable: variable.name });
+              }
+              // Skip this table if no data
+              tableNumber++;
+              continue;
+            }
+            
+            // Extract sorted numeric values from the data keys
+            const sortedNumericValues = Object.keys(numericData)
+              .map(v => parseFloat(v))
+              .filter(v => !isNaN(v))
+              .sort((a, b) => a - b);
+            
+            // Get bases from the data structure
+            const totalBase = numericData[sortedNumericValues[0]?.toString() || '']?.['total']?.base || 0;
+            const cutBases: Record<string, number> = {};
+            bannerCols.forEach(col => {
+              cutBases[col.id] = numericData[sortedNumericValues[0]?.toString() || '']?.[col.id]?.base || 0;
+            });
+            
+            if (isPreviewMode) {
+              // eslint-disable-next-line no-console
+              console.log('[Preview Debug - buildTabSpecsWorkbook] Frequency distribution from calculateBannerTableDataForVariable:', {
+                uniqueValues: sortedNumericValues.length,
+                sortedValues: sortedNumericValues.slice(0, 10),
+                totalBase,
+                cutBases,
+                sampleData: sortedNumericValues.slice(0, 3).map(v => ({
+                  value: v,
+                  total: numericData[v.toString()]?.['total'],
+                  sampleCut: numericData[v.toString()]?.[bannerCols[0]?.id]
+                }))
+              });
+            }
+            
+            // Record position for TOC
+            tablePositions.push({ tableNumber, tableName, rowNumber: currentRow, variable });
+            
+            // Table title
+            const baseQuestionNumber = getBaseQuestionNumber(variable.name);
+            const tableTitle = `Table ${tableNumber}: ${baseQuestionNumber}`;
+            const titleRow = dataCutsWorksheet.getRow(currentRow++);
+            titleRow.getCell(2).value = tableTitle;
+            titleRow.getCell(2).font = { bold: true, size: 12 };
+            
+            // Question text
+            const questionRow = dataCutsWorksheet.getRow(currentRow++);
+            questionRow.getCell(2).value = variable.description || variable.name;
+            questionRow.getCell(2).font = { size: 11 };
+            
+            // Build 3-row header (Total + banner groups) - same as other tables
+            const headerStartRow = currentRow;
+            const groupTitleRow = headerStartRow;
+            const cutTitleRow = headerStartRow + 1;
+            const statLetterRow = headerStartRow + 2;
+            let currentCol = 2;
+            
+            // Row label cell (merged across all 3 rows)
+            const rowLabelCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(currentCol);
+            rowLabelCell.value = '';
+            rowLabelCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, statLetterRow, currentCol);
+            [cutTitleRow, statLetterRow].forEach(r => {
+              const cell = dataCutsWorksheet.getRow(r).getCell(currentCol);
+              cell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+            });
+            currentCol++;
+            
+            // Total column
+            const totalGroupCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(currentCol);
+            totalGroupCell.value = 'Total';
+            totalGroupCell.alignment = { horizontal: 'center', vertical: 'middle' };
+            totalGroupCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            totalGroupCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+            totalGroupCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, cutTitleRow, currentCol);
+            const totalCutCell = dataCutsWorksheet.getRow(cutTitleRow).getCell(currentCol);
+            totalCutCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+            totalCutCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            totalCutCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            const totalStatCell = dataCutsWorksheet.getRow(statLetterRow).getCell(currentCol);
+            totalStatCell.value = '';
+            totalStatCell.alignment = { horizontal: 'center', vertical: 'middle' };
+            totalStatCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+            totalStatCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            currentCol++;
+            
+            // Banner groups
+            groupStructure.forEach((group) => {
+              const groupStartCol = currentCol;
+              const groupCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(groupStartCol);
+              groupCell.value = group.title;
+              groupCell.alignment = { horizontal: 'center', vertical: 'middle' };
+              groupCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+              groupCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+              groupCell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              if (group.cutCount > 1) {
+                dataCutsWorksheet.mergeCells(groupTitleRow, groupStartCol, groupTitleRow, groupStartCol + group.cutCount - 1);
+              }
+              for (let i = 0; i < group.cutCount; i++) {
+                const cutCol = groupStartCol + i;
+                const bannerCol = bannerCols[group.startIdx + i];
+                const cutCell = dataCutsWorksheet.getRow(cutTitleRow).getCell(cutCol);
+                cutCell.value = bannerCol.title;
+                cutCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                cutCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                cutCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+                cutCell.border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                const statCell = dataCutsWorksheet.getRow(statLetterRow).getCell(cutCol);
+                const statLetter = String.fromCharCode(65 + group.startIdx + i);
+                statCell.value = `(${statLetter})`;
+                statCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                statCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                statCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+                statCell.border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+              }
+              currentCol += group.cutCount;
+            });
+            currentRow += 3;
+            
+            // Base row
+            const baseRow = dataCutsWorksheet.getRow(currentRow++);
+            baseRow.getCell(2).value = 'Base (total responding):';
+            baseRow.getCell(2).font = { bold: true };
+            baseRow.getCell(2).fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFE8E8E8' }
+            };
+            baseRow.getCell(2).border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            baseRow.getCell(3).value = totalBase;
+            baseRow.getCell(3).alignment = { horizontal: 'center' };
+            baseRow.getCell(3).fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFE8E8E8' }
+            };
+            baseRow.getCell(3).border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            let baseCol = 4;
+            bannerCols.forEach(bannerCol => {
+              baseRow.getCell(baseCol).value = cutBases[bannerCol.id] || 0;
+              baseRow.getCell(baseCol).alignment = { horizontal: 'center' };
+              baseRow.getCell(baseCol).fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFE8E8E8' }
+              };
+              baseRow.getCell(baseCol).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              baseCol++;
+            });
+            
+            // Render frequency distribution rows using data from calculateBannerTableDataForVariable
+            sortedNumericValues.forEach(numVal => {
+              const valueKey = numVal.toString();
+              const valueData = numericData[valueKey];
+              if (!valueData) return;
+              
+              // Count row
+              const countRow = dataCutsWorksheet.getRow(currentRow++);
+              countRow.getCell(2).value = numVal;
+              countRow.getCell(2).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              
+              // Total count
+              const totalCount = valueData['total']?.count || 0;
+              countRow.getCell(3).value = totalCount;
+              countRow.getCell(3).alignment = { horizontal: 'center' };
+              countRow.getCell(3).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              
+              // Banner cut counts
+              let col = 4;
+              bannerCols.forEach(bannerCol => {
+                const cutCount = valueData[bannerCol.id]?.count || 0;
+                countRow.getCell(col).value = cutCount;
+                countRow.getCell(col).alignment = { horizontal: 'center' };
+                countRow.getCell(col).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                col++;
+              });
+              
+              // Percentage row
+              const pctRow = dataCutsWorksheet.getRow(currentRow++);
+              pctRow.getCell(2).value = '';
+              pctRow.getCell(2).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              
+              // Total percentage (already calculated in calculateBannerTableDataForVariable)
+              const totalPct = valueData['total']?.percentage || 0;
+              pctRow.getCell(3).value = totalPct / 100;
+              pctRow.getCell(3).numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+              pctRow.getCell(3).alignment = { horizontal: 'center' };
+              pctRow.getCell(3).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              
+              // Banner cut percentages (already calculated in calculateBannerTableDataForVariable)
+              col = 4;
+              bannerCols.forEach(bannerCol => {
+                const cutPct = valueData[bannerCol.id]?.percentage || 0;
+                pctRow.getCell(col).value = cutPct / 100;
+                pctRow.getCell(col).numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+                pctRow.getCell(col).alignment = { horizontal: 'center' };
+                pctRow.getCell(col).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                col++;
+              });
+            });
+            
+            // Add stats rows if enabled
+            const statsKey = variable.name;
+            const statsSelections = getStatsSelectionsForVariable(statsKey);
+            if (isNumeric && Object.values(statsSelections).some(v => v)) {
+              // Calculate stats from frequency distribution
+              let totalCount = 0;
+              let sum = 0;
+              let sumSquares = 0;
+              let min = Infinity;
+              let max = -Infinity;
+              let modeValue: number | null = null;
+              let modeCount = -1;
+              
+              sortedNumericValues.forEach(numVal => {
+                const valueKey = numVal.toString();
+                const count = numericData[valueKey]?.['total']?.count || 0;
+                totalCount += count;
+                sum += numVal * count;
+                sumSquares += numVal * numVal * count;
+                if (numVal < min) min = numVal;
+                if (numVal > max) max = numVal;
+                if (count > modeCount) {
+                  modeCount = count;
+                  modeValue = numVal;
+                }
+              });
+              
+              if (totalCount > 0) {
+                const mean = sum / totalCount;
+                const variance = Math.max(sumSquares / totalCount - mean * mean, 0);
+                const stdDev = Math.sqrt(variance);
+                const sorted = [...sortedNumericValues];
+                const median = sorted.length % 2 === 0
+                  ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+                  : sorted[Math.floor(sorted.length / 2)];
+                
+                const statsRows = [
+                  { label: 'Mean', key: 'mean', value: mean },
+                  { label: 'Sum', key: 'sum', value: sum },
+                  { label: 'Median', key: 'median', value: median },
+                  { label: 'Mode', key: 'mode', value: modeValue },
+                  { label: 'Std Dev', key: 'stdDev', value: stdDev },
+                  { label: 'Min', key: 'min', value: min },
+                  { label: 'Max', key: 'max', value: max },
+                ];
+                
+                statsRows.forEach(stat => {
+                  if (statsSelections[stat.key]) {
+                    const statRow = dataCutsWorksheet.getRow(currentRow++);
+                    statRow.getCell(2).value = stat.label + ':';
+                    statRow.getCell(2).font = { bold: true, italic: true };
+                    statRow.getCell(2).fill = {
+                      type: 'pattern',
+                      pattern: 'solid',
+                      fgColor: { argb: 'FFE8E8E8' }
+                    };
+                    statRow.getCell(2).border = {
+                      top: { style: 'thin' },
+                      bottom: { style: 'thin' },
+                      left: { style: 'thin' },
+                      right: { style: 'thin' }
+                    };
+                    
+                    // Total stat value
+                    statRow.getCell(3).value = stat.value;
+                    statRow.getCell(3).numFmt = stat.key === 'sum' ? '0' : '0.00';
+                    statRow.getCell(3).alignment = { horizontal: 'center' };
+                    statRow.getCell(3).fill = {
+                      type: 'pattern',
+                      pattern: 'solid',
+                      fgColor: { argb: 'FFE8E8E8' }
+                    };
+                    statRow.getCell(3).border = {
+                      top: { style: 'thin' },
+                      bottom: { style: 'thin' },
+                      left: { style: 'thin' },
+                      right: { style: 'thin' }
+                    };
+                    
+                    // Banner cut stats (calculate per cut)
+                    let col = 4;
+                    bannerCols.forEach(bannerCol => {
+                      const cutBase = cutBases[bannerCol.id] || 0;
+                      let cutStatValue: number = 0;
+                      
+                      if (cutBase > 0) {
+                        if (stat.key === 'mean') {
+                          let cutSum = 0;
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            cutSum += numVal * (numericData[valueKey]?.[bannerCol.id]?.count || 0);
+                          });
+                          cutStatValue = cutSum / cutBase;
+                        } else if (stat.key === 'sum') {
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            cutStatValue += numVal * (numericData[valueKey]?.[bannerCol.id]?.count || 0);
+                          });
+                        } else if (stat.key === 'median') {
+                          const cutValues: number[] = [];
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            const count = numericData[valueKey]?.[bannerCol.id]?.count || 0;
+                            for (let i = 0; i < count; i++) {
+                              cutValues.push(numVal);
+                            }
+                          });
+                          cutValues.sort((a, b) => a - b);
+                          cutStatValue = cutValues.length % 2 === 0
+                            ? (cutValues[cutValues.length / 2 - 1] + cutValues[cutValues.length / 2]) / 2
+                            : cutValues[Math.floor(cutValues.length / 2)];
+                        } else if (stat.key === 'mode') {
+                          let cutModeCount = -1;
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            const count = numericData[valueKey]?.[bannerCol.id]?.count || 0;
+                            if (count > cutModeCount) {
+                              cutModeCount = count;
+                              cutStatValue = numVal;
+                            }
+                          });
+                        } else if (stat.key === 'stdDev') {
+                          let cutSum = 0;
+                          let cutSumSquares = 0;
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            const count = numericData[valueKey]?.[bannerCol.id]?.count || 0;
+                            cutSum += numVal * count;
+                            cutSumSquares += numVal * numVal * count;
+                          });
+                          const cutMean = cutSum / cutBase;
+                          const cutVariance = Math.max(cutSumSquares / cutBase - cutMean * cutMean, 0);
+                          cutStatValue = Math.sqrt(cutVariance);
+                        } else if (stat.key === 'min') {
+                          cutStatValue = Infinity;
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            if ((numericData[valueKey]?.[bannerCol.id]?.count || 0) > 0 && numVal < cutStatValue) {
+                              cutStatValue = numVal;
+                            }
+                          });
+                        } else if (stat.key === 'max') {
+                          cutStatValue = -Infinity;
+                          sortedNumericValues.forEach(numVal => {
+                            const valueKey = numVal.toString();
+                            if ((numericData[valueKey]?.[bannerCol.id]?.count || 0) > 0 && numVal > cutStatValue) {
+                              cutStatValue = numVal;
+                            }
+                          });
+                        }
+                      }
+                      
+                      statRow.getCell(col).value = cutStatValue;
+                      statRow.getCell(col).numFmt = stat.key === 'sum' ? '0' : '0.00';
+                      statRow.getCell(col).alignment = { horizontal: 'center' };
+                      statRow.getCell(col).fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFE8E8E8' }
+                      };
+                      statRow.getCell(col).border = {
+                        top: { style: 'thin' },
+                        bottom: { style: 'thin' },
+                        left: { style: 'thin' },
+                        right: { style: 'thin' }
+                      };
+                      col++;
+                    });
+                  }
+                });
+              }
+            }
+            
+            tableNumber++;
+            continue;
+          }
+          
           // Get response codes from banner table data or statements (for grid columns)
+          const isMultiSelectQuestionForCodes = variable.type?.toLowerCase().includes('multi-select') && !variable.type?.toLowerCase().includes('grid');
           let responseCodes: string[] = (() => {
             if (isMultiSelectGridColumnTable) {
               if (variable.statements && Object.keys(variable.statements).length > 0) {
@@ -10971,7 +14916,35 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               }
               return Object.keys(activeGridColumnData || {});
             }
-            return Object.keys(bannerTableData);
+            // For multi-select questions, also check variable.codes if bannerTableData is empty
+            const codes = Object.keys(bannerTableData).filter(key => key !== 'total');
+            if (codes.length === 0 && isMultiSelectQuestionForCodes && variable.codes && Object.keys(variable.codes).length > 0) {
+              // Fall back to variable.codes if bannerTableData is empty
+              const fallbackCodes = Object.keys(variable.codes);
+              if (isB8Debug) {
+                appendStatLog('[B8] Using fallback codes from variable.codes', {
+                  variableName: variable.name,
+                  fallbackCodes,
+                  fallbackCodesLength: fallbackCodes.length
+                });
+              }
+              return fallbackCodes;
+            }
+            // Debug for B8 only
+            if (isB8Debug) {
+              appendStatLog('[B8] Getting response codes', {
+                variableName: variable.name,
+                variableType: variable.type,
+                isMultiSelectQuestion: isMultiSelectQuestionForCodes,
+                bannerTableDataKeys: Object.keys(bannerTableData),
+                codesReturned: codes,
+                codesLength: codes.length,
+                bannerTableDataEmpty: !bannerTableData || Object.keys(bannerTableData).length === 0,
+                variableCodesKeys: variable.codes ? Object.keys(variable.codes) : [],
+                firstCodeSample: codes.length > 0 ? getCodeDataForRow(codes[0]) : 'no codes'
+              });
+            }
+            return codes;
           })();
 
           // Sort codes by frequency if enabled
@@ -10989,7 +14962,124 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           const netCodes = isMultiSelectGridColumnTable ? [] : (netSummaryTableSelectedCodes[variable.name] || []);
           const firstEntry = Object.entries(isMultiSelectGridColumnTable ? (activeGridColumnData || {}) : bannerTableData)[0];
 
+          // Calculate stat letters for all codes before rendering (for regular Single/Multi Select tables)
+          const allStatLettersRegular: Record<string, Record<number, { letter: string; is95: boolean }[]>> = {};
+          const isS6DebugRegular = variable.name === 'S6';
+
+          if (isS6DebugRegular && shouldDebugStats()) {
+            appendStatLog('[S6] 🚀 Starting stat letter calculation', {
+              variable: variable.name,
+              type: variable.type,
+              totalBase,
+              codesCount: responseCodes.length
+            });
+
+            // Show cutBases for debugging
+            const cutBasesInfo: Record<string, any> = {};
+            bannerCols.forEach((col, idx) => {
+              cutBasesInfo[`col${idx}_${col.title}`] = cutBases[col.id] || 0;
+            });
+            appendStatLog('[S6] 📊 cutBases', cutBasesInfo);
+          }
+
+          responseCodes.forEach(code => {
+            const codeData = getCodeDataForRow(code);
+            const totalPct = codeData['total']?.percentage || 0;
+            const totalCount = codeData['total']?.count || 0;
+
+            if (isS6DebugRegular && shouldDebugStats()) {
+              appendStatLog('[S6] 📊 Processing code', {
+                code,
+                label: getRowLabelForCode(code),
+                totalPct,
+                totalCount,
+                totalBase
+              });
+            }
+
+            const codeStatLetters: Record<number, { letter: string; is95: boolean }[]> = {};
+
+            bannerCols.forEach((thisCol, colIdx) => {
+              const thisPct = codeData[thisCol.id]?.percentage || 0;
+              const thisCount = codeData[thisCol.id]?.count || 0;
+              const thisBase = cutBases[thisCol.id] || 0;
+
+              const statLettersForCol: { letter: string; is95: boolean }[] = [];
+
+              // Within-group comparisons ONLY
+              bannerCols.forEach((otherCol, otherIdx) => {
+                if (otherIdx === colIdx) return;
+                if (otherCol.groupIdx !== thisCol.groupIdx) return;
+
+                const otherPct = codeData[otherCol.id]?.percentage || 0;
+                const otherBase = cutBases[otherCol.id] || 0;
+
+                if (thisPct > otherPct) {
+                  const { is95, is90 } = isSignificant(thisPct, thisBase, otherPct, otherBase);
+
+                  if (isS6DebugRegular && shouldDebugStats()) {
+                    appendStatLog('[S6] ✅ within-group comparison', {
+                      code,
+                      thisCol: thisCol.title,
+                      otherCol: otherCol.title,
+                      thisPct,
+                      thisBase,
+                      otherPct,
+                      otherBase,
+                      is95,
+                      is90,
+                      letterWouldBe: String.fromCharCode(65 + otherIdx)
+                    });
+                  }
+
+                  if (significanceLevel === 95) {
+                    if (is95) statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                  } else {
+                    if (is95) {
+                      statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                    } else if (is90) {
+                      statLettersForCol.push({ letter: String.fromCharCode(97 + otherIdx), is95: false });
+                    }
+                  }
+                }
+              });
+
+              codeStatLetters[colIdx] = statLettersForCol;
+            });
+
+            allStatLettersRegular[code] = codeStatLetters;
+
+            if (isS6DebugRegular && shouldDebugStats()) {
+              const letterStrings: Record<string, string> = {};
+              let hasAnyLetters = false;
+              Object.keys(codeStatLetters).forEach(k => {
+                const letters = codeStatLetters[Number(k)] || [];
+                const letterStr = letters.map(l => l.letter).join('');
+                if (letterStr) {
+                  letterStrings[`col${k}_${bannerCols[Number(k)]?.title}`] = letterStr;
+                  hasAnyLetters = true;
+                }
+              });
+              if (hasAnyLetters) {
+                appendStatLog(`[S6] ✅ Stat letters found for code ${code}`, letterStrings);
+              } else {
+                appendStatLog(`[S6] ❌ NO stat letters for code ${code}`, { code, label: getRowLabelForCode(code) });
+              }
+            }
+          });
+
           // Add regular response rows (count + percentage rows for each response)
+          // Ensure we have codes to write - if responseCodes is empty but variable has codes, use them
+          if (responseCodes.length === 0 && isMultiSelectQuestionForCodes && variable.codes && Object.keys(variable.codes).length > 0) {
+            responseCodes = Object.keys(variable.codes);
+            if (isB8Debug) {
+              appendStatLog('[B8] Using variable.codes as fallback for responseCodes', {
+                variableName: variable.name,
+                responseCodes: responseCodes
+              });
+            }
+          }
+          
           responseCodes.forEach(code => {
             const codeData = getCodeDataForRow(code);
             const codeLabel = getRowLabelForCode(code);
@@ -11017,11 +15107,24 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
             // Banner cut counts
             let col = 4;
-            bannerCols.forEach(bannerCol => {
+            bannerCols.forEach((bannerCol, colIdx) => {
               const cutCount = codeData[bannerCol.id]?.count || 0;
-              countRow.getCell(col).value = cutCount;
-              countRow.getCell(col).alignment = { horizontal: 'center' };
-              countRow.getCell(col).border = {
+              const countCell = countRow.getCell(col);
+              countCell.value = cutCount;
+              countCell.alignment = { horizontal: 'center' };
+
+              // Add blue highlighting if this cell has stat letters
+              const statLettersForCode = allStatLettersRegular[code] || {};
+              const statLetters = statLettersForCode[colIdx] || [];
+              if (statLetters.length > 0) {
+                countCell.fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: 'FFE6F3FF' }
+                };
+              }
+
+              countCell.border = {
                 top: { style: 'thin' },
                 bottom: { style: 'thin' },
                 left: { style: 'thin' },
@@ -11042,9 +15145,11 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
             // Total percentage
             const totalPct = codeData['total']?.percentage || 0;
-            pctRow.getCell(3).value = `${totalPct.toFixed(0)}%`;
-            pctRow.getCell(3).alignment = { horizontal: 'center' };
-            pctRow.getCell(3).border = {
+            const totalPctCell = pctRow.getCell(3);
+            totalPctCell.value = totalPct / 100; // Store as decimal for percentage format
+            totalPctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+            totalPctCell.alignment = { horizontal: 'center' };
+            totalPctCell.border = {
               top: { style: 'thin' },
               bottom: { style: 'thin' },
               left: { style: 'thin' },
@@ -11053,11 +15158,25 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
             // Banner cut percentages
             col = 4;
-            bannerCols.forEach(bannerCol => {
+            bannerCols.forEach((bannerCol, colIdx) => {
               const cutPct = codeData[bannerCol.id]?.percentage || 0;
-              pctRow.getCell(col).value = `${cutPct.toFixed(0)}%`;
-              pctRow.getCell(col).alignment = { horizontal: 'center' };
-              pctRow.getCell(col).border = {
+              const cutPctCell = pctRow.getCell(col);
+              cutPctCell.value = cutPct / 100; // Store as decimal for percentage format
+              cutPctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+              cutPctCell.alignment = { horizontal: 'center' };
+
+              // Add blue highlighting if this cell has stat letters
+              const statLettersForCode = allStatLettersRegular[code] || {};
+              const statLetters = statLettersForCode[colIdx] || [];
+              if (statLetters.length > 0) {
+                cutPctCell.fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: 'FFE6F3FF' }
+                };
+              }
+
+              cutPctCell.border = {
                 top: { style: 'thin' },
                 bottom: { style: 'thin' },
                 left: { style: 'thin' },
@@ -11065,6 +15184,114 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               };
               col++;
             });
+
+            // Stat letters row (if any stat letters exist for this code)
+            const statLettersForCode = allStatLettersRegular[code] || {};
+            const hasAnyStatLettersForCode = Object.values(statLettersForCode).some(arr => arr && arr.length > 0);
+
+            if (hasAnyStatLettersForCode) {
+              const statRow = dataCutsWorksheet.getRow(currentRow++);
+              statRow.getCell(2).value = '';
+              statRow.getCell(2).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+
+              // Total column - no stat letters for total
+              statRow.getCell(3).value = '';
+              statRow.getCell(3).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+
+              // Banner cut stat letters
+              col = 4;
+              bannerCols.forEach((bannerCol, colIdx) => {
+                const statLetters = statLettersForCode[colIdx] || [];
+                const statLettersStr = statLetters.map(s => s.letter).join('');
+                const statCell = statRow.getCell(col);
+                statCell.value = statLettersStr;
+                statCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                if (statLetters.length > 0) {
+                  statCell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFE6F3FF' }
+                  };
+                }
+                statCell.border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                col++;
+              });
+            }
+          });
+
+          // Calculate stat letters for nets before rendering
+          const allStatLettersNets: Record<string, Record<number, { letter: string; is95: boolean }[]>> = {};
+
+          netCodes.forEach(net => {
+            if (net.codes && net.codes.length > 0) {
+              // Calculate net totals
+              let netTotalCount = 0;
+              const netCutCounts: Record<string, number> = {};
+              bannerCols.forEach(col => { netCutCounts[col.id] = 0; });
+
+              net.codes.forEach(code => {
+                const codeData = getCodeDataForRow(code);
+                if (codeData) {
+                  netTotalCount += codeData['total']?.count || 0;
+                  bannerCols.forEach(col => {
+                    netCutCounts[col.id] += codeData[col.id]?.count || 0;
+                  });
+                }
+              });
+
+              // Calculate stat letters for this net
+              const codeStatLetters: Record<number, { letter: string; is95: boolean }[]> = {};
+
+              bannerCols.forEach((thisCol, colIdx) => {
+                const thisCount = netCutCounts[thisCol.id] || 0;
+                const thisBase = cutBases[thisCol.id] || 0;
+                const thisPct = thisBase > 0 ? (thisCount / thisBase) * 100 : 0;
+                const statLettersForCol: { letter: string; is95: boolean }[] = [];
+
+                // Within-group comparisons ONLY
+                bannerCols.forEach((otherCol, otherIdx) => {
+                  if (otherIdx === colIdx) return;
+                  if (otherCol.groupIdx !== thisCol.groupIdx) return;
+
+                  const otherCount = netCutCounts[otherCol.id] || 0;
+                  const otherBase = cutBases[otherCol.id] || 0;
+                  const otherPct = otherBase > 0 ? (otherCount / otherBase) * 100 : 0;
+
+                  if (thisPct > otherPct) {
+                    const { is95, is90 } = isSignificant(thisPct, thisBase, otherPct, otherBase);
+
+                    if (significanceLevel === 95) {
+                      if (is95) statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                    } else {
+                      if (is95) {
+                        statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                      } else if (is90) {
+                        statLettersForCol.push({ letter: String.fromCharCode(97 + otherIdx), is95: false });
+                      }
+                    }
+                  }
+                });
+
+                codeStatLetters[colIdx] = statLettersForCol;
+              });
+
+              allStatLettersNets[net.name] = codeStatLetters;
+            }
           });
 
           // Add net rows after response rows, before stats
@@ -11108,10 +15335,23 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
               // Banner cut counts
               let col = 4;
-              bannerCols.forEach(bannerCol => {
-                countRow.getCell(col).value = netCutCounts[bannerCol.id];
-                countRow.getCell(col).alignment = { horizontal: 'center' };
-                countRow.getCell(col).border = {
+              bannerCols.forEach((bannerCol, colIdx) => {
+                const countCell = countRow.getCell(col);
+                countCell.value = netCutCounts[bannerCol.id];
+                countCell.alignment = { horizontal: 'center' };
+
+                // Add blue highlighting if this cell has stat letters
+                const statLettersForCode = allStatLettersNets[net.name] || {};
+                const statLetters = statLettersForCode[colIdx] || [];
+                if (statLetters.length > 0) {
+                  countCell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFE6F3FF' }
+                  };
+                }
+
+                countCell.border = {
                   top: { style: 'thin' },
                   bottom: { style: 'thin' },
                   left: { style: 'thin' },
@@ -11132,9 +15372,11 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
               // Total percentage
               const totalPct = totalBase > 0 ? (netTotalCount / totalBase) * 100 : 0;
-              pctRow.getCell(3).value = `${totalPct.toFixed(0)}%`;
-              pctRow.getCell(3).alignment = { horizontal: 'center' };
-              pctRow.getCell(3).border = {
+              const totalPctCell = pctRow.getCell(3);
+              totalPctCell.value = totalPct / 100; // Store as decimal for percentage format
+              totalPctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+              totalPctCell.alignment = { horizontal: 'center' };
+              totalPctCell.border = {
                 top: { style: 'thin' },
                 bottom: { style: 'thin' },
                 left: { style: 'thin' },
@@ -11143,11 +15385,25 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
               // Banner cut percentages
               col = 4;
-              bannerCols.forEach(bannerCol => {
+              bannerCols.forEach((bannerCol, colIdx) => {
                 const cutPct = cutBases[bannerCol.id] > 0 ? (netCutCounts[bannerCol.id] / cutBases[bannerCol.id]) * 100 : 0;
-                pctRow.getCell(col).value = `${cutPct.toFixed(0)}%`;
-                pctRow.getCell(col).alignment = { horizontal: 'center' };
-                pctRow.getCell(col).border = {
+                const cutPctCell = pctRow.getCell(col);
+                cutPctCell.value = cutPct / 100; // Store as decimal for percentage format
+                cutPctCell.numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+                cutPctCell.alignment = { horizontal: 'center' };
+
+                // Add blue highlighting if this cell has stat letters
+                const statLettersForCode = allStatLettersNets[net.name] || {};
+                const statLetters = statLettersForCode[colIdx] || [];
+                if (statLetters.length > 0) {
+                  cutPctCell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFE6F3FF' }
+                  };
+                }
+
+                cutPctCell.border = {
                   top: { style: 'thin' },
                   bottom: { style: 'thin' },
                   left: { style: 'thin' },
@@ -11155,6 +15411,52 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 };
                 col++;
               });
+
+              // Stat letters row
+              const statLettersForCode = allStatLettersNets[net.name] || {};
+              const hasAnyStatLettersForCode = Object.values(statLettersForCode).some(arr => arr && arr.length > 0);
+
+              if (hasAnyStatLettersForCode) {
+                const statRow = dataCutsWorksheet.getRow(currentRow++);
+                statRow.getCell(2).value = '';
+                statRow.getCell(2).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+
+                statRow.getCell(3).value = '';
+                statRow.getCell(3).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+
+                col = 4;
+                bannerCols.forEach((bannerCol, colIdx) => {
+                  const statLetters = statLettersForCode[colIdx] || [];
+                  const statLettersStr = statLetters.map(s => s.letter).join('');
+                  const statCell = statRow.getCell(col);
+                  statCell.value = statLettersStr;
+                  statCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                  if (statLetters.length > 0) {
+                    statCell.fill = {
+                      type: 'pattern',
+                      pattern: 'solid',
+                      fgColor: { argb: 'FFE6F3FF' }
+                    };
+                  }
+                  statCell.border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
+                  col++;
+                });
+              }
             }
           });
 
@@ -11392,6 +15694,40 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             });
           }
 
+          // Add comparison groups details section
+          // Build comparison groups string based on banner groups
+          const groupMap = new Map<number, number[]>();
+          bannerCols.forEach((col, idx) => {
+            const groupIdx = col.groupIdx;
+            if (!groupMap.has(groupIdx)) {
+              groupMap.set(groupIdx, []);
+            }
+            groupMap.get(groupIdx)!.push(idx);
+          });
+
+          const comparisonGroups = Array.from(groupMap.values())
+            .map(colIndices =>
+              colIndices.map(idx => String.fromCharCode(65 + idx)).join('')
+            )
+            .join('/');
+
+          // Comparison groups row
+          const compGroupsRow = dataCutsWorksheet.getRow(currentRow++);
+          compGroupsRow.getCell(2).value = `Comparison Groups: ${comparisonGroups}`;
+          compGroupsRow.getCell(2).font = { size: 9, italic: true };
+
+          // Uppercase explanation row
+          const upperRow = dataCutsWorksheet.getRow(currentRow++);
+          upperRow.getCell(2).value = 'Uppercase letters indicate significance at the 95% level.';
+          upperRow.getCell(2).font = { size: 9, italic: true };
+
+          // Lowercase explanation row (only if significance level is 90)
+          if (significanceLevel === 90) {
+            const lowerRow = dataCutsWorksheet.getRow(currentRow++);
+            lowerRow.getCell(2).value = 'Lowercase letters indicate significance at the 90% level.';
+            lowerRow.getCell(2).font = { size: 9, italic: true };
+          }
+
           tableNumber++;
         }
       }
@@ -11406,20 +15742,173 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       }
 
       // Populate Table of Contents
-      // Add blank spacer column as first column (width 3)
-      tocWorksheet.getColumn(1).width = 3;
+      // Set column widths: A: 2.29, B: 14.29, C: 39.29, D: 59.29
+      // IMPORTANT: Set all column widths BEFORE positioning the logo
+      tocWorksheet.getColumn(1).width = 2.29;
+      tocWorksheet.getColumn(2).width = 14.29;
+      tocWorksheet.getColumn(3).width = 39.29;
+      tocWorksheet.getColumn(4).width = 59.29;
       
-      // Add blank spacer row as first row
-      const blankRow = tocWorksheet.getRow(1);
-      blankRow.height = 15;
+      // Merge cells B1:C3 for title and project name
+      tocWorksheet.mergeCells(1, 2, 3, 3); // Merge B1:C3 (row 1-3, col 2-3)
+      const titleBlockCell = tocWorksheet.getRow(1).getCell(2);
+      const projectName = selectedProject?.name || '';
       
-      let tocRow = 2; // Start at row 2 (row 1 is blank)
-
-      // TOC Title
-      const tocTitleRow = tocWorksheet.getRow(tocRow++);
-      tocTitleRow.getCell(2).value = 'Table of Contents'; // Shifted to column 2
-      tocTitleRow.getCell(2).font = { bold: true, size: 14 };
-      tocRow++; // Empty row
+      // Use rich text to format title and project name differently
+      if (projectName) {
+        titleBlockCell.value = {
+          richText: [
+            { text: 'Table of Contents', font: { bold: true, size: 14 } },
+            { text: '\n' },
+            { text: projectName, font: { italic: true, size: 12, bold: false } }
+          ]
+        };
+      } else {
+        titleBlockCell.value = 'Table of Contents';
+        titleBlockCell.font = { bold: true, size: 14 };
+      }
+      
+      titleBlockCell.alignment = { 
+        vertical: 'top', 
+        horizontal: 'left',
+        wrapText: true 
+      };
+      titleBlockCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFFFFFF' }
+      };
+      
+      // Merge cells D1:D3 for logo
+      tocWorksheet.mergeCells(1, 4, 3, 4); // Merge D1:D3 (row 1-3, col 4)
+      const logoCell = tocWorksheet.getRow(1).getCell(4);
+      logoCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFFFFFF' }
+      };
+      
+      // Add logo to the merged cell D1:D3 (top right aligned)
+      let logoImageId: number | null = null;
+      try {
+        const logoResponse = await fetch('/CogDashLogo.png');
+        if (logoResponse.ok) {
+          // Resize the image to target dimensions without heavy compression
+          const logoBlob = await logoResponse.blob();
+          const img = new Image();
+          const imgUrl = URL.createObjectURL(logoBlob);
+          
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = imgUrl;
+          });
+          
+          // Create canvas to resize (not compress heavily)
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('Could not get canvas context');
+          
+          // Set canvas size to target dimensions (2.02 x 0.52 inches at 96 DPI)
+          const logoWidthPx = 2.02 * 96;
+          const logoHeightPx = 0.52 * 96;
+          canvas.width = logoWidthPx;
+          canvas.height = logoHeightPx;
+          
+          // Use high-quality image rendering
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          
+          // Draw and resize the image
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          // Convert to PNG blob with high quality (minimal compression)
+          const resizedBlob = await new Promise<Blob>((resolve, reject) => {
+            canvas.toBlob((blob) => {
+              if (blob) resolve(blob);
+              else reject(new Error('Failed to resize image'));
+            }, 'image/png', 1.0); // Maximum quality
+          });
+          
+          URL.revokeObjectURL(imgUrl);
+          
+          // Convert resized blob to buffer
+          const logoBuffer = await resizedBlob.arrayBuffer();
+          const buffer = typeof Buffer !== 'undefined' 
+            ? Buffer.from(logoBuffer) 
+            : new Uint8Array(logoBuffer);
+          
+          logoImageId = workbook.addImage({
+            buffer: buffer as any,
+            extension: 'png',
+          });
+          
+          // Position logo so its right edge aligns with the end of column D
+          // Column widths: A: 2.29, B: 14.29, C: 39.29, D: 59.29
+          // Total width to end of column D: 115.16 column units
+          const colAWidth = tocWorksheet.getColumn(1).width || 2.29;
+          const colBWidth = tocWorksheet.getColumn(2).width || 14.29;
+          const colCWidth = tocWorksheet.getColumn(3).width || 39.29;
+          const colDWidth = tocWorksheet.getColumn(4).width || 59.29;
+          
+          // ExcelJS positioning: ext.width is in pixels, col positioning uses column indices (can be fractional)
+          // Excel column width: 1 unit = width of one character in default font (Calibri 11pt)
+          // At 96 DPI: 1 column unit ≈ 7 pixels (this is the standard Excel conversion)
+          
+          // Calculate total pixel width to end of column D
+          const totalWidthToEndOfDInColumnUnits = colAWidth + colBWidth + colCWidth + colDWidth;
+          const totalWidthToEndOfDInPixels = totalWidthToEndOfDInColumnUnits * 7;
+          
+          // Calculate where the left edge of the logo should be (in pixels from start)
+          const logoLeftEdgeInPixels = totalWidthToEndOfDInPixels - logoWidthPx;
+          
+          // Convert pixel position to column index
+          // Column indices: A=0-1, B=1-2, C=2-3, D=3-4
+          // Each column's pixel width = column width * 7
+          let accumulatedPixels = 0;
+          let leftEdgeCol = 0;
+          
+          // Check which column contains the left edge
+          const colAPixels = colAWidth * 7;
+          if (logoLeftEdgeInPixels <= accumulatedPixels + colAPixels) {
+            // Logo starts in column A
+            leftEdgeCol = 0 + (logoLeftEdgeInPixels - accumulatedPixels) / colAPixels;
+          } else {
+            accumulatedPixels += colAPixels;
+            const colBPixels = colBWidth * 7;
+            if (logoLeftEdgeInPixels <= accumulatedPixels + colBPixels) {
+              // Logo starts in column B
+              leftEdgeCol = 1 + (logoLeftEdgeInPixels - accumulatedPixels) / colBPixels;
+            } else {
+              accumulatedPixels += colBPixels;
+              const colCPixels = colCWidth * 7;
+              if (logoLeftEdgeInPixels <= accumulatedPixels + colCPixels) {
+                // Logo starts in column C
+                leftEdgeCol = 2 + (logoLeftEdgeInPixels - accumulatedPixels) / colCPixels;
+              } else {
+                accumulatedPixels += colCPixels;
+                const colDPixels = colDWidth * 7;
+                // Logo starts in column D
+                leftEdgeCol = 3 + (logoLeftEdgeInPixels - accumulatedPixels) / colDPixels;
+              }
+            }
+          }
+          
+          tocWorksheet.addImage(logoImageId, {
+            tl: { col: leftEdgeCol, row: 0 }, // Top-left positioned so right edge aligns with col 4.0 (D/E border)
+            ext: { width: logoWidthPx, height: logoHeightPx },
+          });
+        }
+      } catch (err) {
+        console.error('Error loading logo:', err);
+      }
+      
+      // Set row heights for title block
+      tocWorksheet.getRow(1).height = 20;
+      tocWorksheet.getRow(2).height = 20;
+      tocWorksheet.getRow(3).height = 20;
+      
+      let tocRow = 4; // Start at row 4 (rows 1-3 are title block)
 
       // TOC Headers
       const tocHeaderRow = tocWorksheet.getRow(tocRow++);
@@ -11453,13 +15942,38 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           tooltip: `Go to Table ${tableNumber}`
         };
         tocEntryRow.getCell(2).font = { color: { argb: 'FF0000FF' }, underline: true };
+        tocEntryRow.getCell(2).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFFFFFFF' }
+        };
 
         // Table name
         tocEntryRow.getCell(3).value = tableName; // Shifted to column 3
+        tocEntryRow.getCell(3).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFFFFFFF' }
+        };
 
         // Description
-        tocEntryRow.getCell(4).value = variable.description || variable.name; // Shifted to column 4
+        const descriptionCell = tocEntryRow.getCell(4);
+        descriptionCell.value = variable.description || variable.name; // Shifted to column 4
+        descriptionCell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFFFFFFF' }
+        };
 
+        // Column E - add space to stop text from overlapping
+        tocEntryRow.getCell(5).value = ' ';
+        tocEntryRow.getCell(5).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFFFFFFF' }
+        };
+
+        // Set borders only for columns 2-4 (not column E)
         [2, 3, 4].forEach(col => {
           tocEntryRow.getCell(col).border = {
             top: { style: 'thin' },
@@ -11470,10 +15984,28 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         });
       });
 
-      // Set column widths for TOC
-      tocWorksheet.getColumn(2).width = 15; // Shifted from column 1
-      tocWorksheet.getColumn(3).width = 40; // Shifted from column 2
-      tocWorksheet.getColumn(4).width = 60; // Shifted from column 3
+      // Set white fill for all cells in columns A-E (1-5) from row 1 to row after last table entry
+      const lastTableRow = tocRow - 1; // Last row with table data
+      const rowAfterLastTable = lastTableRow + 1; // Row after last table
+      const headerRowNumber = tocHeaderRow.number;
+      for (let rowNum = 1; rowNum <= rowAfterLastTable; rowNum++) {
+        const row = tocWorksheet.getRow(rowNum);
+        // Skip header row (it should stay red)
+        if (rowNum !== headerRowNumber) {
+          // Set white fill for columns 1-5 (A-E)
+          for (let col = 1; col <= 5; col++) {
+            const cell = row.getCell(col);
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFFFFFFF' }
+            };
+          }
+        }
+      }
+
+      // Column widths already set above before logo positioning
+      // Column E width left at default (don't change it)
 
       const sampleSize = fullRawData.rows.filter((row: any) => {
         const recordValue = row['record'] ?? row['respno'] ?? row['Record'] ?? row['Respno'] ?? row['RECORD'] ?? row['RESPNO'];
@@ -11486,7 +16018,144 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       console.error('Error generating workbook:', error);
       throw error;
     }
-  }, [fullRawData, variableStatsSelections, variableSortByFrequency, netSummaryTableSelectedCodes, netSummaryTableRanges, hiddenFromBanners, questionnaireQuestions, selectedQuestionnaire, columnMapping, newBannerGroups, calculateBannerTableDataForVariable, getTablesForVariable, getEffectiveSortByFrequency, applyHoldOrdering, formatPercentage, significanceLevel]);
+  }, [fullRawData, variableStatsSelections, variableSortByFrequency, netSummaryTableSelectedCodes, netSummaryTableRanges, hiddenFromBanners, questionnaireQuestions, selectedQuestionnaire, columnMapping, newBannerGroups, calculateBannerTableDataForVariable, getTablesForVariable, getEffectiveSortByFrequency, applyHoldOrdering, formatPercentage, significanceLevel, selectedProject, percentageDecimals, showStatDebug, appendStatLog]);
+
+  // Helper function to calculate rendered table count for a variable
+  const calculateRenderedTableCount = useCallback(async (variable: Variable): Promise<number> => {
+    try {
+      const { workbook } = await buildTabSpecsWorkbook([variable]);
+      const buffer = await workbook.xlsx.writeBuffer();
+      const parsedWorkbook = XLSX.read(buffer, { type: 'array' });
+      const dataCutsSheet = parsedWorkbook.Sheets['Data Cuts'];
+      if (!dataCutsSheet) {
+        return 0;
+      }
+      
+      // Count tables by checking column B cells directly (where table titles are written)
+      // This matches the logic used in preview generation
+      const tableTitleCells = Object.keys(dataCutsSheet).filter(key => {
+        if (key.startsWith('!')) return false;
+        const match = key.match(/^B(\d+)$/);
+        if (!match) return false;
+        const cell = dataCutsSheet[key];
+        return cell && cell.v && String(cell.v).startsWith('Table ');
+      });
+      
+      // Debug for B8 only
+      if (variable.name === 'B8') {
+        appendStatLog('[B8] Rendered count calculation', {
+          variable: variable.name,
+          type: variable.type,
+          tableTitlesFound: tableTitleCells.length,
+          tableTitleCells: tableTitleCells.map(key => ({ cell: key, value: dataCutsSheet[key]?.v }))
+        });
+      }
+      
+      // If we found table titles in column B, use that count
+      if (tableTitleCells.length > 0) {
+        return tableTitleCells.length;
+      }
+      
+      // Fallback: parse HTML if column B method didn't work
+      const rawHtml = XLSX.utils.sheet_to_html(dataCutsSheet, { header: '', footer: '' });
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(rawHtml, 'text/html');
+      const tableElement = doc.querySelector('table');
+      if (!tableElement) {
+        return 0;
+      }
+      
+      const rows = Array.from(tableElement.querySelectorAll('tr'));
+      const sections: PreviewTableSection[] = [];
+      let currentSection: { title: string; question: string; base: string; rows: HTMLTableRowElement[] } | null = null;
+      
+      rows.forEach(row => {
+        // Check all cells in the row, not just textContent (which might miss column B content)
+        const cells = row.querySelectorAll('td, th');
+        const cellTexts = Array.from(cells).map(cell => cell.textContent?.trim() || '').filter(t => t);
+        const text = cellTexts.join(' ') || row.textContent?.trim() || '';
+        
+        if (text.startsWith('Table ') || cellTexts.some(t => t.startsWith('Table '))) {
+          // Use the cell text that starts with "Table " if textContent doesn't
+          const tableTitleText = text.startsWith('Table ') ? text : cellTexts.find(t => t.startsWith('Table ')) || text;
+          if (currentSection) {
+            sections.push({
+              title: currentSection.title,
+              question: currentSection.question,
+              base: currentSection.base,
+              tableHtml: ''
+            });
+          }
+          currentSection = { title: tableTitleText, question: '', base: '', rows: [] };
+        } else if (currentSection && !currentSection.question) {
+          currentSection.question = text;
+        } else if (currentSection) {
+          if (!text) return;
+          const clone = row.cloneNode(true) as HTMLTableRowElement;
+          currentSection.rows.push(clone);
+        }
+      });
+      
+      if (currentSection) {
+        sections.push({
+          title: currentSection.title,
+          question: currentSection.question,
+          base: currentSection.base,
+          tableHtml: ''
+        });
+      }
+      
+      // Separate NetSummaryTable entries from regular tables
+      const netSummaryTableSections: PreviewTableSection[] = [];
+      const regularTableSections: PreviewTableSection[] = [];
+      
+      sections.forEach(section => {
+        const isNetSummaryTable = variable.type?.toLowerCase().includes('single select grid') &&
+          (() => {
+            const baseName = variable.name;
+            const netCodes = netSummaryTableSelectedCodes[baseName] || [];
+            return netCodes.some(net => section.title.includes(net.name));
+          })();
+        
+        if (isNetSummaryTable) {
+          netSummaryTableSections.push(section);
+        } else {
+          regularTableSections.push(section);
+        }
+      });
+      
+      const finalSections = [...netSummaryTableSections, ...regularTableSections];
+      return finalSections.length;
+    } catch (error) {
+      console.error(`Error calculating rendered count for ${variable.name}:`, error);
+      return 0;
+    }
+  }, [buildTabSpecsWorkbook, netSummaryTableSelectedCodes]);
+
+  // Calculate rendered table counts for all variables on load
+  useEffect(() => {
+    if (!variables.length || !fullRawData) return;
+    
+    const calculateAllCounts = async () => {
+      const counts: Record<string, number> = {};
+      // Process variables in batches to avoid overwhelming the browser
+      const batchSize = 5;
+      for (let i = 0; i < variables.length; i += batchSize) {
+        const batch = variables.slice(i, i + batchSize);
+        await Promise.all(
+          batch.map(async (variable) => {
+            if ((variable as any).isScaleSummary) return;
+            const count = await calculateRenderedTableCount(variable);
+            counts[variable.name] = count;
+          })
+        );
+        // Update state after each batch
+        setVariableRenderedTableCounts(prev => ({ ...prev, ...counts }));
+      }
+    };
+    
+    calculateAllCounts();
+  }, [variables, fullRawData, calculateRenderedTableCount]);
 
   const handleExportTabSpecsToExcel = useCallback(async () => {
     if (!variables.length) {
@@ -11495,7 +16164,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     }
 
     try {
-      const { workbook } = await buildTabSpecsWorkbook(variables);
+      const { workbook } = await runWithSilencedConsoleLogs(() => buildTabSpecsWorkbook(variables));
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
@@ -11527,12 +16196,21 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         setPreviewError(null);
         setPreviewLoading(false);
         setPreviewDebugInfo({});
+        // Don't clear variableRenderedTableCounts here - we want to keep the counts even when preview is closed
         return;
       }
       setPreviewLoading(true);
       setPreviewError(null);
       try {
+        const expectedTables = getTablesForVariable(previewVariable);
+        const isB8Preview = previewVariable.name === 'B8';
+        
+        if (isB8Preview) {
+          appendStatLog('[B8 Preview] Expected tables', { variable: previewVariable.name, expectedTables });
+        }
+        
         const { workbook, debugInfo } = await buildTabSpecsWorkbook([previewVariable]);
+        
         const buffer = await workbook.xlsx.writeBuffer();
         const parsedWorkbook = XLSX.read(buffer, { type: 'array' });
         const dataCutsSheet = parsedWorkbook.Sheets['Data Cuts'];
@@ -11540,9 +16218,34 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           if (!isCancelled) {
             setPreviewError('Unable to locate the Data Cuts sheet in the workbook.');
             setPreviewSectionsHtml([]);
+            if (previewVariable) {
+              setVariableRenderedTableCounts(prev => ({
+                ...prev,
+                [previewVariable.name]: 0
+              }));
+            }
           }
           return;
         }
+        
+        // Check for table title patterns
+        const tableTitleCells = Object.keys(dataCutsSheet).filter(key => {
+          if (key.startsWith('!')) return false;
+          const match = key.match(/^B(\d+)$/);
+          if (!match) return false;
+          const cell = dataCutsSheet[key];
+          return cell && cell.v && String(cell.v).startsWith('Table ');
+        });
+        
+        if (isB8Preview) {
+          appendStatLog('[B8 Preview] Workbook generated', {
+            sheetNames: workbook.worksheets.map(ws => ws.name),
+            totalCells: Object.keys(dataCutsSheet).length,
+            tableTitlesFound: tableTitleCells.length,
+            tableTitleCells: tableTitleCells.map(key => ({ cell: key, value: dataCutsSheet[key]?.v }))
+          });
+        }
+        
         const rawHtml = XLSX.utils.sheet_to_html(dataCutsSheet, { header: '', footer: '' });
         const parser = new DOMParser();
         const doc = parser.parseFromString(rawHtml, 'text/html');
@@ -11551,8 +16254,27 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           if (!isCancelled) {
             setPreviewError('Unable to parse the preview table.');
             setPreviewSectionsHtml([]);
+            if (previewVariable) {
+              setVariableRenderedTableCounts(prev => ({
+                ...prev,
+                [previewVariable.name]: 0
+              }));
+            }
           }
           return;
+        }
+        
+        const tableRows = tableElement.querySelectorAll('tr');
+        
+        // Debug: Log row count for multi-select
+        if (previewVariable && previewVariable.type?.toLowerCase().includes('multi-select') && !previewVariable.type?.toLowerCase().includes('grid')) {
+          if (isB8Preview || previewVariable.name === 'B8') {
+            appendStatLog('[Multi-select Preview] Parsing HTML', {
+              totalRows: tableRows.length,
+              rawHtmlLength: rawHtml.length,
+              tableElementExists: !!tableElement
+            });
+          }
         }
         const colgroupEl = tableElement.querySelector('colgroup');
         if (colgroupEl) {
@@ -11599,24 +16321,68 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         };
 
         rows.forEach(row => {
-          const text = row.textContent?.trim() || '';
-          if (text.startsWith('Table ')) {
+          // Check all cells in the row, not just textContent (which might miss column B content)
+          const cells = row.querySelectorAll('td, th');
+          const cellTexts = Array.from(cells).map(cell => {
+            const cellText = cell.textContent?.trim() || '';
+            // Also check for numeric values that might not show as text
+            const cellValue = (cell as HTMLElement).getAttribute('data-value') || cellText;
+            return cellValue || cellText;
+          }).filter(t => t);
+          const text = cellTexts.join(' ') || row.textContent?.trim() || '';
+          
+          // Include rows that have cells even if text is empty (might have numeric data)
+          const hasCellsWithContent = cells.length > 0 && Array.from(cells).some(cell => {
+            const cellText = cell.textContent?.trim() || '';
+            const cellValue = (cell as HTMLElement).getAttribute('data-value');
+            const innerHTML = cell.innerHTML?.trim() || '';
+            return cellText || cellValue || innerHTML;
+          });
+          
+          // Skip completely empty rows (no cells and no text)
+          if (!text && !hasCellsWithContent) return;
+          
+          if (text.startsWith('Table ') || cellTexts.some(t => t.startsWith('Table '))) {
+            // Use the cell text that starts with "Table " if textContent doesn't
+            const tableTitleText = text.startsWith('Table ') ? text : cellTexts.find(t => t.startsWith('Table ')) || text;
             if (currentSection) {
-              mergeLabelCells(currentSection.rows);
-              sections.push({
-                title: currentSection.title,
-                question: currentSection.question,
-                base: currentSection.base,
-                tableHtml: `<table>${colgroupHtml}${currentSection.rows.map(row => row.outerHTML).join('')}</table>`
-              });
+              // Add section even if empty - we'll show placeholder if no content
+              if (currentSection.rows.length > 0) {
+                mergeLabelCells(currentSection.rows);
+                sections.push({
+                  title: currentSection.title,
+                  question: currentSection.question,
+                  base: currentSection.base,
+                  tableHtml: `<table>${colgroupHtml}${currentSection.rows.map(row => row.outerHTML).join('')}</table>`
+                });
+              } else if (currentSection.title) {
+                // Add section with empty tableHtml so placeholder can be shown
+                sections.push({
+                  title: currentSection.title,
+                  question: currentSection.question,
+                  base: currentSection.base,
+                  tableHtml: ''
+                });
+              }
             }
-            currentSection = { title: text, question: '', base: '', rows: [] };
+            currentSection = { title: tableTitleText, question: '', base: '', rows: [] };
           } else if (currentSection && !currentSection.question) {
-            currentSection.question = text;
-          } else if (currentSection && !currentSection.base && text.toLowerCase().startsWith('base')) {
+            // Set question if we have text, otherwise use first cell content
+            if (text) {
+              currentSection.question = text;
+            } else if (cellTexts.length > 0) {
+              currentSection.question = cellTexts[0];
+            }
+          } else if (currentSection && text.toLowerCase().startsWith('base')) {
+            // Capture and render the Base row like Excel does
             currentSection.base = text;
+            const clone = row.cloneNode(true) as HTMLTableRowElement;
+            clone.classList.add('preview-base-row');
+            currentSection.rows.push(clone);
           } else if (currentSection) {
-            if (!text) return;
+            // Include row if it has cells (even if text appears empty - might have numeric data)
+            // Only skip if truly empty (no cells at all)
+            if (cells.length === 0) return;
             const clone = row.cloneNode(true) as HTMLTableRowElement;
             const rowIndex = currentSection.rows.length;
             if (rowIndex <= 2) {
@@ -11633,13 +16399,25 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         });
 
         if (currentSection) {
-          mergeLabelCells(currentSection.rows);
-          sections.push({
-            title: currentSection.title,
-            question: currentSection.question,
-            base: currentSection.base,
-            tableHtml: `<table>${colgroupHtml}${currentSection.rows.map(row => row.outerHTML).join('')}</table>`
-          });
+          // Add section even if empty - we'll show placeholder if no content
+          // This ensures tables that are selected but haven't been rendered yet still appear
+          if (currentSection.rows.length > 0) {
+            mergeLabelCells(currentSection.rows);
+            sections.push({
+              title: currentSection.title,
+              question: currentSection.question,
+              base: currentSection.base,
+              tableHtml: `<table>${colgroupHtml}${currentSection.rows.map(row => row.outerHTML).join('')}</table>`
+            });
+          } else if (currentSection.title) {
+            // Add section with empty tableHtml so placeholder can be shown
+            sections.push({
+              title: currentSection.title,
+              question: currentSection.question,
+              base: currentSection.base,
+              tableHtml: ''
+            });
+          }
         }
 
         // Separate NetSummaryTable entries from regular tables
@@ -11685,11 +16463,63 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         });
         
         // Combine: NetSummaryTables first, then regular tables
-        const finalSections = [...netSummaryTableSections, ...regularTableSections];
+        let finalSections = [...netSummaryTableSections, ...regularTableSections];
+        
+        // Filter to only include sections for tables that are actually selected
+        // This ensures the preview matches what getTablesForVariable returns
+        if (previewVariable) {
+          const expectedTables = getTablesForVariable(previewVariable);
+          finalSections = finalSections.filter(section => {
+            // Extract table identifier from section title (e.g., "Table 1: S1" -> "S1")
+            const titleMatch = section.title.match(/Table \d+:\s*(.+)/);
+            if (!titleMatch) {
+              // If we can't parse the title, check if we have any sections at all
+              // If no expected tables, don't filter (show all)
+              // If expected tables exist, only keep if sections match
+              return expectedTables.length === 0 || finalSections.length === 0;
+            }
+            
+            const tableIdentifier = titleMatch[1].trim();
+            const baseName = previewVariable.name;
+            
+            // Check if this section matches any expected table
+            return expectedTables.some(expectedTable => {
+              // For base table, check if identifier matches base name (exact match or starts with base name)
+              if (expectedTable === baseName) {
+                return tableIdentifier === baseName || 
+                       tableIdentifier.startsWith(baseName + ':') || 
+                       tableIdentifier.startsWith(baseName + '_') ||
+                       // Also match if identifier is just the question number (e.g., "G7" matches "G7")
+                       (tableIdentifier === baseName.replace(/^Q/, ''));
+              }
+              // For other tables, check if identifier contains the expected table name
+              return tableIdentifier.includes(expectedTable) || expectedTable.includes(tableIdentifier);
+            });
+          });
+        }
+        
+        if (isB8Preview) {
+          appendStatLog('[B8 Preview] Sections parsed', {
+            sectionsFound: sections.length,
+            regularSections: regularTableSections.length,
+            netSummarySections: netSummaryTableSections.length,
+            finalSectionsBeforeFilter: [...netSummaryTableSections, ...regularTableSections].length,
+            finalSections: finalSections.length,
+            sectionTitles: finalSections.map(s => s.title),
+            expectedTables: previewVariable ? getTablesForVariable(previewVariable) : []
+          });
+        }
 
         if (!isCancelled) {
           setPreviewSectionsHtml(finalSections);
           setPreviewDebugInfo(debugInfo || {});
+          // Store rendered count for this variable
+          if (previewVariable) {
+            setVariableRenderedTableCounts(prev => ({
+              ...prev,
+              [previewVariable.name]: finalSections.length
+            }));
+          }
         }
       } catch (error) {
         console.error('Preview generation error:', error);
@@ -11697,6 +16527,12 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           setPreviewError(error instanceof Error ? error.message : 'Failed to generate preview.');
           setPreviewSectionsHtml([]);
           setPreviewDebugInfo({});
+          if (previewVariable) {
+            setVariableRenderedTableCounts(prev => ({
+              ...prev,
+              [previewVariable.name]: 0
+            }));
+          }
         }
       } finally {
         if (!isCancelled) {
@@ -11715,6 +16551,50 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
   const handleDownloadTabSpecsWorkbook = useCallback(() => {
     void handleExportTabSpecsToExcel();
   }, [handleExportTabSpecsToExcel]);
+
+  // Export Tab Specs tables to Excel for a specific banner group
+  const handleExportTabSpecsToExcelForBanner = useCallback(async (bannerId: string) => {
+    if (!variables.length) {
+      alert('No variables available for export.');
+      return;
+    }
+    setExportingBannerId(bannerId);
+    const bannerGroup = newBannerGroups.find(b => b.id === bannerId);
+    if (!bannerGroup) {
+      alert('Selected banner group not found.');
+      setExportingBannerId(null);
+      return;
+    }
+    try {
+      // Allow UI to paint spinner before heavy work
+      await new Promise(res => setTimeout(res, 0));
+      const { workbook } = await runWithSilencedConsoleLogs(() => buildTabSpecsWorkbook(variables, bannerGroup));
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+      const now = new Date();
+      const shortDate = `${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getDate().toString().padStart(2, '0')}.${now.getFullYear().toString().slice(-2)}`;
+      const questionnaireName = selectedQuestionnaire?.name || 'Questionnaire';
+      const bannerName = bannerGroup.title || 'Banner';
+      const sanitizedQ = questionnaireName.replace(/[^\w\s]/g, '_').replace(/\s+/g, '_');
+      const sanitizedB = bannerName.replace(/[^\w\s]/g, '_').replace(/\s+/g, '_');
+      const fileName = `Tables_${sanitizedQ}_${sanitizedB}_${shortDate}.xlsx`;
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting tables to Excel for banner:', error);
+      alert(error instanceof Error ? error.message : 'Error exporting tables to Excel. Please try again.');
+    } finally {
+      setExportingBannerId(null);
+    }
+  }, [variables, buildTabSpecsWorkbook, selectedQuestionnaire, newBannerGroups]);
 
   // Generate crosstab and add to downloads queue
   const handleGenerateCrosstab = useCallback(async (bannerIdOverride?: string) => {
@@ -11799,7 +16679,8 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     }
 
     // Convert Open End with statementOptions to Open End List
-    const isOpenEndBase = questionType.toLowerCase() === 'open end' ||
+    const lowerTypeForOpen = questionType.toLowerCase();
+    const isOpenEndBase = lowerTypeForOpen === 'open end' || lowerTypeForOpen === 'open text' ||
                         (questionType.toLowerCase().includes('open end') && !questionType.toLowerCase().includes('list'));
     const hasStatementOptionsForType = question?.statementOptions && Array.isArray(question.statementOptions) && question.statementOptions.length > 0;
     if (isOpenEndBase && hasStatementOptionsForType) {
@@ -11808,13 +16689,15 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
     let isNumericGrid = questionType.toLowerCase().includes('numeric grid');
     const isNumericOnly = questionType.toLowerCase() === 'numeric' || (questionType.toLowerCase().includes('numeric') && !isNumericGrid);
-    const isOpenEndList = questionType.toLowerCase().includes('open end list');
-    const isOpenEnd = questionType.toLowerCase().includes('open end') && !isOpenEndList;
+    const isOpenEndList = lowerTypeForOpen.includes('open end list');
+    const isOpenEnd = (lowerTypeForOpen.includes('open end') || lowerTypeForOpen.includes('open text')) && !isOpenEndList;
     const isSingleSelect = questionType.toLowerCase().includes('single select') && !questionType.toLowerCase().includes('grid');
     const isSingleSelectGrid = questionType.toLowerCase().includes('single select grid');
     const isMultiSelectGrid = questionType.toLowerCase().includes('multi-select grid');
     const isMultiSelect = questionType.toLowerCase().includes('multi-select') && !isMultiSelectGrid;
     let isGrid = isNumericGrid || isSingleSelectGrid || isMultiSelectGrid;
+    
+    // [EXPECTED TRACE] logging removed to reduce console noise
     
     // For hidden variables, return just "h" + variable name (no "Q" prefix)
     if (isHiddenVariable) {
@@ -11898,6 +16781,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     
     // For single select questions (not grids) and open end questions (not lists), return just Q + question number
     if ((isSingleSelect || isOpenEnd) && !isGrid) {
+      // [EXPECTED TRACE] logging removed
       return [`Q${baseQuestionNumber}`];
     }
 
@@ -12316,15 +17200,70 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       }
     });
 
+    // Debug logging removed
+
+    // For simple question types (open end, single select, numeric - not grids),
+    // ALWAYS include the base column first, then add related variables
+    if (isOpenEnd || isNumericOnly || isSingleSelect) {
+      // Check if the base column header is already in the list
+      const baseHeader = `Q${baseQuestionNumber}`;
+      if (!expectedHeaders.includes(baseHeader)) {
+        // Add the base question column at the beginning (e.g., QB4, QB5, QB6)
+        expectedHeaders.unshift(baseHeader);
+        console.log(`🔍 [HEADER DEBUG] Added base header ${baseHeader} for ${baseQuestionNumber}`);
+      }
+
+      // For open-ended questions, only add coded headers (e.g., QS3r1, QS3r2)
+      // AFTER the user has performed open-end coding (themes saved).
+      // Prefer fullRawData.columns if present; otherwise fall back to parsed columnHeaders.
+      const savedThemesForBase =
+        (savedCodingThemes.get(baseQuestionNumber) ||
+         savedCodingThemes.get(`Q${baseQuestionNumber}`) ||
+         []) as Array<{ code: number; theme: string }>;
+      const hasSavedOpenEndThemes = Array.isArray(savedThemesForBase) && savedThemesForBase.length > 0;
+
+      if (isOpenEnd && hasSavedOpenEndThemes && ((fullRawData && fullRawData.columns) || (columnHeaders && columnHeaders.length > 0))) {
+        // [EXPECTED TRACE] logging removed
+        const codedColumnPattern = new RegExp(`^q?${baseQuestionNumber}r\\d+$`, 'i');
+        const headersSource: string[] = (fullRawData && fullRawData.columns) ? fullRawData.columns : columnHeaders;
+        const codedColumns = headersSource.filter((col: string) =>
+          codedColumnPattern.test(col)
+        );
+
+        // Sort coded columns numerically
+        const sortedCodedColumns = codedColumns.sort((a, b) => {
+          const aMatch = a.match(/r(\d+)$/i);
+          const bMatch = b.match(/r(\d+)$/i);
+          const aNum = aMatch ? parseInt(aMatch[1], 10) : 0;
+          const bNum = bMatch ? parseInt(bMatch[1], 10) : 0;
+          return aNum - bNum;
+        });
+
+        // Add coded columns to expected headers (ensure 'Q' prefix for display/mapping)
+        sortedCodedColumns.forEach(col => {
+          const qCol = col.startsWith('Q') ? col : `Q${col}`;
+          if (!expectedHeaders.includes(qCol)) {
+            expectedHeaders.push(qCol);
+          }
+        });
+
+        // Debug logging removed
+      } else if (isOpenEnd) {
+        // [EXPECTED TRACE] logging removed
+      }
+    }
+
     // Normalize all expected headers to remove underscores and ensure consistent format
     const normalizedHeaders = expectedHeaders.map(header => {
       // Remove underscores from expected headers (e.g., QC1_r1 -> QC1r1)
       return header.replace(/_/g, '');
     });
 
+    // Debug logging removed
+
     // Sort to ensure consistent ordering
     return normalizedHeaders.sort();
-  }, [getBaseQuestionNumber, questionnaireQuestions, convertHiddenVariableToExpectedHeader]);
+  }, [getBaseQuestionNumber, questionnaireQuestions, convertHiddenVariableToExpectedHeader, fullRawData, columnHeaders, savedCodingThemes]);
 
   // Helper function to generate expected headers for a question (same logic as data tab)
   // This function uses the same logic as the data tab to generate expected headers from QNR
@@ -12519,6 +17458,18 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       return { headers: [], rows: [] };
     }
 
+    console.log('🔍 [QUESTIONS DEBUG] questionnaireQuestions:', {
+      totalQuestions: questionnaireQuestions.length,
+      questionNumbers: questionnaireQuestions.map(q => q.number || q.id).slice(0, 30),
+      hasB4: questionnaireQuestions.some(q => (q.number || q.id) === 'B4'),
+      hasB5: questionnaireQuestions.some(q => (q.number || q.id) === 'B5'),
+      hasB6: questionnaireQuestions.some(q => (q.number || q.id) === 'B6'),
+      bQuestions: questionnaireQuestions.filter(q => {
+        const num = String(q.number || q.id);
+        return num.startsWith('B');
+      }).map(q => q.number || q.id)
+    });
+
     // Get all expected headers from all variables in QNR order
     const allExpectedHeaders: string[] = [];
     const expectedHeadersSet = new Set<string>();
@@ -12535,6 +17486,9 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       processedBaseNumbers.add(baseNumber);
 
       const expectedHeaders = getExpectedColumnHeadersForBase(baseNumber, variables);
+      if (String(baseNumber).replace(/^Q/, '').toUpperCase() === 'S3') {
+        console.log('🟣 [PROCESSED TRACE] S3 expected headers from getExpectedColumnHeadersForBase (pre-raw injection):', expectedHeaders);
+      }
       expectedHeaders.forEach(header => {
         if (!expectedHeadersSet.has(header)) {
           expectedHeadersSet.add(header);
@@ -12582,12 +17536,25 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       }
     });
 
+    // Do NOT inject coded 'r' columns into expected headers from the data file.
+    // Expected headers are driven solely by QNR and saved coding state elsewhere.
+    if (allExpectedHeaders.some(h => /^QS3r\d+$/i.test(h))) {
+      console.log('🟥 [PROCESSED TRACE] S3 unexpected coded headers present in allExpectedHeaders:', allExpectedHeaders.filter(h => /^QS3r\d+$/i.test(h)));
+    } else {
+      console.log('🟢 [PROCESSED TRACE] S3 OK: no coded headers in allExpectedHeaders.');
+    }
+
     // Always include "record" as the first column if it exists in the data
     const finalHeaders: string[] = [];
     if (fullRawData.columns && fullRawData.columns.includes('record')) {
       finalHeaders.push('record');
     }
     finalHeaders.push(...allExpectedHeaders);
+    if (finalHeaders.some(h => /^QS3r\d+$/i.test(h))) {
+      console.log('🟥 [PROCESSED TRACE] S3 coded headers ended up in finalHeaders:', finalHeaders.filter(h => /^QS3r\d+$/i.test(h)));
+    } else {
+      console.log('🟢 [PROCESSED TRACE] S3 OK: no coded headers in finalHeaders.');
+    }
 
     // Process data rows - only include rows that have a record/respno value
     const dataRows: Record<string, any>[] = [];
@@ -12604,16 +17571,30 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         if (expectedHeader === 'record') {
           row[expectedHeader] = recordValue;
         } else {
-          const mappedColumnHeader = columnMapping[expectedHeader];
-          if (mappedColumnHeader && rawRow.hasOwnProperty(mappedColumnHeader)) {
-            const value = rawRow[mappedColumnHeader];
-            if (value === null || value === undefined || value === '' || (typeof value === 'string' && value.trim() === '')) {
-              row[expectedHeader] = null;
-            } else {
+          // Check if this is a coded column (format: b4r1, b4r2, etc.)
+          const isCodedColumn = /^[a-z0-9]+r\d+$/i.test(expectedHeader);
+
+          if (isCodedColumn) {
+            // For coded columns, read directly from rawRow (they're already in the correct format)
+            if (rawRow.hasOwnProperty(expectedHeader)) {
+              const value = rawRow[expectedHeader];
               row[expectedHeader] = value;
+            } else {
+              row[expectedHeader] = null;
             }
           } else {
-            row[expectedHeader] = null;
+            // For regular columns, use columnMapping
+            const mappedColumnHeader = columnMapping[expectedHeader];
+            if (mappedColumnHeader && rawRow.hasOwnProperty(mappedColumnHeader)) {
+              const value = rawRow[mappedColumnHeader];
+              if (value === null || value === undefined || value === '' || (typeof value === 'string' && value.trim() === '')) {
+                row[expectedHeader] = null;
+              } else {
+                row[expectedHeader] = value;
+              }
+            } else {
+              row[expectedHeader] = null;
+            }
           }
         }
       });
@@ -12622,7 +17603,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     });
 
     return { headers: finalHeaders, rows: dataRows };
-  }, [fullRawData, columnMapping, variables, questionnaireQuestions, getExpectedColumnHeadersForBase, getBaseQuestionNumber]);
+  }, [fullRawData, columnMapping, variables, questionnaireQuestions, getExpectedColumnHeadersForBase, getBaseQuestionNumber, savedCodingThemes]);
 
   // Process open-end coding for selected variable
   const processOpenEndCoding = useCallback(async (variable: Variable) => {
@@ -12892,44 +17873,164 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       });
 
       // Update fullRawData with new code columns
+      // Use multi-select format: B4r1, B4r2, etc. instead of B4_Code1, B4_Code2
+      // IMPORTANT: Preserve the original case so variables match when filtering by base number
+      const baseVariableName = selectedOpenEndVariable.name.replace(/^Q/, '');
+
       const updatedRows = fullRawData.rows.map((row: any) => {
         const respondentId = idColumnHeader ? String(row[idColumnHeader] || '') : '';
         const codes = respondentCodesMap.get(respondentId) || [];
         const updatedRow = { ...row };
-        
-        // Add a column for each code (1 if respondent has that code, 0 otherwise)
+
+        // Add a column for each code (1 if respondent has that code, 0 if not, - if no response to base question)
         openEndCodingResults.themes.forEach(theme => {
-          const codeColumnName = `${selectedOpenEndVariable.name}_Code${theme.code}`;
-          updatedRow[codeColumnName] = codes.includes(theme.code) ? 1 : 0;
+          const codeColumnName = `${baseVariableName}r${theme.code}`;
+          // Check if respondent had a response to the original question
+          const hasOriginalResponse = mappedColumnHeader && row[mappedColumnHeader] &&
+                                     String(row[mappedColumnHeader]).trim() !== '' &&
+                                     String(row[mappedColumnHeader]).toLowerCase() !== 'null';
+
+          if (!hasOriginalResponse) {
+            updatedRow[codeColumnName] = '-';
+          } else {
+            updatedRow[codeColumnName] = codes.includes(theme.code) ? 1 : 0;
+          }
         });
-        
+
         return updatedRow;
       });
 
-      // Update fullRawData state
+      // Update fullRawData state - insert code columns after the base question column
       const updatedColumns = [...(fullRawData.columns || [])];
-      openEndCodingResults.themes.forEach(theme => {
-        const codeColumnName = `${selectedOpenEndVariable.name}_Code${theme.code}`;
-        if (!updatedColumns.includes(codeColumnName)) {
-          updatedColumns.push(codeColumnName);
-        }
+      const baseColumnIndex = updatedColumns.indexOf(mappedColumnHeader);
+      const insertIndex = baseColumnIndex >= 0 ? baseColumnIndex + 1 : updatedColumns.length;
+
+      // Create code column names in order
+      const codeColumnNames = openEndCodingResults.themes
+        .sort((a, b) => a.code - b.code)
+        .map(theme => `${baseVariableName}r${theme.code}`);
+
+      // Remove any existing code columns for this variable first
+      const filteredColumns = updatedColumns.filter(col =>
+        !codeColumnNames.includes(col) && !col.startsWith(`${baseVariableName}r`)
+      );
+
+      // Insert code columns at the correct position
+      filteredColumns.splice(insertIndex, 0, ...codeColumnNames);
+
+      // Debug logging
+      console.log('🔍 [CODING DEBUG] Saving coded data:', {
+        variableName: selectedOpenEndVariable.name,
+        baseVariableName,
+        codeColumnNames,
+        totalColumns: filteredColumns.length,
+        sampleColumns: filteredColumns.slice(0, 20),
+        codedColumnsInList: filteredColumns.filter(c => c.toLowerCase().includes(baseVariableName)),
+        totalRows: updatedRows.length,
+        sampleRow: updatedRows[0]
       });
 
-      // Update local state (backend persistence can be added later if needed)
+      // Update local state
       setFullRawData({
-        columns: updatedColumns,
+        columns: filteredColumns,
         rows: updatedRows
       });
 
+      // Auto-map coded columns to expected headers in columnMapping (e.g., QB5r1 -> B5r1)
+      try {
+        setColumnMapping(prev => {
+          const updatedMapping = { ...prev };
+          // Ensure base is mapped already via mappedColumnHeader
+          const baseExpected = selectedOpenEndVariable.name.startsWith('Q') ? selectedOpenEndVariable.name : `Q${selectedOpenEndVariable.name}`;
+          if (mappedColumnHeader && (!updatedMapping[baseExpected] || updatedMapping[baseExpected] === '')) {
+            updatedMapping[baseExpected] = mappedColumnHeader;
+          }
+          // Map each code column
+          codeColumnNames.forEach((colName) => {
+            const expected = colName.startsWith('Q') ? colName : `Q${colName}`;
+            if (!updatedMapping[expected] || updatedMapping[expected].trim() === '') {
+              updatedMapping[expected] = colName;
+            }
+            // Also add identity mapping to be safe
+            if (!updatedMapping[colName] || updatedMapping[colName].trim() === '') {
+              updatedMapping[colName] = colName;
+            }
+          });
+          return updatedMapping;
+        });
+      } catch {}
+
+      console.log('🔍 [CODING DEBUG] Updated fullRawData state');
+
+      // Prepare expected headers debug for this variable (what will show in Data tab)
+      try {
+        const baseHeader = `Q${baseVariableName}`;
+        const qCoded = codeColumnNames.map(c => (c.startsWith('Q') ? c : `Q${c}`));
+        const expectedForDebug = [baseHeader, ...qCoded];
+        setCodedHeadersDebug(prev => {
+          const next = { ...prev, [selectedOpenEndVariable.name]: expectedForDebug };
+          if (selectedQuestionnaire?.id) {
+            const storageKey = `codedHeadersDebug_${selectedQuestionnaire.id}`;
+            localStorage.setItem(storageKey, JSON.stringify(next));
+          }
+          return next;
+        });
+      } catch (e) {
+        // no-op
+      }
+
+      // Save to backend
+      try {
+        console.log('🔍 [CODING DEBUG] Sending to backend...');
+        const response = await fetch(`${API_BASE_URL}/api/questionnaire/raw-data/${selectedQuestionnaire.id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            columns: filteredColumns,
+            rows: updatedRows
+          })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('🔍 [CODING DEBUG] Backend save failed:', response.status, errorText);
+          throw new Error('Failed to save raw data to server');
+        }
+
+        const result = await response.json();
+        console.log('🔍 [CODING DEBUG] Backend save succeeded:', result);
+      } catch (saveError) {
+        console.error('🔍 [CODING DEBUG] Error saving to backend:', saveError);
+        setOpenEndCodingError('Data saved locally but failed to persist to server. Changes may be lost on refresh.');
+      }
+
       // Store theme names for this variable so we can display them later
+      const newThemes = openEndCodingResults.themes.map(t => ({
+        code: t.code,
+        theme: t.theme
+      }));
+
       setSavedCodingThemes(prev => {
         const newMap = new Map(prev);
-        newMap.set(selectedOpenEndVariable.name, openEndCodingResults.themes.map(t => ({
-          code: t.code,
-          theme: t.theme
-        })));
+        newMap.set(selectedOpenEndVariable.name, newThemes);
         return newMap;
       });
+
+      // Also save to localStorage for persistence across reloads
+      if (selectedQuestionnaire?.id) {
+        const storageKey = `codingThemes_${selectedQuestionnaire.id}`;
+        const existingThemes = localStorage.getItem(storageKey);
+        const themesMap = existingThemes ? JSON.parse(existingThemes) : {};
+        themesMap[selectedOpenEndVariable.name] = newThemes;
+        localStorage.setItem(storageKey, JSON.stringify(themesMap));
+      }
+
+      // No need to create separate variables - coded columns will show as expected headers
+      // for the base variable automatically (pulled from fullRawData.columns)
+      console.log('🔍 [CODING DEBUG] Coded columns saved. They will appear as expected headers for', selectedOpenEndVariable.name);
 
       setVariableTableSelections(prev => {
         const summaryId = `${selectedOpenEndVariable.name}_VerbatimSummary`;
@@ -12955,6 +18056,119 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       setOpenEndCodingError(err instanceof Error ? err.message : 'Failed to save codes');
     }
   }, [openEndCodingResults, selectedOpenEndVariable, fullRawData, columnMapping, selectedQuestionnaire]);
+
+  // Delete coded table for a specific open-end variable (remove code columns and saved themes)
+  const handleDeleteCodedTable = useCallback(async (variable: Variable) => {
+    if (!variable || !fullRawData) return;
+    const confirmDelete = window.confirm('Delete the coded table and remove all code columns for this question? This cannot be undone.');
+    if (!confirmDelete) return;
+    try {
+      setDeletingCodedTables(prev => ({ ...prev, [variable.name]: true }));
+      const baseVariableName = variable.name.replace(/^Q/, '');
+      // Identify code columns like B5r1, B5r2, ...
+      const columnsToRemove = (fullRawData.columns || []).filter((col: string) => {
+        const colLower = col.toLowerCase();
+        return colLower.startsWith(baseVariableName.toLowerCase() + 'r') && /r\d+$/.test(colLower);
+      });
+      if (columnsToRemove.length === 0) {
+        setDeletingCodedTables(prev => {
+          const { [variable.name]: _, ...rest } = prev;
+          return rest;
+        });
+        return;
+      }
+      // Remove columns from rows
+      const updatedRows = fullRawData.rows.map((row: any) => {
+        const updated = { ...row };
+        columnsToRemove.forEach((col: string) => {
+          if (col in updated) {
+            delete updated[col];
+          }
+        });
+        return updated;
+      });
+      // Remove from columns list
+      const updatedColumns = (fullRawData.columns || []).filter((c: string) => !columnsToRemove.includes(c));
+      // Update state
+      setFullRawData({
+        columns: updatedColumns,
+        rows: updatedRows
+      });
+      // Remove saved themes in memory
+      setSavedCodingThemes(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(variable.name);
+        newMap.delete(`Q${variable.name}`);
+        return newMap;
+      });
+      // Remove saved themes in localStorage
+      if (selectedQuestionnaire?.id) {
+        const storageKey = `codingThemes_${selectedQuestionnaire.id}`;
+        const existingThemes = localStorage.getItem(storageKey);
+        if (existingThemes) {
+          const themesMap = JSON.parse(existingThemes);
+          delete themesMap[variable.name];
+          delete themesMap[`Q${variable.name}`];
+          localStorage.setItem(storageKey, JSON.stringify(themesMap));
+        }
+      }
+      // Remove mappings for coded columns from columnMapping
+      try {
+        setColumnMapping(prev => {
+          const updated = { ...prev };
+          columnsToRemove.forEach(colName => {
+            const expected = colName.startsWith('Q') ? colName : `Q${colName}`;
+            if (updated[expected]) {
+              delete updated[expected];
+            }
+            // Also remove identity mapping if present
+            if (updated[colName]) {
+              delete updated[colName];
+            }
+          });
+          return updated;
+        });
+      } catch {}
+      // Remove coded headers debug (state and localStorage)
+      setCodedHeadersDebug(prev => {
+        const next = { ...prev };
+        delete next[variable.name];
+        if (selectedQuestionnaire?.id) {
+          const debugKey = `codedHeadersDebug_${selectedQuestionnaire.id}`;
+          localStorage.setItem(debugKey, JSON.stringify(next));
+        }
+        return next;
+      });
+      // Persist to backend
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/questionnaire/raw-data/${selectedQuestionnaire?.id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            columns: updatedColumns,
+            rows: updatedRows
+          })
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('🔍 [CODING DEBUG] Backend delete save failed:', response.status, errorText);
+          throw new Error('Failed to save deletion to server');
+        }
+      } catch (e) {
+        console.error('🔍 [CODING DEBUG] Error persisting deletion:', e);
+        // Keep UI consistent even if backend fails; user can refresh to retry
+      }
+    } finally {
+      setDeletingCodedTables(prev => {
+        const { [variable.name]: _, ...rest } = prev;
+        return rest;
+      });
+    }
+  }, [fullRawData, selectedQuestionnaire]);
+  // (Deleted) handleOpenEndDelete – reverting to previous behavior with no delete control
 
   // Load questionnaire details function
   const loadQuestionnaireDetails = useCallback(async () => {
@@ -13284,13 +18498,79 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         });
         setDataUploaded(isUploaded);
         
-        // Load the column mapping if it exists, BUT NOT if we're uploading a new file
+        // Load the column mapping if it exists and is non-empty, BUT NOT if we're uploading a new file
         // (to prevent restoring old mapping from server)
-        if (!isUploadingNewFileRef.current && data.columnMapping) {
-          setColumnMapping(data.columnMapping);
-          // If there's a mapping, mark that mapping has been attempted
+        if (!isUploadingNewFileRef.current && data.columnMapping && Object.keys(data.columnMapping).length > 0) {
+          // Merge server mapping with any local mapping, preferring local keys
+          let localParsed: Record<string, string> = {};
+          try {
+            const storageKey = `columnMapping_${selectedQuestionnaire.id}`;
+            const stored = localStorage.getItem(storageKey);
+            if (stored) {
+              localParsed = JSON.parse(stored) || {};
+            }
+          } catch {}
+          const stateMapping = columnMappingState || {};
+          const serverMapping = data.columnMapping || {};
+          const merged = { ...serverMapping, ...localParsed, ...stateMapping };
+          console.log('🟢 [LOAD FILE INFO] Using merged mapping', {
+            questionnaireId: selectedQuestionnaire.id,
+            serverKeys: Object.keys(serverMapping).length,
+            localKeys: Object.keys(localParsed).length,
+            stateKeys: Object.keys(stateMapping).length,
+            mergedKeys: Object.keys(merged).length
+          });
+          setColumnMapping(merged);
           setHasAttemptedMapping(true);
+          // If merged contains more keys than server, write back to server
+          if (Object.keys(merged).length > Object.keys(serverMapping).length) {
+            try {
+              console.log('🟢 [LOAD FILE INFO] Writing merged mapping back to server', {
+                questionnaireId: selectedQuestionnaire.id
+              });
+              fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  questionnaireId: selectedQuestionnaire.id,
+                  variableNames: variables.map(v => v.name),
+                  dataHeaders: columnHeaders,
+                  mapping: merged
+                })
+              }).catch(() => {});
+            } catch {}
+          }
+        } else if (!isUploadingNewFileRef.current && selectedQuestionnaire) {
+          // Fallback to localStorage mapping if backend doesn't have one
+          try {
+            const storageKey = `columnMapping_${selectedQuestionnaire.id}`;
+            const stored = localStorage.getItem(storageKey);
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+                console.log('🟡 [LOAD FILE INFO] Falling back to localStorage mapping', {
+                  questionnaireId: selectedQuestionnaire.id,
+                  keys: Object.keys(parsed).length
+                });
+                setColumnMapping(parsed);
+                setHasAttemptedMapping(true);
+              } else {
+                console.log('🟡 [LOAD FILE INFO] localStorage mapping empty, clearing');
+                setColumnMapping({});
+              }
+            } else {
+              console.log('🟡 [LOAD FILE INFO] No server mapping and no localStorage mapping');
+              setColumnMapping({});
+            }
+          } catch {
+            console.warn('⚠️ [LOAD FILE INFO] Failed reading localStorage mapping');
+            setColumnMapping({});
+          }
         } else {
+          console.log('🟠 [LOAD FILE INFO] Upload in progress or no mapping; clearing');
           setColumnMapping({});
           // Don't set hasAttemptedMapping to false when loading - only set it when explicitly clearing
           // This prevents auto-mapping when loading a file without a mapping
@@ -13351,31 +18631,65 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     }, delay);
   }, [loadFileInfo]);
 
-  // Load questionnaire details and processed data when questionnaire is selected
+  // Load questionnaire details and processed data when questionnaire changes
   useEffect(() => {
     if (selectedQuestionnaire) {
       // Always load questionnaire details to get questions/variables
       loadQuestionnaireDetails();
-      // Also try to load processed data if it exists - this ensures data persists when navigating back
-      // This is critical for page refreshes - data must be loaded from backend
+      // Load processed data once per questionnaire selection
       loadProcessedData();
-      // Load file info immediately to get column mapping and file info
-      // This is needed for the mapping display in the variables tab
-      // BUT NOT if we just uploaded a file (to prevent loading old mappings)
-      if (!isUploadingNewFileRef.current && (!uploadCompletedAtRef.current || Date.now() - uploadCompletedAtRef.current > 2000)) {
-        loadFileInfo();
-      } else {
-        console.log('🟢 [LOAD FILE INFO DEBUG] Skipping loadFileInfo in questionnaire effect - upload in progress or just completed');
-      }
+      // Do NOT call loadFileInfo here to avoid re-fetching on every entry to Tabs.
+      // File info is loaded on-demand (e.g., in Data view or mapping actions) with debouncing.
     } else {
       // Only clear data when explicitly switching away from a questionnaire
-      // Don't clear during initial render or when questionnaire is temporarily undefined
       if (viewMode === 'home' || viewMode === 'project') {
         setVariableData({});
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedQuestionnaire, viewMode]);
+  }, [selectedQuestionnaire]);
+
+
+  // Preload column mapping from localStorage quickly on questionnaire change
+  // This ensures manual mappings appear immediately after refresh, even before server responds
+  useEffect(() => {
+    if (!selectedQuestionnaire) return;
+    // If we already have a mapping in memory, don't override it
+    if (columnMapping && Object.keys(columnMapping).length > 0) return;
+    try {
+      const storageKey = `columnMapping_${selectedQuestionnaire.id}`;
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+          console.log('🟣 [PRELOAD] Loaded mapping from localStorage on questionnaire change', {
+            questionnaireId: selectedQuestionnaire.id,
+            keys: Object.keys(parsed).length
+          });
+          setColumnMapping(parsed);
+          setHasAttemptedMapping(true);
+        }
+      }
+    } catch {}
+  }, [selectedQuestionnaire]);
+ 
+  // If we have a local mapping but no uploadedFileInfo yet, synthesize minimal info
+  // so the "Variables" tab becomes available immediately after refresh.
+  useEffect(() => {
+    if (!selectedQuestionnaire) return;
+    if (uploadedFileInfo) return;
+    if (columnMapping && Object.keys(columnMapping).length > 0) {
+      console.log('🟣 [PRELOAD] Synthesizing uploadedFileInfo based on local mapping presence');
+      setUploadedFileInfo({
+        fileName: 'Unknown',
+        uploadedAt: new Date().toISOString(),
+        processed: true
+      });
+      setDataUploaded(true);
+    }
+  }, [selectedQuestionnaire, columnMapping, uploadedFileInfo]);
+
+ 
 
   // Listen for questionnaire updates from QNR page
   useEffect(() => {
@@ -13492,10 +18806,10 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       return;
     }
     
-    // BLOCK mapping if we just uploaded a file (within last 5 seconds)
+    // BLOCK mapping if we just uploaded a file (within last 2 seconds)
     // This prevents automatic mapping right after upload, even if forceRemap is true
-    if (uploadCompletedAtRef.current && Date.now() - uploadCompletedAtRef.current < 5000) {
-      console.log('🔵 [MAPPING DEBUG] performAutomaticMapping BLOCKED - upload completed recently (within 5 seconds)');
+    if (uploadCompletedAtRef.current && Date.now() - uploadCompletedAtRef.current < 2000) {
+      console.log('🔵 [MAPPING DEBUG] performAutomaticMapping BLOCKED - upload completed recently (within 2 seconds)');
       return;
     }
     
@@ -13686,7 +19000,19 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       
       // Now match expected headers to column headers
       baseQuestionMap.forEach((group) => {
-        const expectedHeaders = getExpectedColumnHeadersForBase(group.baseNumber, variables);
+        let expectedHeaders = getExpectedColumnHeadersForBase(group.baseNumber, variables);
+        // Include headers saved from Variables debug for this base
+        const codedFromVars = codedHeadersDebug[`Q${group.baseNumber}`] || codedHeadersDebug[String(group.baseNumber)] || [];
+        if (codedFromVars.length > 0) {
+          const unique = new Set(expectedHeaders.map(h => h.replace(/_/g, '')));
+          codedFromVars.forEach(h => {
+            const norm = h.replace(/_/g, '');
+            if (!unique.has(norm)) {
+              unique.add(norm);
+              expectedHeaders.push(h);
+            }
+          });
+        }
 
         // Debug C1 specifically
         if (group.baseNumber.toLowerCase() === 'c1') {
@@ -14401,7 +19727,68 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     const expectedHeadersSet = new Set<string>();
     const expectedHeadersOrdered: string[] = [];
     baseQuestionMap.forEach((group) => {
-      const headers = getExpectedColumnHeadersForBase(group.baseNumber, variables);
+      let headers = getExpectedColumnHeadersForBase(group.baseNumber, variables);
+      if (String(group.baseNumber).replace(/^Q/, '').toUpperCase() === 'S3') {
+        console.log('🟡 [MAPPING TRACE] S3 expected headers (initial):', headers);
+      }
+      // Include headers saved from Variables debug for this base
+      const codedFromVars = codedHeadersDebug[`Q${group.baseNumber}`] || codedHeadersDebug[String(group.baseNumber)] || [];
+      if (codedFromVars.length > 0) {
+        if (String(group.baseNumber).replace(/^Q/, '').toUpperCase() === 'S3') {
+          console.log('🟡 [MAPPING TRACE] S3 codedFromVars present; appending:', codedFromVars);
+        }
+        const unique = new Set(headers.map(h => h.replace(/_/g, '')));
+        codedFromVars.forEach(h => {
+          const norm = h.replace(/_/g, '');
+          if (!unique.has(norm)) {
+            unique.add(norm);
+            headers.push(h);
+          }
+        });
+      }
+      // Ensure coded open-end columns (e.g., B5r1) are included ONLY when user has saved coding themes
+      if ((fullRawData?.columns?.length || columnHeaders.length) && typeof group.baseNumber === 'string') {
+        const typeLower = (group.type || '').toLowerCase();
+        const isOpenEndType = typeLower.includes('open end') && !typeLower.includes('list');
+        if (isOpenEndType) {
+          const baseNoQ = group.baseNumber.replace(/^Q/, '');
+          const savedThemesArr =
+            (savedCodingThemes.get(baseNoQ) ||
+             savedCodingThemes.get(`Q${baseNoQ}`) ||
+             []) as Array<{ code: number; theme: string }>;
+          if (Array.isArray(savedThemesArr) && savedThemesArr.length > 0) {
+            if (String(group.baseNumber).replace(/^Q/, '').toUpperCase() === 'S3') {
+              console.log('🟡 [MAPPING TRACE] S3 savedThemes found; scanning data for coded columns', {
+                savedThemesCount: savedThemesArr.length,
+                fullRawDataCols: fullRawData?.columns?.length || 0,
+                columnHeadersCount: columnHeaders.length
+              });
+            }
+            const baseVarLower = baseNoQ.toLowerCase();
+            const headersSource: string[] = (fullRawData && fullRawData.columns && fullRawData.columns.length > 0) ? fullRawData.columns : columnHeaders;
+            const codedCols = headersSource.filter((col: string) => {
+              const cl = String(col).toLowerCase();
+              return cl.startsWith(baseVarLower + 'r') && /r\d+$/.test(cl);
+            });
+            if (codedCols.length > 0) {
+              if (String(group.baseNumber).replace(/^Q/, '').toUpperCase() === 'S3') {
+                console.log('🟡 [MAPPING TRACE] S3 adding coded columns from data:', codedCols.slice(0, 10), '... total:', codedCols.length);
+              }
+              const qPrefixed = codedCols.map(c => (c.startsWith('Q') || c.startsWith('q')) ? c.replace(/^q/i, 'Q') : `Q${c}`);
+              const unique = new Set(headers);
+              qPrefixed.forEach(h => { if (!unique.has(h)) { unique.add(h); } });
+              headers = Array.from(unique);
+            }
+          } else {
+            if (String(group.baseNumber).replace(/^Q/, '').toUpperCase() === 'S3') {
+              console.log('🟡 [MAPPING TRACE] S3 no savedThemes; NOT adding coded columns from data.');
+            }
+          }
+        }
+      }
+      if (String(group.baseNumber).replace(/^Q/, '').toUpperCase() === 'S3') {
+        console.log('🟡 [MAPPING TRACE] S3 expected headers (post-inserts):', headers);
+      }
       headers.forEach(header => {
         if (!expectedHeadersSet.has(header)) {
           expectedHeadersSet.add(header);
@@ -15062,6 +20449,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         </>
       )}
 
+
       {viewMode === 'project' && selectedProject && (
         <>
           <div>
@@ -15168,17 +20556,6 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   Tab Specs
                 </button>
                 <button
-                  onClick={() => setQnrViewMode('variables')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    qnrViewMode === 'variables'
-                      ? 'text-white'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                  style={qnrViewMode === 'variables' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
-                >
-                  Variables
-                </button>
-                <button
                   onClick={() => setQnrViewMode('data')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     qnrViewMode === 'data'
@@ -15189,6 +20566,19 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 >
                   Data
                 </button>
+                {canShowVariablesTab && (
+                  <button
+                    onClick={() => setQnrViewMode('variables')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      qnrViewMode === 'variables'
+                        ? 'text-white'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                    style={qnrViewMode === 'variables' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
+                  >
+                    Variables
+                  </button>
+                )}
               </nav>
               <div className="flex items-center gap-3">
               </div>
@@ -15203,24 +20593,26 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               <div className="mb-4 flex items-start justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 mb-2">Table Specifications</h2>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => setTabSpecsSubView('tables')}
-                      className={`text-sm font-medium transition-colors ${
+                      className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md border transition-colors ${
                         tabSpecsSubView === 'tables'
-                          ? 'text-orange-600 underline'
-                          : 'text-gray-600 hover:text-gray-900'
+                          ? 'text-white'
+                          : 'text-gray-900 bg-white border-gray-300 hover:bg-gray-50'
                       }`}
+                      style={tabSpecsSubView === 'tables' ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
                     >
                       Tables
                     </button>
                     <button
                       onClick={() => setTabSpecsSubView('banners')}
-                      className={`text-sm font-medium transition-colors ${
+                      className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md border transition-colors ${
                         tabSpecsSubView === 'banners'
-                          ? 'text-orange-600 underline'
-                          : 'text-gray-600 hover:text-gray-900'
+                          ? 'text-white'
+                          : 'text-gray-900 bg-white border-gray-300 hover:bg-gray-50'
                       }`}
+                      style={tabSpecsSubView === 'banners' ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
                     >
                       Banners
                     </button>
@@ -15228,20 +20620,21 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 </div>
                 {tabSpecsSubView === 'tables' && variables.length > 0 && (
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShowFilterPopup(true)}
-                      className="p-1 hover:bg-gray-100 rounded transition-colors"
-                      title="Filter by type"
-                    >
-                      <FunnelIcon className="h-5 w-5 text-gray-600" />
-                    </button>
-                    <button
-                      onClick={handleDownloadTabSpecsWorkbook}
-                      className="p-1 hover:bg-gray-100 rounded transition-colors"
-                      title="Download current tab specs in Excel format"
-                    >
-                      <ArrowDownTrayIcon className="h-5 w-5 text-gray-600" />
-                    </button>
+                    <div>
+                      <label htmlFor="tab-specs-type-select" className="sr-only">Filter questions</label>
+                      <select
+                        id="tab-specs-type-select"
+                        value={tabSpecsTypeFilter}
+                        onChange={(e) => setTabSpecsTypeFilter(e.target.value)}
+                        className="px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        title="Filter question list by type"
+                      >
+                        <option value="all">All questions</option>
+                        {tabSpecsTypeOptions.map((type) => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
+                      </select>
+                    </div>
                     <button
                       onClick={() => setShowSettingsPopup(true)}
                       className="p-1 hover:bg-gray-100 rounded transition-colors"
@@ -15253,25 +20646,32 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 )}
                 {tabSpecsSubView === 'banners' && !showBannerBuilder && !selectedNewBannerGroupId && (
                   <div className="flex items-center gap-2">
-                    {variables.length > 0 && (
-                      <BannerFilterConfig
-                        variables={variables}
-                        filterConditions={bannerFilterConditions}
-                        onFilterChange={setBannerFilterConditions}
-                        rawData={fullRawData}
-                        columnMapping={columnMapping}
-                      />
-                    )}
+                    <input
+                      ref={bannerSpecsFileInputRef}
+                      type="file"
+                      accept=".xlsx,.xls"
+                      className="hidden"
+                      onChange={handleBannerSpecsFileChange}
+                    />
                     <button
-                      onClick={() => {
-                        setEditingBannerGroup(null);
-                        setShowBannerBuilder(true);
-                      }}
+                      onClick={handleClickImportBannerSpecs}
                       className="flex items-center gap-2 px-3 py-1.5 text-sm text-white rounded-lg hover:opacity-90"
                       style={{ backgroundColor: BRAND_ORANGE }}
+                      title="Create banner group using banner specs (AI)"
                     >
                       <PlusCircleIcon className="h-5 w-5" />
-                      Create Banner Group
+                      Create banner group using banner specs (AI)
+                    </button>
+                  </div>
+                )}
+                {tabSpecsSubView === 'banners' && showBannerBuilder && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => bannerSettingsOpenRef.current && bannerSettingsOpenRef.current()}
+                      className="p-1 hover:bg-gray-100 rounded transition-colors"
+                      title="Banner Settings"
+                    >
+                      <Cog6ToothIcon className="h-5 w-5 text-gray-600" />
                     </button>
                   </div>
                 )}
@@ -15313,13 +20713,18 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                         .map(variable => {
                           const tags = (variable as any).tags || [];
                           const questionText = variable.description || (variable as any).label || variable.name;
-                          const selectionSet = variableTableSelections[variable.name];
-                          const typeLower = variable.type?.toLowerCase() || '';
-                          const isOpenEndRow = typeLower.includes('open end') && !typeLower.includes('list');
-                          const isOpenEndListRow = typeLower.includes('open end list');
-                          const isIncluded = selectionSet
-                            ? selectionSet.size > 0
-                            : !(isOpenEndRow || isOpenEndListRow);
+                          // Mark as included only if at least one table will actually be exported for this variable
+                          const tablesForVariable = getTablesForVariable(variable);
+                          const isIncluded = tablesForVariable.length > 0;
+                          const includedCount = tablesForVariable.length;
+                          // Check if user has made selections but no valid tables are returned (would show "No tables are currently selected" in preview)
+                          const selections = variableTableSelections[variable.name];
+                          const hasSelections = variable.name in variableTableSelections && selections && selections.size > 0;
+                          const hasNoValidTables = tablesForVariable.length === 0;
+                          // Check if rendered count doesn't match included count
+                          const renderedCount = variableRenderedTableCounts[variable.name];
+                          const hasMismatch = renderedCount !== undefined && renderedCount !== includedCount;
+                          const showWarningIcon = hasSelections && hasNoValidTables || hasMismatch;
                           return (
                             <tr
                               key={variable.name}
@@ -15358,11 +20763,6 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                               </span>
                             </td>
                             <td className="px-4 py-3 text-center border-r border-gray-100">
-                              {isIncluded ? (
-                                <CheckCircleIcon className="h-5 w-5 text-green-500 inline-block" />
-                              ) : (
-                                <span className="text-xs text-gray-400">—</span>
-                              )}
                             </td>
                             <td className="px-3 py-3 text-center">
                               <button
@@ -15395,6 +20795,32 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                       existingBannerCount={newBannerGroups.length}
                       rawData={fullRawData}
                       columnMapping={columnMapping}
+                      settingsOpenRef={bannerSettingsOpenRef}
+                      questionnaireId={selectedQuestionnaire?.id}
+                      expectedHeaders={(() => {
+                        try {
+                          const set = new Set<string>();
+                          (questionnaireQuestions || []).forEach((q: any) => {
+                            const qNum = q.number || q.id;
+                            if (!qNum) return;
+                            const headers = getExpectedColumnHeadersForBase(String(qNum), variables);
+                            headers.forEach((h: string) => set.add(h));
+                          });
+                          return Array.from(set);
+                        } catch {
+                          return [];
+                        }
+                      })()}
+                      onChange={(group) => {
+                        // Persist edits without closing builder
+                        if (!group?.id) return;
+                        const exists = newBannerGroups.some(g => g.id === group.id);
+                        if (exists) {
+                          setNewBannerGroups(newBannerGroups.map(g => g.id === group.id ? group : g));
+                        } else {
+                          setNewBannerGroups([...newBannerGroups, group]);
+                        }
+                      }}
                       onSave={(group) => {
                         if (editingBannerGroup) {
                           setNewBannerGroups(newBannerGroups.map(g => g.id === group.id ? group : g));
@@ -15503,10 +20929,98 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                               </div>
                             ) : (
                               /* Show banner group details when no variable is selected */
-                              <div className="text-center py-12">
-                                <IconTable className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                                <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Variable</h3>
-                                <p className="text-gray-600">Choose a variable from the list to view its details</p>
+                              <div className="p-6">
+                                <h4 className="text-base font-semibold text-gray-900 mb-2">Sample Size (N) by Condition</h4>
+                                {(() => {
+                                  // Build list of columns: Total + each cut across groups
+                                  const columns: Array<{ id: string; title: string; filterFn: (row: any) => boolean }> = [
+                                    { id: 'total', title: 'Total', filterFn: () => true }
+                                  ];
+                                  const colGroups: Array<{ title: string; count: number }> = [];
+                                  const getHeaderFor = (varName: string): string | null => {
+                                    if (!columnMapping || !fullRawData?.columns) return null;
+                                    const variations = [
+                                      varName,
+                                      varName.startsWith('Q') ? varName.substring(1) : `Q${varName}`,
+                                      varName.startsWith('Q') ? `${varName.substring(1)}r1` : `${varName}r1`
+                                    ];
+                                    for (const v of variations) {
+                                      if (columnMapping[v]) return columnMapping[v];
+                                      const match = Object.keys(columnMapping).find(k => k.toLowerCase() === v.toLowerCase());
+                                      if (match) return columnMapping[match];
+                                    }
+                                    // Fallback: direct column name case-insensitive
+                                    const direct = fullRawData.columns.find(c => variations.some(v => c.toLowerCase() === v.toLowerCase()));
+                                    return direct || null;
+                                  };
+                                  const buildFilter = (header: string | null, codes: any[]): ((row: any) => boolean) => {
+                                    if (!header) return () => false;
+                                    const codeStrs = codes.map((c: any) => String(c).trim());
+                                    const codeNoPrefix = codeStrs.map((c: string) => c.replace(/^c/i, ''));
+                                    return (row: any) => {
+                                      const val = row[header];
+                                      if (val === null || val === undefined || val === '') return false;
+                                      const valStr = String(val).trim();
+                                      const numVal = Number(valStr);
+                                      if (codeStrs.includes(valStr)) return true;
+                                      if (!isNaN(numVal) && codeStrs.some(c => Number(c) === numVal)) return true;
+                                      if (codeNoPrefix.includes(valStr)) return true;
+                                      if (!isNaN(numVal) && codeNoPrefix.some(c => Number(c) === numVal && !isNaN(Number(c)))) return true;
+                                      return false;
+                                    };
+                                  };
+                                  // Flatten groups/cuts into columns
+                                  selectedGroup.groups?.forEach((g: any) => {
+                                    let count = 0;
+                                    g.cuts.forEach((cut: any) => {
+                                      const header = getHeaderFor(cut.variableName);
+                                      columns.push({
+                                        id: cut.id,
+                                        title: cut.title,
+                                        filterFn: buildFilter(header, cut.codes || [])
+                                      });
+                                      count++;
+                                    });
+                                    colGroups.push({ title: g.title, count });
+                                  });
+                                  // Apply banner-level filter conditions to rows first
+                                  const rows = bannerFilterConditions && fullRawData?.rows
+                                    ? fullRawData.rows.filter((r: any) => rowMatchesFilterConditions(r, bannerFilterConditions))
+                                    : (fullRawData?.rows || []);
+                                  // Compute N counts
+                                  const nValues = columns.map(col => rows.reduce((acc: number, r: any) => acc + (col.filterFn(r) ? 1 : 0), 0));
+                                  // Render compact header with N row
+                                  return (
+                                    <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                                      <table className="min-w-full" style={{ tableLayout: 'fixed' }}>
+                                        <colgroup>
+                                          <col style={{ width: '200px' }} />
+                                          {columns.map(() => (<col key={Math.random()} style={{ width: `${100 / (columns.length || 1)}%` }} />))}
+                                        </colgroup>
+                                        <thead className="sticky top-0" style={{ backgroundColor: BRAND_ORANGE }}>
+                                          <tr>
+                                            <th className="px-3 py-1.5 text-left text-xs font-bold text-white uppercase tracking-wider border-r border-white/20"></th>
+                                            {columns.map((col, idx) => (
+                                              <th key={col.id} className="px-3 py-1.5 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/20 last:border-r-0">
+                                                {col.title}
+                                              </th>
+                                            ))}
+                                          </tr>
+                                          <tr>
+                                            <th className="px-3 py-1 text-left text-[10px] font-bold text-white uppercase tracking-wider border-r border-white/20">
+                                              N
+                                            </th>
+                                            {nValues.map((n, idx) => (
+                                              <th key={`n-${idx}`} className="px-3 py-1 text-[10px] font-bold text-white text-center border-r border-white/20 last:border-r-0">
+                                                {n}
+                                              </th>
+                                            ))}
+                                          </tr>
+                                        </thead>
+                                      </table>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             )}
                           </div>
@@ -15527,37 +21041,59 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                           <p className="text-sm text-gray-500">Click "Create Banner Group" button above to get started</p>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-1 gap-4 pl-0">
-                          {newBannerGroups.map((group) => (
-                            <div
-                              key={group.id}
-                              onClick={() => {
-                                setEditingBannerGroup(group);
-                                setShowBannerBuilder(true);
-                              }}
-                              className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer"
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                  <h4 className="text-md font-semibold text-gray-900 mb-1">{group.title}</h4>
-                                  <p className="text-sm text-gray-600">
-                                    {group.groups && group.groups.length > 0 ? (
-                                      group.groups.map((subgroup, idx) => (
-                                        <span key={subgroup.id || idx}>
-                                          {idx > 0 && ', '}
-                                          {subgroup.title}
-                                          {subgroup.cuts.length > 0 && (
-                                            <span className="text-gray-500">
-                                              {' '}({subgroup.cuts.map(cut => cut.title).join(', ')})
-                                            </span>
-                                          )}
-                                        </span>
-                                      ))
-                                    ) : (
-                                      <span className="text-gray-400 italic">No cuts defined</span>
-                                    )}
-                                  </p>
-                                </div>
+                        <div className="grid grid-cols-1 gap-3 pl-0">
+                          {newBannerGroups.map((group) => {
+                            // Build "Subgroup (Cut1, Cut2), Other Group (CutA, CutB)" style subtitle
+                            const subgroupSummaries: string[] = Array.isArray(group.groups)
+                              ? group.groups.map((sub: any) => {
+                                  const titles = Array.isArray(sub.cuts)
+                                    ? sub.cuts
+                                        .map((c: any) => String(c.title || '').trim())
+                                        .filter(Boolean)
+                                    : [];
+                                  const uniqueTitles = Array.from(new Set(titles));
+                                  const cutsText = uniqueTitles.join(', ');
+                                  const groupTitle = String(sub.title || '').trim();
+                                  if (groupTitle && cutsText) {
+                                    return `${groupTitle} (${cutsText})`;
+                                  }
+                                  if (groupTitle) return groupTitle;
+                                  return cutsText;
+                                }).filter((s: string) => !!s && s !== '()')
+                              : [];
+                            const cutsSubtitle = subgroupSummaries.join(', ');
+                            return (
+                              <div
+                                key={group.id}
+                                className="flex items-center justify-between border border-gray-200 rounded-lg px-4 py-3 hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                                onClick={() => {
+                                  setEditingBannerGroup(group);
+                                  setShowBannerBuilder(true);
+                                }}
+                                role="button"
+                              >
+                                <div className="min-w-0 pr-3">
+                                  <div className="text-sm font-medium text-gray-900 truncate">{group.title}</div>
+                                  {cutsSubtitle && (
+                                    <div className="text-xs italic text-gray-600 mt-0.5 truncate">{cutsSubtitle}</div>
+                                  )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleExportTabSpecsToExcelForBanner(group.id);
+                                  }}
+                                  className={`p-2 rounded-lg transition-colors ${exportingBannerId === group.id ? 'text-gray-400 cursor-wait' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
+                                  title={exportingBannerId === group.id ? 'Exporting...' : 'Download tables for this banner'}
+                                  disabled={exportingBannerId === group.id}
+                                >
+                                  {exportingBannerId === group.id ? (
+                                    <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                                  ) : (
+                                    <ArrowDownTrayIcon className="h-5 w-5" />
+                                  )}
+                                </button>
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -15571,8 +21107,9 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                   <TrashIcon className="h-5 w-5" />
                                 </button>
                               </div>
-                            </div>
-                          ))}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -15692,50 +21229,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             document.body
           )}
 
-          {/* Filter Popup Modal */}
-          {showFilterPopup && createPortal(
-            <div 
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-              onClick={() => setShowFilterPopup(false)}
-            >
-              <div 
-                className="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4 p-6"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-gray-900">Filter by Type</h2>
-                  <button
-                    onClick={() => setShowFilterPopup(false)}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <XMarkIcon className="h-6 w-6" />
-                  </button>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select type to filter
-                  </label>
-                  <select
-                    value={tabSpecsTypeFilter}
-                    onChange={(e) => {
-                      setTabSpecsTypeFilter(e.target.value);
-                      setShowFilterPopup(false);
-                    }}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  >
-                    <option value="all">All types</option>
-                    {tabSpecsTypeOptions.map(type => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>,
-            document.body
-          )}
+          {/* Filter dropdown is now rendered inline near the filter icon for Tab Specs */}
 
           {qnrViewMode !== 'tabSpecs' && (qnrViewMode === 'variables' ? (
             <div className="flex h-[calc(100vh-200px)]">
@@ -22400,6 +27894,13 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                   }, 0);
                                 }
 
+                                // Determine if a coded table already exists for this open end
+                                const baseVarLower = variable.name.replace(/^Q/, '').toLowerCase();
+                                const hasCodedTable = !!(fullRawData?.columns || []).some((col: string) => {
+                                  const cl = col.toLowerCase();
+                                  return cl.startsWith(baseVarLower + 'r') && /r\d+$/.test(cl);
+                                });
+
                                 return baseSize > 0 ? (
                                   <div className="mb-4 flex items-center justify-between">
                                     <p className="text-sm text-gray-700">
@@ -22415,7 +27916,12 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                           setSelectedOpenEndVariable(variable);
                                           setShowOpenEndCodingModal(true);
                                         }}
-                                        className="px-3 py-1.5 text-xs font-medium text-white bg-[#D14A2D] rounded hover:bg-[#B83E1D] transition-colors"
+                                        disabled={hasCodedTable}
+                                        className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+                                          hasCodedTable
+                                            ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                                            : 'text-white bg-[#D14A2D] hover:bg-[#B83E1D]'
+                                        }`}
                                       >
                                         Code verbatims (AI)
                                       </button>
@@ -23601,15 +29107,29 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                  varData && 
                                  fullRawData && 
                                  columnMapping && (
-                                  <button
+                                  (() => {
+                                    const baseVarLower = variable.name.replace(/^Q/, '').toLowerCase();
+                                    const hasCodedTable = !!(fullRawData?.columns || []).some((col: string) => {
+                                      const cl = col.toLowerCase();
+                                      return cl.startsWith(baseVarLower + 'r') && /r\d+$/.test(cl);
+                                    });
+                                    return (
+                                      <button
                                     onClick={() => {
                                       setSelectedOpenEndVariable(variable);
                                       setShowOpenEndCodingModal(true);
                                     }}
-                                    className="px-3 py-1.5 text-xs font-medium text-white bg-[#D14A2D] rounded hover:bg-[#B83E1D] transition-colors"
-                                  >
-                                    Code verbatims (AI)
-                                  </button>
+                                        disabled={hasCodedTable}
+                                        className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+                                          hasCodedTable
+                                            ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                                            : 'text-white bg-[#D14A2D] hover:bg-[#B83E1D]'
+                                        }`}
+                                      >
+                                        Code verbatims (AI)
+                                      </button>
+                                    );
+                                  })()
                                 )}
                               </div>
                               
@@ -23932,13 +29452,15 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                         })()}
 
                         {/* Coded table for open end questions - shows codes after saving */}
-                        {variable.type?.toLowerCase().includes('open end') && 
-                         !variable.type?.toLowerCase().includes('list') && 
-                         fullRawData && 
+                        {variable.type?.toLowerCase().includes('open end') &&
+                         !variable.type?.toLowerCase().includes('list') &&
+                         fullRawData &&
                          columnMapping && (() => {
                           // Check if this variable has code columns saved
-                          const codeColumns = (fullRawData.columns || []).filter((col: string) => 
-                            col.startsWith(`${variable.name}_Code`)
+                          // Use multi-select format: b4r1, b4r2, etc.
+                          const baseVariableName = variable.name.replace(/^Q/, '').toLowerCase();
+                          const codeColumns = (fullRawData.columns || []).filter((col: string) =>
+                            col.toLowerCase().startsWith(`${baseVariableName}r`) && /r\d+$/.test(col.toLowerCase())
                           );
 
                           if (codeColumns.length === 0) return null;
@@ -23964,23 +29486,34 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
                           // Extract code numbers and build frequency table
                           const codeFrequencies: Array<{ code: number; theme: string; frequency: number; percentage: string }> = [];
-                          
+
+                          // Helper to interpret coded cell values robustly after reloads
+                          const isCodedValue = (val: any): boolean => {
+                            if (val === null || val === undefined) return false;
+                            if (typeof val === 'number') return val >= 1;
+                            if (typeof val === 'boolean') return val === true;
+                            const s = String(val).trim().toLowerCase();
+                            if (s === '1' || s === '1.0' || s === 'true' || s === 'yes' || s === 'y') return true;
+                            return false;
+                          };
+
                           codeColumns.forEach((codeCol: string) => {
-                            const codeMatch = codeCol.match(/Code(\d+)$/);
+                            // Match multi-select format: b4r1, b4r2, etc.
+                            const codeMatch = codeCol.match(/r(\d+)$/i);
                             if (!codeMatch) return;
-                            
+
                             const codeNum = parseInt(codeMatch[1], 10);
                             let count = 0;
-                            
+
                             fullRawData.rows.forEach((row: any) => {
-                              if (row[codeCol] === 1) {
+                              if (isCodedValue(row[codeCol])) {
                                 count++;
                               }
                             });
 
                             // Get theme name from saved themes or use default
                             const theme = themeMap.get(codeNum) || `Code ${codeNum}`;
-                            
+
                             codeFrequencies.push({
                               code: codeNum,
                               theme,
@@ -23995,7 +29528,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                           // Calculate total coded responses (respondents with at least one code)
                           let totalCodedResponses = 0;
                           fullRawData.rows.forEach((row: any) => {
-                            const hasAnyCode = codeColumns.some((col: string) => row[col] === 1);
+                            const hasAnyCode = codeColumns.some((col: string) => isCodedValue(row[col]));
                             if (hasAnyCode) {
                               totalCodedResponses++;
                             }
@@ -24011,7 +29544,43 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
                           return (
                             <div className="mt-6" data-variable-name={variable.name}>
-                              <h4 className="text-sm font-semibold text-gray-900 mb-4">Coded Responses</h4>
+                              <div className="mb-4 flex items-center justify-between">
+                                <h4 className="text-sm font-semibold text-gray-900">Coded Responses</h4>
+                                <button
+                                  onClick={() => handleDeleteCodedTable(variable)}
+                                  className="px-3 py-1.5 text-xs font-medium text-red-700 bg-white border border-red-300 rounded hover:bg-red-50 transition-colors"
+                                  disabled={!!deletingCodedTables[variable.name]}
+                                  title="Remove all code columns for this question"
+                                >
+                                  {deletingCodedTables[variable.name] ? 'Deleting…' : 'Delete coded table'}
+                                </button>
+                              </div>
+                              {codedHeadersDebug[variable.name] && codedHeadersDebug[variable.name].length > 0 && (
+                                <div className="mb-4 p-3 rounded border border-amber-300 bg-amber-50 text-amber-900 text-xs">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                      <div className="font-semibold mb-1">
+                                        Debug: Expected headers for {variable.name} (Data tab)
+                                      </div>
+                                      <div className="font-mono break-words">
+                                        {codedHeadersDebug[variable.name].join(', ')}
+                                      </div>
+                                    </div>
+                                    <button
+                                      className="text-amber-700 hover:text-amber-900 text-xs px-2 py-1"
+                                      onClick={() => {
+                                        setCodedHeadersDebug(prev => {
+                                          const { [variable.name]: _, ...rest } = prev;
+                                          return rest;
+                                        });
+                                      }}
+                                      title="Hide debug"
+                                    >
+                                      Hide
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                               <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                                 <div className="overflow-x-auto">
                                   <table className="min-w-full divide-y divide-gray-200">
@@ -25904,36 +31473,12 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 <div className="flex flex-col flex-1 p-6">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-semibold text-gray-900">Banner Groups</h3>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setEditingBannerGroup(null);
-                          setShowBannerBuilder(true);
-                        }}
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-white rounded-lg hover:opacity-90"
-                        style={{ backgroundColor: BRAND_ORANGE }}
-                      >
-                        <PlusCircleIcon className="h-5 w-5" />
-                        Create Banner Group
-                      </button>
-                    </div>
                   </div>
                   {newBannerGroups.length === 0 ? (
                     <div className="text-center py-12">
                       <IconTable className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 mb-2">No Banner Groups</h3>
-                      <p className="text-gray-600 mb-4">Create banner groups to organize your cross-tabulations</p>
-                      <button
-                        onClick={() => {
-                          setEditingBannerGroup(null);
-                          setShowBannerBuilder(true);
-                        }}
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-white rounded-lg hover:opacity-90 mx-auto"
-                        style={{ backgroundColor: BRAND_ORANGE }}
-                      >
-                        <PlusCircleIcon className="h-5 w-5" />
-                        Create Banner Group
-                      </button>
+                      <p className="text-gray-600 mb-4">Create banner groups to organize your cross-tabulations using the AI button above</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 gap-4">
@@ -25967,18 +31512,35 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                 )}
                               </p>
                             </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (confirm('Are you sure you want to delete this banner group?')) {
-                                  setNewBannerGroups(newBannerGroups.filter(g => g.id !== group.id));
-                                }
-                              }}
-                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete banner group"
-                            >
-                              <TrashIcon className="h-5 w-5" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleExportTabSpecsToExcelForBanner(group.id);
+                                }}
+                                className={`p-2 rounded-lg transition-colors ${exportingBannerId === group.id ? 'text-gray-400 cursor-wait' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
+                                title={exportingBannerId === group.id ? 'Exporting...' : 'Download tables for this banner'}
+                                disabled={exportingBannerId === group.id}
+                              >
+                                {exportingBannerId === group.id ? (
+                                  <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                                ) : (
+                                  <ArrowDownTrayIcon className="h-5 w-5" />
+                                )}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (confirm('Are you sure you want to delete this banner group?')) {
+                                    setNewBannerGroups(newBannerGroups.filter(g => g.id !== group.id));
+                                  }
+                                }}
+                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete banner group"
+                              >
+                                <TrashIcon className="h-5 w-5" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -26057,6 +31619,8 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                         setDatamapData(null);
                                         setColumnHeaders([]);
                                         setColumnMapping({});
+                                        // Clear full raw data and any derived/coded artifacts
+                                        setFullRawData(null);
                                         setDataUploaded(false);
                                         setDataFile(null);
                                         setHasAttemptedMapping(false);
@@ -26066,6 +31630,15 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                         }
                                         // Clear variable data from variables view
                                         setVariableData({});
+                                        // Remove any saved open-end coding themes (state + localStorage)
+                                        setSavedCodingThemes(new Map());
+                                        setCodedHeadersDebug({});
+                                        if (selectedQuestionnaire?.id) {
+                                          try {
+                                            localStorage.removeItem(`codingThemes_${selectedQuestionnaire.id}`);
+                                            localStorage.removeItem(`codedHeadersDebug_${selectedQuestionnaire.id}`);
+                                          } catch {}
+                                        }
                                         // Reset file input
                                         const fileInput = document.getElementById('data-file-upload') as HTMLInputElement;
                                         if (fileInput) fileInput.value = '';
@@ -26235,6 +31808,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                     {/* QNR Variables Box */}
                     <div className="flex flex-col">
                           <div className="flex items-center gap-3 mb-3">
+                            {/* Order: QNR Variables (1st), Data Map (2nd), Raw Data (3rd) */}
                             <button
                               onClick={() => setDataTabView('variables')}
                               className={`text-sm font-semibold px-3 py-1.5 rounded cursor-pointer transition-colors ${
@@ -26294,8 +31868,6 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                               onClick={async () => {
                                 // Refresh expected headers from QNR and re-map
                                 if (selectedQuestionnaire && selectedProject) {
-                                  // Set loading state immediately
-                                  setMappingVariables(true);
                                   try {
                                     // Reset mapping state first to allow re-mapping
                                     setHasAttemptedMapping(false);
@@ -26318,21 +31890,14 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                         setTimeout(() => {
                                           performAutomaticMapping(true);
                                         }, 500);
-                                      } else {
-                                        // No fresh data found, reset loading state
-                                        setMappingVariables(false);
                                       }
-                                    } else {
-                                      // Request failed, reset loading state
-                                      setMappingVariables(false);
                                     }
                                   } catch (error) {
-                                    // Error occurred, reset loading state
-                                    setMappingVariables(false);
+                                    // Ignore; performAutomaticMapping controls spinner
                                   }
                                 }
                               }}
-                              disabled={mappingVariables || !selectedQuestionnaire || !selectedProject}
+                              disabled={mappingVariables || !selectedQuestionnaire || !selectedProject || !uploadedFileInfo}
                               className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap ${
                                 !hasAttemptedMapping
                                   ? 'text-white hover:opacity-90'
@@ -26656,7 +32221,50 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                       }
                                       
                                       // Use the same function as variables tab to generate expected headers
-                                      const expectedHeaders = getExpectedHeadersForQuestion(question, qNumStr);
+                                      let expectedHeaders = getExpectedHeadersForQuestion(question, qNumStr);
+                                      // Augment expected headers with coded columns ONLY for open ends WITH saved coding themes
+                                      try {
+                                        const baseLower = qNumStr.replace(/^Q/i, '').toLowerCase();
+                                        const isOpenEndType = questionType.toLowerCase().includes('open end') && !questionType.toLowerCase().includes('list');
+                                        const savedThemesArr =
+                                          (savedCodingThemes.get(qNumStr.replace(/^Q/, '')) ||
+                                           savedCodingThemes.get(`Q${qNumStr.replace(/^Q/, '')}`) ||
+                                           []) as Array<{ code: number; theme: string }>;
+                                        const hasSavedThemes = Array.isArray(savedThemesArr) && savedThemesArr.length > 0;
+                                        if (String(qNumStr).replace(/^Q/, '').toUpperCase() === 'S3') {
+                                          console.log('🟪 [DATA TAB TRACE] S3 augmentation check', { isOpenEndType, hasSavedThemes, savedThemesCount: savedThemesArr.length });
+                                        }
+                                        if (isOpenEndType && hasSavedThemes) {
+                                          const headersSource: string[] = (fullRawData && fullRawData.columns && fullRawData.columns.length > 0)
+                                            ? fullRawData.columns : columnHeaders;
+                                          const codedCols = headersSource.filter(col => {
+                                            const cl = String(col).toLowerCase();
+                                            return (cl.startsWith(baseLower + 'r') || cl.startsWith('q' + baseLower + 'r')) && /r\d+$/.test(cl);
+                                          });
+                                          if (codedCols.length > 0) {
+                                            const qPrefixed = codedCols.map(c => (String(c).startsWith('Q') || String(c).startsWith('q')) ? String(c).replace(/^q/i, 'Q') : `Q${c}`);
+                                            const set = new Set(expectedHeaders.map(h => h.replace(/_/g, '')));
+                                            qPrefixed.forEach(h => {
+                                              const norm = h.replace(/_/g, '');
+                                              if (!set.has(norm)) {
+                                                set.add(norm);
+                                                expectedHeaders.push(h);
+                                              }
+                                            });
+                                          }
+                                          const codedFromVars = codedHeadersDebug[`Q${qNumStr}`] || codedHeadersDebug[String(qNumStr)] || codedHeadersDebug[baseLower] || [];
+                                          if (codedFromVars.length > 0) {
+                                            const set = new Set(expectedHeaders.map(h => h.replace(/_/g, '')));
+                                            codedFromVars.forEach(h => {
+                                              const norm = h.replace(/_/g, '');
+                                              if (!set.has(norm)) {
+                                                set.add(norm);
+                                                expectedHeaders.push(h);
+                                              }
+                                            });
+                                          }
+                                        }
+                                      } catch {}
 
                                       // Separate expected headers into mapped and unmapped using the same logic as header counts
                                       const mappedHeaders: string[] = [];
@@ -28093,8 +33701,15 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         const summaryNetEntries = netEntries.filter(entry => entry.context === 'summary');
         const netCodeSelections = netSummaryTableSelectedCodes[popupVariableName] || [];
         const savedThemesForPopup = savedCodingThemes.get(popupVariableName) || [];
-        const hasVerbatimSummary = isOpenEndType && savedThemesForPopup.length > 0;
         const verbatimSummaryTableId = `${popupVariableName}_VerbatimSummary`;
+        // Consider both saved themes and coded columns in the dataset to detect "coded"
+        const baseLowerForPopup = popupVariableName.replace(/^Q/, '').toLowerCase();
+        const hasCodeColumnsForPopup =
+          (fullRawData?.columns || []).some((col: string) => {
+            const cl = String(col).toLowerCase();
+            return (cl.startsWith(baseLowerForPopup + 'r') || cl.startsWith('q' + baseLowerForPopup + 'r')) && /r\d+$/.test(cl);
+          });
+        const hasVerbatimSummary = isOpenEndType && (savedThemesForPopup.length > 0 || hasCodeColumnsForPopup);
         const individualTableOptions = (() => {
           const options: Array<{ id: string; label: string; disabled?: boolean; helperText?: string }> = [];
           if (!isNumericGrid && !isMultiSelectGrid && !isOpenEndListType && !isSingleSelectGrid) {
@@ -28104,7 +33719,8 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             const displayLabel = isOpenEndType ? 'Frequency Distribution Table' : baseLabel;
             options.push({ id: popupVariableName, label: displayLabel });
           }
-          const shouldUseStatements = configPopupVariable.statements && Object.keys(configPopupVariable.statements).length > 0 && !isOpenEndListType;
+          // Only add statement tables for numeric questions, not for single-select questions
+          const shouldUseStatements = configPopupVariable.statements && Object.keys(configPopupVariable.statements).length > 0 && !isOpenEndListType && isNumericQuestion;
           if (shouldUseStatements) {
             Object.entries(configPopupVariable.statements).forEach(([code, label]) => {
               options.push({
@@ -28140,34 +33756,38 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         const summaryTableOptions = (() => {
           const options: Array<{ id: string; label: string; pill?: string; netMeta?: { type: 'range' | 'codes'; index: number } }> = [];
           if (isNumericGrid) {
+            const baseQuestionNumber = baseQuestionNumberForPopup;
             options.push(
-              { id: `${popupVariableName}_MeanSummaryTable`, label: 'Mean Summary Table', pill: 'Mean' },
-              { id: `${popupVariableName}_SumSummaryTable`, label: 'Sum Summary Table', pill: 'Sum' }
+              { id: `${popupVariableName}_MeanSummaryTable`, label: `${baseQuestionNumber}: Mean Summary Table`, pill: 'Mean' },
+              { id: `${popupVariableName}_SumSummaryTable`, label: `${baseQuestionNumber}: Sum Summary Table`, pill: 'Sum' }
             );
             summaryNetEntries.forEach((net, idx) => {
               const low = net.low || '';
               const high = net.high || '';
+              const baseQuestionNumber = baseQuestionNumberForPopup;
               options.push({
                 id: `${popupVariableName}_NetSummaryTable_${idx}`,
-                label: net.name || `Net Summary ${idx + 1}`,
+                label: `${baseQuestionNumber}: ${net.name || `Net Summary ${idx + 1}`}`,
                 pill: `Net (${low || '?'}-${high || '?'})`,
                 netMeta: { type: 'range', index: net.globalIndex },
               });
             });
           }
           if (isSingleSelectGrid) {
+            const baseQuestionNumber = baseQuestionNumberForPopup;
             options.push({
               id: `${popupVariableName}_MeanSummaryTable`,
-              label: 'Mean Summary Table',
+              label: `${baseQuestionNumber}: Mean Summary Table`,
               pill: 'Mean'
             });
             netCodeSelections.forEach((net, idx) => {
               const codesDisplay = Array.isArray(net.codes) && net.codes.length > 0
                 ? net.codes.join(', ')
                 : '?';
+              const baseQuestionNumber = baseQuestionNumberForPopup;
               options.push({
                 id: `${popupVariableName}_NetSummaryTable_${idx}`,
-                label: net.name || `Net ${idx + 1}`,
+                label: `${baseQuestionNumber}: ${net.name || `Net ${idx + 1}`}`,
                 pill: `Net (${codesDisplay})`,
                 netMeta: { type: 'codes', index: idx },
               });
@@ -28206,12 +33826,23 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         const summarySortDefaultsToOn = isMultiSelectGrid;
         const isTableSelected = (tableName: string) => {
           if (!individualSelectionSet) {
-            if (isOpenEndType && tableName === popupVariableName) {
+            // Defaults when no explicit selections saved
+            // Numeric grids: do NOT include individual statement tables by default; include only summary tables
+            if (isNumericGrid) {
+              const isIndividualOption = selectableIndividualTableIds.includes(tableName);
+              if (isIndividualOption) {
+                return false;
+              }
+            }
+            // Open ends: Default include Verbatim Summary if coded; otherwise exclude
+            if (isOpenEndType) {
+              if (tableName === verbatimSummaryTableId) {
+                return hasVerbatimSummary;
+              }
               return false;
             }
-            if (isOpenEndListType) {
-              return false;
-            }
+            // Open end lists: do NOT include by default
+            if (isOpenEndListType) return false;
             if (isSingleSelectGrid && tableName === `${popupVariableName}_MeanSummaryTable`) {
               return false;
             }
@@ -29640,7 +35271,12 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 const filteredHeaders = columnHeaders.filter(header =>
                   header.toLowerCase().includes(columnHeaderModalSearch.toLowerCase())
                 );
-                const currentMapping = columnMapping[selectedQuestionForMapping] || '';
+                // Prefer the first expected header key for this question for mapping display
+                const expectedForQuestion = getExpectedColumnHeadersForBase(String(selectedQuestionForMapping), variables);
+                const primaryExpectedKey = expectedForQuestion && expectedForQuestion.length > 0
+                  ? expectedForQuestion[0]
+                  : selectedQuestionForMapping;
+                const currentMapping = columnMapping[primaryExpectedKey] || '';
 
                 if (filteredHeaders.length === 0) {
                   return (
@@ -29656,25 +35292,50 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                       <button
                         key={header}
                         type="button"
-                        onClick={() => {
+                        onClick={async () => {
                           // Find the question being mapped
                           const question = questionnaireQuestions.find(q => (q.number || q.id) === selectedQuestionForMapping);
                           const questionType = question?.type || '';
                           const isMultiSelect = questionType.toLowerCase().includes('multi-select');
                           
-                          // Skip auto-mapping for multi-selects - use raw mapping from data tab instead
-                          if (isMultiSelect) {
-                            // For multi-selects, just map normally (use raw mapping from data tab)
-                            setColumnMapping(prev => ({
-                              ...prev,
-                              [selectedQuestionForMapping]: header
-                            }));
-                          } else {
-                            // For non-multiselect questions, map normally
-                            setColumnMapping(prev => ({
-                              ...prev,
-                              [selectedQuestionForMapping]: header
-                            }));
+                          // Map the primary expected header for this question to the selected column
+                          const expectedKeys = getExpectedColumnHeadersForBase(String(selectedQuestionForMapping), variables);
+                          const primaryKey = expectedKeys && expectedKeys.length > 0
+                            ? expectedKeys[0]
+                            : String(selectedQuestionForMapping);
+                          const newMapping = { 
+                            ...columnMapping, 
+                            [primaryKey]: header 
+                          };
+                          setColumnMapping(newMapping);
+                          
+                          // Persist mapping to backend so it survives refresh
+                          if (selectedQuestionnaire) {
+                            try {
+                              console.log('🟠 [MAPPING SAVE] Saving mapping via Column Headers modal', {
+                                questionnaireId: selectedQuestionnaire.id,
+                                keys: Object.keys(newMapping).length
+                              });
+                              const resp = await fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
+                                method: 'POST',
+                                headers: {
+                                  'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+                                  'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                  questionnaireId: selectedQuestionnaire.id,
+                                  variableNames: variables.map(v => v.name),
+                                  dataHeaders: columnHeaders,
+                                  mapping: newMapping
+                                })
+                              });
+                              console.log('🟠 [MAPPING SAVE] Response', { ok: resp.ok, status: resp.status });
+                              // Refresh the file info to reflect saved mapping status
+                              debouncedLoadFileInfo(500);
+                            } catch (e) {
+                              console.warn('⚠️ [MAPPING SAVE] Failed to save mapping', e);
+                              // Ignore errors here; UI already reflects local mapping
+                            }
                           }
                           
                           setShowColumnHeaderModal(false);
@@ -30120,9 +35781,14 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                         // Save to backend
                         if (selectedQuestionnaire) {
                           try {
+                            console.log('🟠 [MAPPING SAVE] Saving mapping via Unmapped Header modal', {
+                              questionnaireId: selectedQuestionnaire.id,
+                              keys: Object.keys(newMapping).length
+                            });
                             const saveResponse = await fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
                               method: 'POST',
                               headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
                                 'Content-Type': 'application/json',
                               },
                               body: JSON.stringify({
@@ -30132,12 +35798,14 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                 mapping: newMapping
                               })
                             });
+                            console.log('🟠 [MAPPING SAVE] Response', { ok: saveResponse.ok, status: saveResponse.status });
                             if (saveResponse.ok) {
                               // Wait a bit for the backend to persist, then reload
-                              await new Promise(resolve => setTimeout(resolve, 300));
-                              debouncedLoadFileInfo(500);
+                              await new Promise(resolve => setTimeout(resolve, 400));
+                              debouncedLoadFileInfo(800);
                             }
                           } catch (error) {
+                            console.warn('⚠️ [MAPPING SAVE] Failed to save mapping', error);
                           }
                         }
                         
@@ -30414,6 +36082,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
       {/* Open End Coding Modal */}
       {showOpenEndCodingModal && selectedOpenEndVariable && createPortal(
+        (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowOpenEndCodingModal(false)}>
           <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
@@ -30814,7 +36483,8 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               </div>
             )}
           </div>
-        </div>,
+        </div>
+        ),
         document.body
       )}
 
@@ -31459,41 +37129,197 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 <div className="text-center text-sm text-red-600 border border-dashed border-red-300 rounded-lg p-6">
                   {previewError}
                 </div>
-              ) : previewSectionsHtml.length > 0 ? (
+              ) : (previewSectionsHtml.length > 0 || (previewVariable && previewTableList.length > 0)) ? (
                 <div className="space-y-6">
                   <style>{`
-                    .preview-table table { border-collapse: collapse; width: 100%; font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; table-layout: fixed; }
-                    .preview-table table td, .preview-table table th { border: 1px solid #d1d5db; padding: 4px 6px; text-align: center; vertical-align: middle; white-space: nowrap; }
-                    .preview-table table .preview-header-row td { background-color: ${BRAND_ORANGE}; color: #fff; font-weight: 600; }
-                    .preview-table table tr.preview-header-row td:first-child { text-align: center; }
-                    .preview-table table tr:not(.preview-header-row) td:first-child { text-align: left; white-space: nowrap; width: auto; overflow: hidden; text-overflow: ellipsis; }
+                    .preview-table table { border-collapse: collapse; width: 100%; font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; table-layout: auto; }
+                    .preview-table table td, .preview-table table th { border: 1px solid #d1d5db; padding: 4px 6px; text-align: center; vertical-align: middle; white-space: nowrap; min-width: 80px; }
+                    .preview-table table td:first-child, .preview-table table th:first-child { min-width: 150px; text-align: left; }
+                    .preview-table table .preview-header-row td { background-color: ${BRAND_ORANGE}; color: #fff; font-weight: 600; min-width: 100px; }
+                    .preview-table table tr.preview-header-row td:first-child { text-align: center; min-width: 150px; }
+                    .preview-table table tr:not(.preview-header-row) td:first-child { text-align: left; white-space: nowrap; min-width: 150px; overflow: visible; text-overflow: clip; }
                     .preview-table table tr.preview-base-row td,
-                    .preview-table table tr.preview-stat-row td { background-color: #f5f5f5; font-style: italic; }
+                    .preview-table table tr.preview-stat-row td { background-color: #f5f5f5; font-style: italic; min-width: 100px; }
                   `}</style>
-                  {previewSectionsHtml.map((section, idx) => {
-                    const debugEntry = previewDebugInfo[section.title];
-                    return (
-                      <div key={`${section.title}-${idx}`} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
-                        <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-                          <div className="text-xs font-semibold text-orange-600 uppercase tracking-wide">{section.title}</div>
-                          <div className="text-sm text-gray-800 mt-1">{section.question}</div>
-                          <div className="text-xs text-gray-500 mt-1">{section.base}</div>
-                        </div>
-                        {section.tableHtml ? (
-                        <div className="preview-table overflow-auto">
-                          <div
-                            className="min-w-[720px]"
-                            dangerouslySetInnerHTML={{ __html: section.tableHtml }}
-                          />
-                        </div>
-                        ) : (
-                          <div className="px-4 py-6 text-center text-sm text-gray-500 italic">
-                            Table content coming soon...
+                  {/* DEBUG BOX: Expected Table Types */}
+                  <div className="mb-4 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+                    <div className="text-xs font-bold text-yellow-800 uppercase mb-2">🔧 Debug: Expected Table Types</div>
+                    <div className="text-xs text-yellow-700 space-y-1">
+                      <div><strong>Variable Type:</strong> {previewVariable?.type || 'Unknown'}</div>
+                      <div><strong>Variable Name:</strong> {previewVariable?.name || 'N/A'}</div>
+                      <div><strong>Is Multi-Select:</strong> {previewVariable?.type?.toLowerCase().includes('multi-select') && !previewVariable?.type?.toLowerCase().includes('grid') ? 'YES' : 'NO'}</div>
+                      <div><strong>Has Codes:</strong> {previewVariable?.codes ? `YES (${Object.keys(previewVariable.codes).length} codes: ${Object.keys(previewVariable.codes).slice(0, 5).join(', ')}${Object.keys(previewVariable.codes).length > 5 ? '...' : ''})` : 'NO'}</div>
+                      <div><strong>Column Mapping Check:</strong> {(() => {
+                        if (!previewVariable) return 'N/A';
+                        const isMultiSelect = previewVariable.type?.toLowerCase().includes('multi-select') && !previewVariable.type?.toLowerCase().includes('grid');
+                        const isMultiSelectGrid = previewVariable.type?.toLowerCase().includes('multi-select grid');
+                        
+                        if (isMultiSelect && previewVariable.codes) {
+                          // For multi-select, check response columns (QB8r1, QB8r2, etc.)
+                          const baseNumber = previewVariable.name.replace(/^Q/, '');
+                          const foundCols: string[] = [];
+                          const checkedHeaders: string[] = [];
+                          
+                          for (const code of Object.keys(previewVariable.codes).slice(0, 3)) {
+                            const codeNum = code.replace(/^[rc]/i, '');
+                            const expectedHeader = `Q${baseNumber}r${codeNum}`;
+                            checkedHeaders.push(expectedHeader);
+                            
+                            // Check column mapping
+                            if (columnMapping[expectedHeader]) {
+                              foundCols.push(expectedHeader);
+                            } else {
+                              // Case-insensitive check
+                              const match = Object.keys(columnMapping).find(k => k.toLowerCase() === expectedHeader.toLowerCase());
+                              if (match) foundCols.push(match);
+                            }
+                          }
+                          
+                          return foundCols.length > 0 
+                            ? `FOUND ${foundCols.length} response cols (${foundCols.slice(0, 3).join(', ')}${foundCols.length > 3 ? '...' : ''})`
+                            : `NOT FOUND (checked: ${checkedHeaders.join(', ')}...)`;
+                        } else if (isMultiSelectGrid && previewVariable.statements && previewVariable.codes) {
+                          // For multi-select grids, check cell columns (QB2r1c1, QB2r1c2, etc.)
+                          const baseNumber = previewVariable.name.replace(/^Q/, '');
+                          const foundCols: string[] = [];
+                          const checkedHeaders: string[] = [];
+                          
+                          const stmtCodes = Object.keys(previewVariable.statements).slice(0, 2);
+                          const colCodes = Object.keys(previewVariable.codes).slice(0, 2);
+                          
+                          for (const stmtCode of stmtCodes) {
+                            let normalizedStmtCode = stmtCode;
+                            if (!/^r\d+/i.test(stmtCode) && /^\d+$/.test(stmtCode)) {
+                              normalizedStmtCode = `r${stmtCode}`;
+                            }
+                            for (const colCode of colCodes) {
+                              const expectedHeader = `Q${baseNumber}${normalizedStmtCode}${colCode}`;
+                              checkedHeaders.push(expectedHeader);
+                              
+                              if (columnMapping[expectedHeader]) {
+                                foundCols.push(expectedHeader);
+                              } else {
+                                const match = Object.keys(columnMapping).find(k => k.toLowerCase() === expectedHeader.toLowerCase());
+                                if (match) foundCols.push(match);
+                              }
+                            }
+                          }
+                          
+                          return foundCols.length > 0 
+                            ? `FOUND ${foundCols.length} cell cols (${foundCols.slice(0, 3).join(', ')}${foundCols.length > 3 ? '...' : ''})`
+                            : `NOT FOUND (checked: ${checkedHeaders.join(', ')}...)`;
+                        } else {
+                          // For other types, check base column
+                          const variations = [
+                            previewVariable.name,
+                            previewVariable.name.startsWith('Q') ? previewVariable.name : `Q${previewVariable.name}`,
+                            previewVariable.name.startsWith('Q') ? previewVariable.name.substring(1) : previewVariable.name
+                          ];
+                          const foundMapping = variations.find(v => columnMapping[v] || Object.keys(columnMapping).find(k => k.toLowerCase() === v.toLowerCase()));
+                          return foundMapping ? `FOUND (${foundMapping})` : `NOT FOUND (tried: ${variations.join(', ')})`;
+                        }
+                      })()}</div>
+                      <div><strong>Table Selections:</strong> {variableTableSelections[previewVariable?.name || ''] ? `${variableTableSelections[previewVariable?.name || ''].size} selected: ${Array.from(variableTableSelections[previewVariable?.name || ''] || []).join(', ')}` : 'None/Default'}</div>
+                      <div className="mt-2"><strong>Expected Tables ({previewTableList.length}):</strong></div>
+                      <ul className="list-disc list-inside ml-2 max-h-40 overflow-auto">
+                        {previewTableList.map((tableName, idx) => {
+                          // Determine table type based on naming patterns
+                          let tableType = 'Frequency Table';
+                          if (tableName.includes('_MeanSummaryTable')) {
+                            tableType = 'Mean Summary Table';
+                          } else if (tableName.includes('_SumSummaryTable')) {
+                            tableType = 'Sum Summary Table';
+                          } else if (tableName.includes('_NetSummaryTable')) {
+                            tableType = 'Net Summary Table';
+                          } else if (tableName.includes('_VerbatimSummary')) {
+                            tableType = 'Verbatim Summary Table';
+                          } else if (tableName.includes('_r') && tableName.includes('c')) {
+                            tableType = 'Individual Grid Cell Table';
+                          } else if (tableName.includes('_r')) {
+                            tableType = 'Individual Statement Table';
+                          } else if (tableName.includes('_c')) {
+                            tableType = 'Individual Column Table';
+                          } else if (tableName.match(/_\d+ \(/)) {
+                            tableType = 'Individual Response Table';
+                          }
+                          return (
+                            <li key={`debug-table-${idx}`}>
+                              <span className="font-mono bg-yellow-100 px-1 rounded">{tableName}</span>
+                              <span className="text-yellow-600 ml-2">→ {tableType}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      <div className="mt-2 pt-2 border-t border-yellow-300">
+                        <div><strong>previewSectionsHtml count:</strong> {previewSectionsHtml.length}</div>
+                        {previewSectionsHtml.length > 0 && (
+                          <div><strong>Section titles:</strong> {previewSectionsHtml.map(s => s.title).join(', ')}</div>
+                        )}
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-yellow-300 text-red-600">
+                        <div><strong>⚠️ Issue:</strong> {previewSectionsHtml.length === 0 && previewTableList.length > 0 
+                          ? 'Tables expected but none rendered. Check buildTabSpecsWorkbook for multi-select handling.' 
+                          : previewSectionsHtml.length === 0 
+                            ? 'No tables expected or rendered.' 
+                            : 'Tables rendered successfully.'}</div>
+                        {previewError && (
+                          <div className="mt-1"><strong>Error:</strong> {previewError}</div>
+                        )}
+                        {previewVariable?.type?.toLowerCase().includes('multi-select grid') && (
+                          <div className="mt-1 text-yellow-700">
+                            <strong>Multi-Select Grid Info:</strong> Has statements: {previewVariable?.statements ? Object.keys(previewVariable.statements).length : 0}, 
+                            Has codes: {previewVariable?.codes ? Object.keys(previewVariable.codes).length : 0}
                           </div>
                         )}
                       </div>
-                    );
-                  })}
+                    </div>
+                  </div>
+                  {previewSectionsHtml.length > 0 ? (
+                    previewSectionsHtml.map((section, idx) => {
+                      const debugEntry = previewDebugInfo[section.title];
+                      return (
+                        <div key={`${section.title}-${idx}`} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+                          <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                            <div className="text-xs font-semibold text-orange-600 uppercase tracking-wide">{section.title}</div>
+                            <div className="text-sm text-gray-800 mt-1">{section.question}</div>
+                          </div>
+                          {section.tableHtml ? (
+                            <div className="preview-table overflow-auto">
+                              <div
+                                className="min-w-[720px]"
+                                dangerouslySetInnerHTML={{ __html: section.tableHtml }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="px-4 py-12 text-center border border-dashed border-gray-300 rounded-lg m-4 bg-gray-50">
+                              <div className="text-sm text-gray-500 italic">
+                                Table placeholder
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    // Show placeholders for expected tables when sections aren't parsed yet
+                    previewTableList.map((tableName, idx) => {
+                      const baseQuestionNumber = previewVariable ? getBaseQuestionNumber(previewVariable.name) : '';
+                      const tableTitle = `Table ${idx + 1}: ${baseQuestionNumber || tableName}`;
+                      return (
+                        <div key={`placeholder-${tableName}-${idx}`} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+                          <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                            <div className="text-xs font-semibold text-orange-600 uppercase tracking-wide">{tableTitle}</div>
+                            <div className="text-sm text-gray-800 mt-1">{previewVariable?.description || previewVariable?.name || ''}</div>
+                          </div>
+                          <div className="px-4 py-12 text-center border border-dashed border-gray-300 rounded-lg m-4 bg-gray-50">
+                            <div className="text-sm text-gray-500 italic">
+                              Table placeholder
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               ) : (
                 <div className="text-center text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg p-6">

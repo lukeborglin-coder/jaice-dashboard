@@ -1,17 +1,56 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { XMarkIcon, PlusIcon, TrashIcon, PencilIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { type BannerGroup, type BannerCut, type BannerSubGroup, type BannerCondition, type BannerConditionGroup, type BannerSumCondition } from '../types/dataTabulation';
+import { API_BASE_URL } from '../config';
 
 const BRAND_ORANGE = '#D14A2D';
+
+// Resolve a survey variable (with codes) from an expected header name like QC7r3
+function resolveCategoricalVariableForName(
+  expectedName: string,
+  categoricalVariables: any[]
+): any | null {
+  // Normalize helpers
+  const addQ = (s: string) => (s.startsWith('Q') ? s : `Q${s}`);
+  const stripQ = (s: string) => s.replace(/^Q/, '');
+
+  // 1) Try exact
+  const exact = categoricalVariables.find(v => v.name === expectedName);
+  if (exact) return exact;
+
+  // 2) Try toggling leading Q on the full expected name
+  const withQ = addQ(expectedName);
+  const withoutQ = stripQ(expectedName);
+  const exactWithQ = categoricalVariables.find(v => v.name === withQ);
+  if (exactWithQ) return exactWithQ;
+  const exactWithoutQ = categoricalVariables.find(v => v.name === withoutQ);
+  if (exactWithoutQ) return exactWithoutQ;
+
+  // 3) Extract base like QC7/C7 from QC7r3, C7r3, QC7r3c1, etc.
+  const match = expectedName.match(/^Q?([A-Za-z]*\d+)/);
+  if (match) {
+    const baseNoQ = match[1]; // letter+digits without Q
+    const baseCandidates = [baseNoQ, addQ(baseNoQ)];
+    for (const cand of baseCandidates) {
+      const byBase = categoricalVariables.find(v => v.name === cand);
+      if (byBase) return byBase;
+    }
+  }
+  return null;
+}
 
 interface BannerBuilderProps {
   variables: any[];
   onSave: (group: BannerGroup) => void;
+  onChange?: (group: BannerGroup) => void;
   onCancel: () => void;
   editingGroup?: BannerGroup | null;
   existingBannerCount?: number;
   rawData?: { rows: any[]; columns: string[] } | null;
   columnMapping?: Record<string, string>;
+  settingsOpenRef?: React.MutableRefObject<(() => void) | null>;
+  questionnaireId?: string;
+  expectedHeaders?: string[];
 }
 
 interface PopupProps {
@@ -58,7 +97,7 @@ const Popup: React.FC<PopupProps> = ({ onClose, anchorRef, children, minWidth = 
 };
 
 interface VariableSelectorPopupProps {
-  variables: any[];
+  variables: any[]; // may be raw column objects { name: string } or full variable objects
   selectedVariable: string;
   onSelect: (variableName: string) => void;
   onClose: () => void;
@@ -69,10 +108,12 @@ const VariableSelectorPopup: React.FC<VariableSelectorPopupProps> = ({ variables
   const [search, setSearch] = useState('');
   const popupRef = useRef<HTMLDivElement>(null);
 
-  const filteredVariables = variables.filter(v =>
-    v.name.toLowerCase().includes(search.toLowerCase()) ||
-    (v.description && v.description.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filteredVariables = variables.filter(v => {
+    const name = String(v.name || '').toLowerCase();
+    const desc = String(v.description || '').toLowerCase();
+    const q = search.toLowerCase();
+    return name.includes(q) || (!!desc && desc.includes(q));
+  });
 
   // Handle click outside
   useEffect(() => {
@@ -106,7 +147,7 @@ const VariableSelectorPopup: React.FC<VariableSelectorPopupProps> = ({ variables
         <div className="flex items-center gap-2 mb-3">
           <input
             type="text"
-            placeholder="Search variables..."
+            placeholder="Search columns..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
@@ -135,12 +176,10 @@ const VariableSelectorPopup: React.FC<VariableSelectorPopupProps> = ({ variables
               }`}
             >
               <div className="flex flex-col">
-                <span>
-                  <span className="font-medium">{v.name}</span>
-                  {v._cellLabel && (
-                    <span className="text-gray-500 ml-1">{v._cellLabel}</span>
-                  )}
-                </span>
+                <span className="font-medium">{v.name}</span>
+                {v._cellLabel && (
+                  <span className="text-gray-500 ml-1">{v._cellLabel}</span>
+                )}
                 {v.description && (
                   <span className="text-gray-500 text-xs leading-tight mt-0.5 line-clamp-1">
                     {v.description}
@@ -167,7 +206,78 @@ interface CodeSelectorPopupProps {
 }
 
 const CodeSelectorPopup: React.FC<CodeSelectorPopupProps> = ({ variable, selectedCodes, onCodesChange, onClose, anchorRef }) => {
-  if (!variable || !variable.codes) return null;
+  // Fallback: if no codes available for the variable (e.g., raw data column), allow free-form entry
+  if (!variable || !variable.codes || Object.keys(variable.codes).length === 0) {
+    let inputValue = selectedCodes.join(', ');
+    return (
+      <Popup onClose={onClose} anchorRef={anchorRef}>
+        <div className="space-y-2">
+          <label className="block text-xs font-medium text-gray-600">Codes (comma-separated)</label>
+          <input
+            type="text"
+            defaultValue={inputValue}
+            onChange={(e) => { inputValue = e.target.value; }}
+            placeholder="e.g., 1,2,3 or r1,r2"
+            className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded"
+          />
+          <div className="text-xs text-gray-500">Enter exact values as they appear in the data.</div>
+        </div>
+        <div className="mt-3 pt-2 border-t border-gray-200 flex justify-end">
+          <button
+            onClick={() => {
+              const codes = inputValue.split(',').map(s => s.trim()).filter(Boolean);
+              onCodesChange(codes);
+              onClose();
+            }}
+            className="px-3 py-1 text-xs text-white rounded hover:opacity-90"
+            style={{ backgroundColor: BRAND_ORANGE }}
+          >
+            Apply
+          </button>
+        </div>
+      </Popup>
+    );
+  }
+
+  // Helpers for normalization within this popup
+  const getCanonicalKey = (raw: string): string => {
+    const keys = Object.keys(variable.codes || {});
+    const preferCPrefix = keys.every(k => /^c\d+$/i.test(k));
+    // Exact match
+    const exact = keys.find(k => k.toLowerCase() === String(raw).toLowerCase());
+    if (exact) return exact;
+    // Numeric mapping
+    const num = String(raw).replace(/^c/i, '');
+    if (/^\d+$/.test(num)) {
+      const cand = preferCPrefix ? `c${num}` : num;
+      const found = keys.find(k => k.toLowerCase() === cand.toLowerCase());
+      if (found) return found;
+    }
+    return String(raw);
+  };
+  const hasEquivalentCode = (codes: string[], key: string): boolean => {
+    const keyLower = key.toLowerCase();
+    const keyNum = keyLower.replace(/^c/i, '');
+    return codes.some(c => {
+      const s = String(c).toLowerCase();
+      if (s === keyLower) return true;
+      const sNum = s.replace(/^c/i, '');
+      return sNum === keyNum;
+    });
+  };
+  const normalizeAndDedup = (codes: string[]): string[] => {
+    const mapped = (codes || []).map(getCanonicalKey);
+    const seen = new Set<string>();
+    const dedup: string[] = [];
+    mapped.forEach(m => {
+      const key = m.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        dedup.push(m);
+      }
+    });
+    return dedup;
+  };
 
   return (
     <Popup onClose={onClose} anchorRef={anchorRef}>
@@ -176,19 +286,29 @@ const CodeSelectorPopup: React.FC<CodeSelectorPopupProps> = ({ variable, selecte
           <label
             key={code}
             className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded border cursor-pointer transition-colors ${
-              selectedCodes.includes(code)
+              hasEquivalentCode(selectedCodes, code)
                 ? 'bg-orange-100 border-orange-300 text-orange-800'
                 : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
             }`}
           >
             <input
               type="checkbox"
-              checked={selectedCodes.includes(code)}
+              checked={hasEquivalentCode(selectedCodes, code)}
               onChange={(e) => {
-                const newCodes = e.target.checked
-                  ? [...selectedCodes, code]
-                  : selectedCodes.filter(c => c !== code);
-                onCodesChange(newCodes);
+                if (e.target.checked) {
+                  const normalized = normalizeAndDedup([...selectedCodes, code]);
+                  onCodesChange(normalized);
+                } else {
+                  const codeNum = code.replace(/^c/i, '').toLowerCase();
+                  const filtered = selectedCodes.filter(c => {
+                    const s = String(c).toLowerCase();
+                    if (s === code.toLowerCase()) return false;
+                    const sNum = s.replace(/^c/i, '');
+                    return sNum !== codeNum;
+                  });
+                  const normalized = normalizeAndDedup(filtered);
+                  onCodesChange(normalized);
+                }
               }}
               className="sr-only"
             />
@@ -341,6 +461,8 @@ interface CutConditionsEditorProps {
   getButtonRef: (refs: React.MutableRefObject<Record<string, React.RefObject<HTMLButtonElement>>>, subGroupId: string, cutId: string, suffix?: string) => React.RefObject<HTMLButtonElement>;
   codeButtonRefs: React.MutableRefObject<Record<string, React.RefObject<HTMLButtonElement>>>;
   variableButtonRefs: React.MutableRefObject<Record<string, React.RefObject<HTMLButtonElement>>>;
+  rawData?: { rows: any[]; columns: string[] } | null;
+  columnMapping?: Record<string, string> | undefined;
 }
 
 // Configuration Modal Component
@@ -352,6 +474,8 @@ interface ConditionsConfigModalProps {
   isNumericVariable: (varName: string) => boolean;
   updateCut: (subGroupId: string, cutId: string, updates: Partial<BannerCut>) => void;
   onClose: () => void;
+  rawData?: { rows: any[]; columns: string[] } | null;
+  columnMapping?: Record<string, string> | undefined;
 }
 
 const ConditionsConfigModal: React.FC<ConditionsConfigModalProps> = ({
@@ -361,7 +485,9 @@ const ConditionsConfigModal: React.FC<ConditionsConfigModalProps> = ({
   categoricalVariables,
   isNumericVariable,
   updateCut,
-  onClose
+  onClose,
+  rawData,
+  columnMapping
 }) => {
   const [localConditions, setLocalConditions] = React.useState<BannerCondition[]>(() => {
     if (cut.conditionGroups && cut.conditionGroups.length > 0) {
@@ -385,6 +511,162 @@ const ConditionsConfigModal: React.FC<ConditionsConfigModalProps> = ({
   });
   const [showVariableSelector, setShowVariableSelector] = React.useState<number | null>(null);
 
+  // Normalize any existing codes to canonical keys on mount (prevents duplicate numeric vs c-prefixed)
+  React.useEffect(() => {
+    setLocalConditions(prev => {
+      let changed = false;
+      const next = prev.map(c => {
+        const surveyVar =
+          categoricalVariables.find(v => v.name === c.variableName) ||
+          resolveCategoricalVariableForName(c.variableName, categoricalVariables);
+        if (surveyVar && surveyVar.codes && Array.isArray(c.codes)) {
+          const normalized = normalizeCodesForSurveyVar(c.codes, surveyVar);
+          const same =
+            normalized.length === c.codes.length &&
+            normalized.every((v, i) => String(v).toLowerCase() === String(c.codes[i]).toLowerCase());
+          if (!same) {
+            changed = true;
+            return { ...c, codes: normalized };
+          }
+        }
+        return c;
+      });
+      return changed ? next : prev;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Helpers: data matching and previews
+  const valueMatchesCode = (raw: any, code: string): boolean => {
+    if (raw === null || raw === undefined || raw === '') return false;
+    const s = String(raw).trim();
+    const n = Number(s);
+    if (s === code) return true;
+    const codeNoC = code.replace(/^c/i, '');
+    if (s === codeNoC) return true;
+    if (!isNaN(n) && String(n) === codeNoC) return true;
+    return false;
+  };
+  const buildNumericChecker = (condStr: string): ((n: number | null) => boolean) => {
+    const s = condStr.trim();
+    const range = s.match(/^(-?\d+(?:\.\d+)?)\s*-\s*(-?\d+(?:\.\d+)?)$/);
+    if (range) {
+      const a = Number(range[1]);
+      const b = Number(range[2]);
+      return (n) => n !== null && n >= a && n <= b;
+    }
+    const left = s.match(/^(-?\d+(?:\.\d+)?)\s*-\s*$/);
+    if (left) {
+      const a = Number(left[1]);
+      return (n) => n !== null && n >= a;
+    }
+    const right = s.match(/^\s*-\s*(-?\d+(?:\.\d+)?)$/);
+    if (right) {
+      const b = Number(right[1]);
+      return (n) => n !== null && n <= b;
+    }
+    const cmp = s.match(/^(>=|<=|>|<|=)\s*(-?\d+(?:\.\d+)?)$/);
+    if (cmp) {
+      const op = cmp[1];
+      const value = Number(cmp[2]);
+      return (n) => {
+        if (n === null) return false;
+        switch (op) {
+          case '>=': return n >= value;
+          case '<=': return n <= value;
+          case '>': return n > value;
+          case '<': return n < value;
+          case '=': return n === value;
+          default: return false;
+        }
+      };
+    }
+    const exact = Number(s);
+    if (!isNaN(exact)) return (n) => n !== null && n === exact;
+    return () => false;
+  };
+  const getRecognizedSummary = (varName: string, codes: string[]): { count: number; examples: string[] } => {
+    const header = getColumnHeader(varName, columnMapping) || (rawData?.columns?.includes(varName) ? varName : null);
+    if (!rawData || !rawData.rows || !header) return { count: 0, examples: [] };
+    const examples: string[] = [];
+    let count = 0;
+    const seen = new Set<string>();
+    const maxScan = 3000;
+    const maxExamples = 6;
+    for (let i = 0; i < rawData.rows.length && i < maxScan; i++) {
+      const v = rawData.rows[i]?.[header];
+      if (codes.some(c => valueMatchesCode(v, c))) {
+        count++;
+        const s = String(v);
+        if (!seen.has(s) && examples.length < maxExamples) {
+          seen.add(s);
+          examples.push(s);
+        }
+      }
+    }
+    return { count, examples };
+  };
+  const formatCodesForDisplay = (codes: string[]): string => {
+    // Show numeric part for c-prefixed codes; deduplicate on display
+    const nums = codes.map(c => {
+      const m = c.match(/^c(\d+)$/i);
+      return m ? m[1] : c;
+    });
+    const seen = new Set<string>();
+    const dedup: string[] = [];
+    nums.forEach(n => {
+      const key = String(n).toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        dedup.push(n);
+      }
+    });
+    return dedup.join(', ');
+  };
+  // Normalize codes against a survey variable's code keys (e.g., 9 -> c9), and deduplicate
+  const normalizeCodesForSurveyVar = (codes: string[], surveyVar: any): string[] => {
+    if (!Array.isArray(codes) || !surveyVar || !surveyVar.codes) return codes || [];
+    const keys: string[] = Object.keys(surveyVar.codes || {});
+    const preferCPrefix = keys.every(k => /^c\d+$/i.test(k));
+    const toCanonical = (c: string): string | null => {
+      if (!c) return null;
+      const raw = String(c).trim();
+      // Exact key match (case-insensitive)
+      const found = keys.find(k => k.toLowerCase() === raw.toLowerCase());
+      if (found) return found;
+      // Numeric mapping
+      const num = raw.replace(/^c/i, '');
+      if (/^\d+$/.test(num)) {
+        const candidate = preferCPrefix ? `c${num}` : num;
+        const fx = keys.find(k => k.toLowerCase() === candidate.toLowerCase());
+        if (fx) return fx;
+      }
+      return raw;
+    };
+    const mapped = codes.map(toCanonical).filter(Boolean) as string[];
+    const seen = new Set<string>();
+    const dedup: string[] = [];
+    mapped.forEach(m => {
+      const key = m.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        dedup.push(m);
+      }
+    });
+    return dedup;
+  };
+  // Check if a code is selected accounting for numeric vs c-prefixed equivalents
+  const hasEquivalentCode = (selected: string[], codeKey: string): boolean => {
+    const codeKeyLower = codeKey.toLowerCase();
+    const codeKeyNum = codeKeyLower.replace(/^c/i, '');
+    return selected.some(c => {
+      const s = String(c).toLowerCase();
+      if (s === codeKeyLower) return true;
+      const sNum = s.replace(/^c/i, '');
+      return sNum === codeKeyNum;
+    });
+  };
+
   // Check if all conditions are valid
   const allConditionsValid = React.useMemo(() => {
     if (localConditions.length === 0) return true; // Empty is valid (clears conditions)
@@ -392,7 +674,26 @@ const ConditionsConfigModal: React.FC<ConditionsConfigModalProps> = ({
     return localConditions.every(cond => {
       if (!cond.variableName) return false;
       
-      const isNumeric = isNumericVariable(cond.variableName);
+      const isNumeric = (() => {
+        // Prefer known variable types
+        if (isNumericVariable(cond.variableName)) return true;
+        // If the variable name exactly matches a known categorical variable, treat as categorical
+        const exactCategorical = categoricalVariables.find(v => v.name === cond.variableName);
+        if (exactCategorical && exactCategorical.codes && Object.keys(exactCategorical.codes).length > 0) return false;
+        // If this expected header maps to a categorical survey variable with codes, treat as categorical
+        const mappedCat = resolveCategoricalVariableForName(cond.variableName, categoricalVariables);
+        if (mappedCat && mappedCat.codes && Object.keys(mappedCat.codes).length > 0) return false;
+        // Fallback: infer numeric by sampling rawData values if available
+        if (rawData && columnMapping) {
+          const colHeader = getColumnHeader(cond.variableName, columnMapping);
+          if (colHeader) {
+            const sampleVals = (rawData.rows || []).slice(0, 200).map(r => r[colHeader]).filter(v => v !== null && v !== undefined && v !== '');
+            const numericCount = sampleVals.filter(v => !isNaN(Number(String(v).trim()))).length;
+            if (sampleVals.length > 0 && numericCount / sampleVals.length >= 0.9) return true;
+          }
+        }
+        return false;
+      })();
       if (isNumeric) {
         // For numeric, need an operator selected and a value entered
         if (cond.codes.length === 0 || !cond.codes[0]) return false;
@@ -407,11 +708,41 @@ const ConditionsConfigModal: React.FC<ConditionsConfigModalProps> = ({
         return cond.codes.length > 0;
       }
     });
-  }, [localConditions, isNumericVariable]);
+  }, [localConditions, isNumericVariable, categoricalVariables, rawData, columnMapping]);
+
+  // If a preview is visible (categorical has codes selected, or numeric shows a condition string),
+  // allow saving even if stricter validation disagrees.
+  const hasAnyPreview = React.useMemo(() => {
+    return localConditions.some(cond => {
+      if (!cond.variableName) return false;
+      const isNumeric = (() => {
+        if (isNumericVariable(cond.variableName)) return true;
+        const exactCategorical = categoricalVariables.find(v => v.name === cond.variableName);
+        if (exactCategorical && exactCategorical.codes && Object.keys(exactCategorical.codes).length > 0) return false;
+        const mappedCat = resolveCategoricalVariableForName(cond.variableName, categoricalVariables);
+        if (mappedCat && mappedCat.codes && Object.keys(mappedCat.codes).length > 0) return false;
+        if (rawData && columnMapping) {
+          const colHeader = getColumnHeader(cond.variableName, columnMapping);
+          if (colHeader) {
+            const sampleVals = (rawData.rows || []).slice(0, 200).map(r => r[colHeader]).filter(v => v !== null && v !== undefined && v !== '');
+            const numericCount = sampleVals.filter(v => !isNaN(Number(String(v).trim()))).length;
+            if (sampleVals.length > 0 && numericCount / sampleVals.length >= 0.9) return true;
+          }
+        }
+        return false;
+      })();
+      if (isNumeric) {
+        const c0 = cond.codes?.[0] || '';
+        return !!c0 && ( /^(>=|<=|>|<|=)\s*\d/.test(c0) || /^\d+-\d+/.test(c0) || /^\d+-/.test(c0) || c0.trim().length > 0 );
+      } else {
+        return Array.isArray(cond.codes) && cond.codes.length > 0;
+      }
+    });
+  }, [localConditions, isNumericVariable, categoricalVariables, rawData, columnMapping]);
 
   const handleSave = () => {
-    if (!allConditionsValid) {
-      // Don't save if conditions are incomplete
+    if (!(allConditionsValid || hasAnyPreview)) {
+      // Don't save if conditions are incomplete and no preview is visible
       return;
     }
 
@@ -463,6 +794,45 @@ const ConditionsConfigModal: React.FC<ConditionsConfigModalProps> = ({
   };
 
 
+  // Helpers to support raw-data-backed selection when variable isn't a known categorical
+  function getColumnHeader(varName: string, mapping?: Record<string, string>): string | null {
+    if (!mapping) return null;
+    const variations = [varName, `Q${varName}`, varName.replace(/^Q/, ''), `${varName}r1`, `Q${varName.replace(/^Q/, '')}r1`];
+    for (const v of variations) {
+      if (mapping[v]) return mapping[v];
+      const match = Object.keys(mapping).find(k => k.toLowerCase() === v.toLowerCase());
+      if (match) return mapping[match];
+    }
+    return null;
+  }
+
+  const getRawDistinctValues = (varName: string): string[] => {
+    if (!rawData || !rawData.rows) return [];
+    let header = getColumnHeader(varName, columnMapping);
+    if (!header) {
+      // If not in mapping, allow direct column usage if present
+      if (rawData.columns && rawData.columns.includes(varName)) {
+        header = varName;
+      } else {
+        return [];
+      }
+    }
+    const set = new Set<string>();
+    const maxToScan = 5000;
+    const maxDistinct = 200;
+    const rows = rawData.rows;
+    for (let i = 0; i < rows.length && i < maxToScan; i++) {
+      const val = rows[i]?.[header];
+      if (val === null || val === undefined) continue;
+      const s = String(val).trim();
+      if (s.length === 0) continue;
+      set.add(s);
+      if (set.size >= maxDistinct) break;
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  };
+
+  // (moved to module scope) resolveCategoricalVariableForName
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
@@ -474,7 +844,32 @@ const ConditionsConfigModal: React.FC<ConditionsConfigModalProps> = ({
       >
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold text-gray-900">Configure Conditions</h3>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Configure Conditions</h3>
+              <p className="text-xs text-gray-600 mt-1">
+                {(() => {
+                  const c: any = cut as any;
+                  if (c.definitionText) return String(c.definitionText);
+                  if (c.sumCondition && c.sumCondition.variables && c.sumCondition.variables.length > 0) {
+                    return `SUM(${c.sumCondition.variables.join(', ')}) ${c.sumCondition.condition || ''}`;
+                  }
+                  if (c.conditionGroups && Array.isArray(c.conditionGroups) && c.conditionGroups.length > 0) {
+                    const group = c.conditionGroups[0];
+                    const op = group.operator || 'OR';
+                    const conds = (group.conditions || []).map((cond: any) => {
+                      const codes = Array.isArray(cond.codes) ? cond.codes.join(', ') : '';
+                      return `${cond.variableName}${codes ? '=' + codes : ''}`;
+                    }).join(` ${op} `);
+                    return conds || '';
+                  }
+                  if (c.variableName) {
+                    const codes = Array.isArray(c.codes) ? c.codes.join(', ') : '';
+                    return `${c.variableName}${codes ? '=' + codes : ''}`;
+                  }
+                  return '';
+                })()}
+              </p>
+            </div>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -685,19 +1080,29 @@ const ConditionsConfigModal: React.FC<ConditionsConfigModalProps> = ({
                                 <label
                                   key={code}
                                   className={`flex items-center gap-2 px-2.5 py-1.5 text-xs rounded border cursor-pointer transition-colors ${
-                                    cond.codes.includes(code)
+                                    hasEquivalentCode(cond.codes, code)
                                       ? 'bg-orange-100 border-orange-300 text-orange-800'
                                       : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
                                   }`}
                                 >
                                   <input
                                     type="checkbox"
-                                    checked={cond.codes.includes(code)}
+                                    checked={hasEquivalentCode(cond.codes, code)}
                                     onChange={(e) => {
-                                      const newCodes = e.target.checked
-                                        ? [...cond.codes, code]
-                                        : cond.codes.filter(c => c !== code);
-                                      updateCondition(idx, { codes: newCodes });
+                                      if (e.target.checked) {
+                                        const normalized = normalizeCodesForSurveyVar([...cond.codes, code], { codes: variable.codes });
+                                        updateCondition(idx, { codes: normalized });
+                                      } else {
+                                        const codeNum = code.replace(/^c/i, '').toLowerCase();
+                                        const filtered = cond.codes.filter(c => {
+                                          const s = String(c).toLowerCase();
+                                          if (s === code.toLowerCase()) return false;
+                                          const sNum = s.replace(/^c/i, '');
+                                          return sNum !== codeNum;
+                                        });
+                                        const normalized = normalizeCodesForSurveyVar(filtered, { codes: variable.codes });
+                                        updateCondition(idx, { codes: normalized });
+                                      }
                                     }}
                                     className="rounded border-gray-300 text-[#D14A2D] focus:ring-[#D14A2D]"
                                   />
@@ -708,11 +1113,118 @@ const ConditionsConfigModal: React.FC<ConditionsConfigModalProps> = ({
                             </div>
                             {cond.codes.length > 0 && (
                               <div className="text-xs text-gray-500 font-mono">
-                                Preview: {cond.variableName} = {cond.codes.map(code => code.replace(/^c/i, '')).join(', ')}
+                                {(() => {
+                                  const normalized = normalizeCodesForSurveyVar(cond.codes, { codes: variable.codes });
+                                  return <>Preview: {cond.variableName} = {formatCodesForDisplay(normalized)}</>;
+                                })()}
                               </div>
                             )}
                           </div>
-                        ) : null}
+                        ) : (
+                          // Fallback for raw data columns without predefined codes:
+                          // 1) Try to resolve to a survey variable with codes (e.g., QC7r3 -> QC7)
+                          // 2) Else offer suggested distinct values + free-form add
+                          (() => {
+                            const surveyVar = resolveCategoricalVariableForName(cond.variableName, categoricalVariables);
+                            if (surveyVar && surveyVar.codes && Object.keys(surveyVar.codes).length > 0) {
+                              return (
+                                <div className="space-y-2">
+                                  <div className="space-y-1 max-h-48 overflow-y-auto p-2 border border-gray-200 rounded-lg bg-white">
+                                    {Object.entries(surveyVar.codes || {}).map(([code, label]: [string, any]) => (
+                                      <label
+                                        key={code}
+                                        className={`flex items-center gap-2 px-2.5 py-1.5 text-xs rounded border cursor-pointer transition-colors ${
+                                          hasEquivalentCode(cond.codes, code)
+                                            ? 'bg-orange-100 border-orange-300 text-orange-800'
+                                            : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                                        }`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={hasEquivalentCode(cond.codes, code)}
+                                          onChange={(e) => {
+                                            if (e.target.checked) {
+                                              const normalized = normalizeCodesForSurveyVar([...cond.codes, code], surveyVar);
+                                              updateCondition(idx, { codes: normalized });
+                                            } else {
+                                              // Remove both canonical and numeric equivalents
+                                              const codeNum = code.replace(/^c/i, '').toLowerCase();
+                                              const filtered = cond.codes.filter(c => {
+                                                const s = String(c).toLowerCase();
+                                                if (s === code.toLowerCase()) return false;
+                                                const sNum = s.replace(/^c/i, '');
+                                                return sNum !== codeNum;
+                                              });
+                                              const normalized = normalizeCodesForSurveyVar(filtered, surveyVar);
+                                              updateCondition(idx, { codes: normalized });
+                                            }
+                                          }}
+                                          className="rounded border-gray-300 text-[#D14A2D] focus:ring-[#D14A2D]"
+                                        />
+                                        <span className="font-medium">{code}:</span>
+                                        <span>{String(label)}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                  {cond.codes.length > 0 && (
+                                    <>
+                                      <div className="text-xs text-gray-500 font-mono">
+                                        {(() => {
+                                          const normalized = normalizeCodesForSurveyVar(cond.codes, surveyVar);
+                                          return <>Preview: {cond.variableName} = {formatCodesForDisplay(normalized)}</>;
+                                        })()}
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            }
+                            // Distinct values fallback
+                            return (
+                              <div className="space-y-2">
+                                <div className="space-y-1 max-h-48 overflow-y-auto p-2 border border-gray-200 rounded-lg bg-white">
+                                  {(() => {
+                                    const values = getRawDistinctValues(cond.variableName);
+                                    if (values.length === 0) {
+                                      return <div className="text-xs text-gray-400 italic py-2">No sample values found for this column.</div>;
+                                    }
+                                    return values.map((val) => (
+                                      <label
+                                        key={val}
+                                        className={`flex items-center gap-2 px-2.5 py-1.5 text-xs rounded border cursor-pointer transition-colors ${
+                                          cond.codes.includes(val)
+                                            ? 'bg-orange-100 border-orange-300 text-orange-800'
+                                            : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                                        }`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={cond.codes.includes(val)}
+                                          onChange={(e) => {
+                                            const newCodes = e.target.checked
+                                              ? [...cond.codes, val]
+                                              : cond.codes.filter(c => c !== val);
+                                            updateCondition(idx, { codes: newCodes });
+                                          }}
+                                          className="rounded border-gray-300 text-[#D14A2D] focus:ring-[#D14A2D]"
+                                        />
+                                        <span className="font-medium">{val}</span>
+                                      </label>
+                                    ));
+                                  })()}
+                                </div>
+                                {/* Definition + recognition preview */}
+                                {cond.codes.length > 0 && (
+                                  <>
+                                    <div className="text-xs text-gray-500 font-mono">
+                                      Preview: {cond.variableName} = {formatCodesForDisplay(cond.codes)}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })()
+                        )}
                       </div>
                     )}
                     </div>
@@ -756,10 +1268,10 @@ const ConditionsConfigModal: React.FC<ConditionsConfigModalProps> = ({
           </button>
           <button
             onClick={handleSave}
-            disabled={!allConditionsValid}
+            disabled={!(allConditionsValid || hasAnyPreview)}
             className="px-4 py-2 text-sm text-white rounded-lg transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ backgroundColor: BRAND_ORANGE }}
-            title={!allConditionsValid ? "Please complete all conditions before saving" : ""}
+            title={!(allConditionsValid || hasAnyPreview) ? "Please complete all conditions before saving" : ""}
           >
             Save
           </button>
@@ -782,7 +1294,9 @@ const CutConditionsEditor: React.FC<CutConditionsEditorProps> = ({
   setOpenCodeSelector,
   getButtonRef,
   codeButtonRefs,
-  variableButtonRefs
+  variableButtonRefs,
+  rawData,
+  columnMapping
 }) => {
   const [showConfigModal, setShowConfigModal] = React.useState(false);
 
@@ -836,6 +1350,8 @@ const CutConditionsEditor: React.FC<CutConditionsEditorProps> = ({
           isNumericVariable={isNumericVariable}
           updateCut={updateCut}
           onClose={() => setShowConfigModal(false)}
+          rawData={rawData}
+          columnMapping={columnMapping}
         />
       )}
     </>
@@ -1261,7 +1777,7 @@ const OldCutConditionsEditor: React.FC<CutConditionsEditorProps> = ({
   );
 };
 
-const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCancel, editingGroup, existingBannerCount = 0, rawData, columnMapping }) => {
+const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChange, onCancel, editingGroup, existingBannerCount = 0, rawData, columnMapping, settingsOpenRef, questionnaireId, expectedHeaders }) => {
   const [confidenceLevel, setConfidenceLevel] = useState<95 | 90 | 80>(editingGroup?.confidenceLevel || 95);
   const [includeTotal, setIncludeTotal] = useState<boolean>(editingGroup?.includeTotal !== false);
   const [bannerTitle, setBannerTitle] = useState<string>(editingGroup?.title || `Banner ${existingBannerCount + 1}`);
@@ -1281,6 +1797,16 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
   const [openVariableSelector, setOpenVariableSelector] = useState<{ subGroupId: string; cutId: string; conditionIndex?: number } | null>(null);
   const [showSettingsPopup, setShowSettingsPopup] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [aiConfiguring, setAiConfiguring] = useState(false);
+  // Expose settings opener to parent so the top-level header button can open it
+  useEffect(() => {
+    if (settingsOpenRef) {
+      settingsOpenRef.current = () => setShowSettingsPopup(true);
+      return () => {
+        if (settingsOpenRef) settingsOpenRef.current = null;
+      };
+    }
+  }, [settingsOpenRef]);
   const codeButtonRefs = useRef<Record<string, React.RefObject<HTMLButtonElement>>>({});
   const variableButtonRefs = useRef<Record<string, React.RefObject<HTMLButtonElement>>>({});
 
@@ -1343,6 +1869,42 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
     return result;
   }, [variables]);
 
+  // Build selectable variables from EXPECTED HEADERS ONLY
+  const combinedSelectableVariables = React.useMemo(() => {
+    const headers = Array.isArray(expectedHeaders) ? expectedHeaders : [];
+    if (headers.length === 0) return [];
+    // Group by base (strip leading Q, remove r/c parts for base key)
+    const baseInfo = new Map<string, { items: string[]; hasSub: boolean }>();
+    const isSubPart = (h: string) => /(^|[^A-Za-z])r\d+/i.test(h) || /(^|[^A-Za-z])c\d+/i.test(h) || /_r\d+/i.test(h) || /_c\d+/i.test(h) || /-r\d+/i.test(h) || /-c\d+/i.test(h);
+    const getBaseKey = (h: string) => {
+      // Examples:
+      // QC7r3 -> C7 ; C7r3 -> C7 ; QC7 -> C7
+      const noQ = h.replace(/^Q/i, '');
+      const m = noQ.match(/^([A-Za-z]*\d+)/);
+      return m ? m[1] : noQ;
+    };
+    headers.forEach(h => {
+      const base = getBaseKey(h);
+      if (!baseInfo.has(base)) baseInfo.set(base, { items: [], hasSub: false });
+      const info = baseInfo.get(base)!;
+      info.items.push(h);
+      if (isSubPart(h)) info.hasSub = true;
+    });
+    // Filter: remove plain base headers when subparts exist for that base
+    const filtered = headers.filter(h => {
+      const info = baseInfo.get(getBaseKey(h));
+      if (!info) return true;
+      const hasSubs = info.hasSub;
+      const isBaseOnly = !isSubPart(h);
+      // If there are subparts for this base, exclude the base-only header
+      if (hasSubs && isBaseOnly) return false;
+      return true;
+    });
+    // Deduplicate and map to objects
+    const dedup = Array.from(new Set(filtered));
+    return dedup.map(name => ({ name }));
+  }, [expectedHeaders]);
+
   // Check if a variable is numeric (no codes, type includes numeric)
   const isNumericVariable = (varName: string): boolean => {
     // First check if it's a synthetic grid cell variable
@@ -1369,6 +1931,10 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
         if (columnMapping[v]) return columnMapping[v];
         const match = Object.keys(columnMapping).find(k => k.toLowerCase() === v.toLowerCase());
         if (match) return columnMapping[match];
+      }
+      // Fallback: allow direct use of raw column name if present
+      if (rawData.columns && rawData.columns.includes(varName)) {
+        return varName;
       }
       return null;
     };
@@ -1454,6 +2020,9 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
           const match = Object.keys(columnMapping).find(k => k.toLowerCase() === v.toLowerCase());
           if (match) return columnMapping[match];
         }
+        if (rawData.columns && rawData.columns.includes(varName)) {
+          return varName;
+        }
         return null;
       };
 
@@ -1520,6 +2089,9 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
             if (columnMapping[v]) return columnMapping[v];
             const match = Object.keys(columnMapping).find(k => k.toLowerCase() === v.toLowerCase());
             if (match) return columnMapping[match];
+          }
+          if (rawData.columns && rawData.columns.includes(varName)) {
+            return varName;
           }
           return null;
         };
@@ -1669,8 +2241,258 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
     onSave(group);
   };
 
-  // Subtract 1 to account for the header row in raw data
-  const totalSampleSize = rawData?.rows?.length ? rawData.rows.length - 1 : 0;
+  // Match Data tab's "Respondents" count: count rows with a non-empty record/respno field
+  const totalSampleSize = React.useMemo(() => {
+    if (!rawData || !rawData.rows) return 0;
+    const rows: any[] = rawestRows();
+    const count = rows.filter((row: any) => {
+      const rv = (row as any)['record'] ??
+                 (row as any)['respno'] ??
+                 (row as any)['Record'] ??
+                 (row as any)['Respno'] ??
+                 (row as any)['RECORD'] ??
+                 (row as any)['RESPNO'];
+      if (rv === null || rv === undefined) return false;
+      const s = String(rv).trim();
+      return s.length > 0;
+    }).length;
+    return count;
+  }, [rawData]);
+
+  // Helper to get raw data rows (defensive against unexpected shapes)
+  function rawestRows(): any[] {
+    const r: any = (rawData as any)?.rows;
+    return Array.isArray(r) ? r : [];
+  }
+
+  // Debounced autosave to parent whenever edits happen (keeps builder open)
+  useEffect(() => {
+    if (!onChange) return;
+    const id = editingGroup?.id || `${Date.now()}`; // fallback id; parent likely has a real id
+    const group: BannerGroup = {
+      id,
+      title: bannerTitle,
+      confidenceLevel,
+      includeTotal,
+      groups: subGroups
+    };
+    const t = setTimeout(() => onChange(group), 250);
+    return () => clearTimeout(t);
+  }, [bannerTitle, confidenceLevel, includeTotal, subGroups, editingGroup?.id, onChange]);
+
+  // Build human-readable definition text for a cut (matches Banner Definition column)
+  const getDefinitionTextForCut = (cut: BannerCut): string => {
+    const c: any = cut as any;
+    if (c.definitionText) return String(c.definitionText);
+    if (c.sumCondition && c.sumCondition.variables && c.sumCondition.variables.length > 0) {
+      return `SUM(${c.sumCondition.variables.join(', ')}) ${c.sumCondition.condition || ''}`;
+    }
+    if (c.conditionGroups && Array.isArray(c.conditionGroups) && c.conditionGroups.length > 0) {
+      const group = c.conditionGroups[0];
+      const op = group.operator || 'OR';
+      const conds = (group.conditions || []).map((cond: any) => {
+        const codes = Array.isArray(cond.codes) ? cond.codes.join(', ') : '';
+        return `${cond.variableName}${codes ? '=' + codes : ''}`;
+      }).join(` ${op} `);
+      return conds || '';
+    }
+    if (c.variableName) {
+      const codes = Array.isArray(c.codes) ? c.codes.join(', ') : '';
+      return `${c.variableName}${codes ? '=' + codes : ''}`;
+    }
+    return '';
+  };
+
+  // Send all row definitions to AI to auto-configure variables/codes
+  const handleConfigureAllWithAI = async () => {
+    if (!questionnaireId) return;
+    if (aiConfiguring) return;
+    try {
+      setAiConfiguring(true);
+      // Collect all rows (cuts) across subGroups
+      const allCuts = subGroups.flatMap(sg => sg.cuts.map(c => ({ sgId: sg.id, cut: c })));
+      const payloadCuts = allCuts.map(({ sgId, cut }) => ({
+        subGroupId: sgId,
+        cutId: cut.id,
+        title: cut.title || '',
+        definitionText: getDefinitionTextForCut(cut)
+      }));
+      // Build expected header details: per-expected-header codes and types
+      const headers = Array.isArray(expectedHeaders) ? expectedHeaders : [];
+      const expectedHeadersDetail = headers.map((h) => {
+        const surveyVar = resolveCategoricalVariableForName(h, categoricalVariables);
+        const codes = surveyVar?.codes ? Object.keys(surveyVar.codes).slice(0, 200) : [];
+        const type = surveyVar?.type || 'Unknown';
+        return { header: h, type, codes };
+      });
+      const res = await fetch(`${API_BASE_URL}/api/questionnaire/banners/auto-configure`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          questionnaireId,
+          cuts: payloadCuts,
+          variables: [], // do not distract the AI with base variables; expected headers are canonical
+          expectedHeaders: headers,
+          expectedHeadersDetail
+        })
+      });
+      if (!res.ok) {
+        setAiConfiguring(false);
+        return;
+      }
+      const data = await res.json();
+      // Helper: normalize codes to match the survey variable's code keys
+      const normalizeCodesForVar = (varName: string, codes: string[] | undefined): string[] => {
+        if (!codes || codes.length === 0) return [];
+        // Try to resolve the categorical definition and take its keys as canonical
+        const surveyVar =
+          categoricalVariables.find(v => v.name === varName) ||
+          resolveCategoricalVariableForName(varName, categoricalVariables);
+        if (!surveyVar || !surveyVar.codes) {
+          // If we cannot resolve, return as-is
+          return codes.filter(Boolean);
+        }
+        const keys = Object.keys(surveyVar.codes || {});
+        const keySetLower = new Set(keys.map(k => k.toLowerCase()));
+        // If keys look like c-prefixed numbers, prefer that
+        const preferCPrefix = keys.every(k => /^c\d+$/i.test(k));
+        const toCanonical = (c: string): string | null => {
+          if (!c) return null;
+          const raw = String(c).trim();
+          // Exact key match (case-insensitive)
+          if (keySetLower.has(raw.toLowerCase())) {
+            // return with original casing from keys
+            const found = keys.find(k => k.toLowerCase() === raw.toLowerCase());
+            return found || raw;
+          }
+          // If incoming is like "9" and keys are "c9"
+          const num = raw.replace(/^c/i, '');
+          if (/^\d+$/.test(num)) {
+            const candidate = preferCPrefix ? `c${num}` : num;
+            const fx = keys.find(k => k.toLowerCase() === candidate.toLowerCase());
+            if (fx) return fx;
+          }
+          // No good mapping; keep as-is
+          return raw;
+        };
+        // Deduplicate after mapping
+        const mapped = codes.map(toCanonical).filter(Boolean) as string[];
+        const seen = new Set<string>();
+        const dedup: string[] = [];
+        for (const m of mapped) {
+          const low = m.toLowerCase();
+          if (!seen.has(low)) {
+            seen.add(low);
+            dedup.push(m);
+          }
+        }
+        return dedup;
+      };
+      const outputs: Array<{
+        cutId: string;
+        variableName?: string;
+        codes?: string[];
+        numericCondition?: string;
+        conditions?: Array<{ variableName: string; codes?: string[]; numericCondition?: string }>;
+        operator?: 'OR' | 'AND';
+      }> = data.configs || [];
+      if (!Array.isArray(outputs)) {
+        setAiConfiguring(false);
+        return;
+      }
+      // Apply outputs to current subGroups
+      const byCutId = new Map<string, {
+        variableName?: string;
+        codes?: string[];
+        numericCondition?: string;
+        conditions?: Array<{ variableName: string; codes?: string[]; numericCondition?: string }>;
+        operator?: 'OR' | 'AND';
+      }>();
+      // Normalize any returned codes to match survey variable code keys
+      outputs.forEach(o => {
+        if (Array.isArray(o.conditions) && o.conditions.length > 0) {
+          const normalizedConds = o.conditions.map(cn => ({
+            variableName: cn.variableName,
+            numericCondition: cn.numericCondition,
+            codes: normalizeCodesForVar(cn.variableName, cn.codes)
+          }));
+          byCutId.set(o.cutId, { ...o, conditions: normalizedConds });
+        } else {
+          byCutId.set(o.cutId, {
+            ...o,
+            codes: normalizeCodesForVar(o.variableName || '', o.codes)
+          });
+        }
+      });
+      setSubGroups(prev => prev.map(sg => ({
+        ...sg,
+        cuts: sg.cuts.map(cut => {
+          const upd = byCutId.get(cut.id);
+          if (!upd) return cut; // leave blank if no match
+          // Multi-condition form
+          if (Array.isArray(upd.conditions) && upd.conditions.length > 0) {
+            if (expectedHeaders && expectedHeaders.length > 0) {
+              const allAllowed = upd.conditions.every(cn => expectedHeaders.includes(cn.variableName));
+              if (!allAllowed) return cut;
+            }
+            const op = upd.operator === 'AND' ? 'AND' : 'OR';
+            const builtConds = upd.conditions.map((cn, idx) => {
+              const isNum = isNumericVariable(cn.variableName);
+              const codes = isNum && cn.numericCondition ? [cn.numericCondition] : (cn.codes || []);
+              return { id: String(idx), variableName: cn.variableName, codes };
+            });
+            const first = builtConds[0];
+            return {
+              ...cut,
+              conditionGroups: [{
+                conditions: builtConds,
+                operator: op
+              }],
+              variableName: first?.variableName || '',
+              codes: first?.codes || [],
+              sumCondition: undefined
+            };
+          }
+          // Single-condition form
+          if (!upd.variableName) return cut;
+          if (expectedHeaders && expectedHeaders.length > 0 && !expectedHeaders.includes(upd.variableName!)) {
+            return cut;
+          }
+          const isNumeric = isNumericVariable(upd.variableName);
+          if (isNumeric && upd.numericCondition) {
+            return {
+              ...cut,
+              conditionGroups: [{
+                conditions: [{ id: '0', variableName: upd.variableName, codes: [upd.numericCondition] }],
+                operator: 'OR'
+              }],
+              variableName: upd.variableName,
+              codes: [upd.numericCondition],
+              sumCondition: undefined
+            };
+          } else if (upd.codes && upd.codes.length > 0) {
+            return {
+              ...cut,
+              conditionGroups: [{
+                conditions: [{ id: '0', variableName: upd.variableName, codes: upd.codes }],
+                operator: 'OR'
+              }],
+              variableName: upd.variableName,
+              codes: upd.codes,
+              sumCondition: undefined
+            };
+          }
+          // If we have a variable but no usable details, leave as-is
+          return cut;
+        })
+      })));
+    } finally {
+      setAiConfiguring(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -1706,13 +2528,23 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
             </>
           )}
         </div>
-        <button
-          onClick={() => setShowSettingsPopup(true)}
-          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          title="Banner Settings"
-        >
-          <Cog6ToothIcon className="h-6 w-6" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onCancel}
+            className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 rounded-lg"
+            title="Cancel editing"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-3 py-1.5 text-sm text-white rounded-lg hover:opacity-90"
+            style={{ backgroundColor: BRAND_ORANGE }}
+            title="Save banner group"
+          >
+            Save
+          </button>
+        </div>
       </div>
 
       {/* Settings Popup */}
@@ -1785,140 +2617,146 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto py-6 space-y-6">
-        {subGroups.map((subGroup, subGroupIndex) => (
-          <div key={subGroup.id} className="border border-gray-200 rounded-lg overflow-hidden">
-            {/* Group Title */}
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-              <div className="flex items-center gap-3">
-                <label className="text-sm font-semibold text-gray-700 whitespace-nowrap">Group Title:</label>
-                <input
-                  type="text"
-                  value={subGroup.title}
-                  onChange={(e) => updateSubGroup(subGroup.id, { title: e.target.value })}
-                  placeholder={`Sub-Group ${subGroupIndex + 1}`}
-                  className="flex-1 px-3 py-1.5 text-sm font-medium border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
-                />
-                {subGroups.length > 1 && (
-                  <button
-                    onClick={() => removeSubGroup(subGroup.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                    title="Remove sub-group"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-            {/* Cuts Table */}
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase w-48">Cut Title</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Conditions</th>
-                  <th className="px-4 py-2 w-10"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {subGroup.cuts.map((cut, cutIndex) => {
-                  const selectedVariable = categoricalVariables.find(v => v.name === cut.variableName);
+      <div className="flex-1 overflow-y-auto py-6 space-y-4">
+        {/* Single Excel-style table for all sub-groups/cuts */}
+        <div className="overflow-x-auto border border-gray-200 rounded-lg">
+          <table className="min-w-full text-sm border-collapse" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '240px' }} />
+              <col style={{ width: '220px' }} />
+              <col />
+              <col style={{ width: '140px' }} />
+            </colgroup>
+            <thead className="sticky top-0 z-10" style={{ backgroundColor: BRAND_ORANGE }}>
+              <tr className="border-b-2 border-gray-300">
+                <th className="px-4 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-white/20 whitespace-nowrap">
+                  Banner Heading (e.g. Gender)
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-white/20 whitespace-nowrap">
+                  Banner Point (e.g. Male)
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap">
+                  Banner Definition
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="sr-only">Configure</span>
+                    <button
+                      onClick={handleConfigureAllWithAI}
+                      disabled={aiConfiguring || !questionnaireId}
+                      className={`px-2 py-1 text-[11px] font-medium rounded-lg transition-colors ${
+                        aiConfiguring || !questionnaireId
+                          ? 'bg-white/40 text-white/70 border border-white/30 cursor-not-allowed'
+                          : 'bg-white text-[#D14A2D] hover:bg-orange-50 border border-white'
+                      }`}
+                      title={questionnaireId ? 'Ask AI to auto-configure all rows' : 'Select a questionnaire first'}
+                    >
+                      {aiConfiguring ? 'Configuring…' : 'Configure with AI'}
+                    </button>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {subGroups.map((subGroup, subGroupIndex) => {
+                const cutCount = subGroup.cuts.length || 1;
+                return subGroup.cuts.map((cut, cutIndex) => {
+                  const isFirstRowForGroup = cutIndex === 0;
                   const codeButtonRef = getButtonRef(codeButtonRefs, subGroup.id, cut.id);
                   const variableButtonRef = getButtonRef(variableButtonRefs, subGroup.id, cut.id);
-
+                  const groupBg = subGroupIndex % 2 === 1 ? 'bg-gray-50' : 'bg-white';
                   return (
-                    <tr key={cut.id} className="hover:bg-gray-50">
-                      {/* Cut Title */}
-                      <td className="px-4 py-2">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={cut.title}
-                            onChange={(e) => updateCut(subGroup.id, cut.id, { title: e.target.value })}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
-                          />
-                        </div>
-                      </td>
-
-                      {/* Conditions - unified column for all condition types */}
-                      <td className="px-4 py-2">
-                        <CutConditionsEditor
-                          cut={cut}
-                          subGroupId={subGroup.id}
-                          selectableVariables={selectableVariables}
-                          categoricalVariables={categoricalVariables}
-                          isNumericVariable={isNumericVariable}
-                          updateCut={updateCut}
-                          openVariableSelector={openVariableSelector}
-                          setOpenVariableSelector={setOpenVariableSelector}
-                          openCodeSelector={openCodeSelector}
-                          setOpenCodeSelector={setOpenCodeSelector}
-                          getButtonRef={getButtonRef}
-                          codeButtonRefs={codeButtonRefs}
-                          variableButtonRefs={variableButtonRefs}
+                    <tr key={`${subGroup.id}-${cut.id}`} className={groupBg}>
+                      {/* Banner Heading with rowSpan for this group */}
+                      {isFirstRowForGroup && (
+                        <td className="px-4 py-2 border-r border-gray-100 align-top" rowSpan={cutCount}>
+                          <div className="flex items-start gap-2">
+                            <input
+                              type="text"
+                              value={subGroup.title}
+                              onChange={(e) => updateSubGroup(subGroup.id, { title: e.target.value })}
+                              placeholder={`Banner Heading ${subGroupIndex + 1}`}
+                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
+                            />
+                          </div>
+                        </td>
+                      )}
+                      {/* Banner Point */}
+                      <td className="px-4 py-2 border-r border-gray-100 align-top">
+                        <input
+                          type="text"
+                          value={cut.title}
+                          onChange={(e) => updateCut(subGroup.id, cut.id, { title: e.target.value })}
+                          placeholder="Banner Point (e.g., Male)"
+                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
                         />
                       </td>
-
-                      {/* Delete */}
-                      <td className="px-4 py-2">
-                        {subGroup.cuts.length > 1 && (
-                          <button
-                            onClick={() => removeCut(subGroup.id, cut.id)}
-                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                            title="Remove cut"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        )}
+                      {/* Banner Definition */}
+                      <td className="px-4 py-2 align-top text-gray-700">
+                        {(() => {
+                          // Prefer imported definition text
+                          if ((cut as any).definitionText) {
+                            return <span className="whitespace-pre-wrap">{(cut as any).definitionText}</span>;
+                          }
+                          // Fallback to a computed summary of current conditions
+                          const c: any = cut as any;
+                          if (c.sumCondition && c.sumCondition.variables && c.sumCondition.variables.length > 0) {
+                            return `SUM(${c.sumCondition.variables.join(', ')}) ${c.sumCondition.condition || ''}`;
+                          }
+                          if (c.conditionGroups && Array.isArray(c.conditionGroups) && c.conditionGroups.length > 0) {
+                            const group = c.conditionGroups[0];
+                            const op = group.operator || 'OR';
+                            const conds = (group.conditions || []).map((cond: any) => {
+                              const codes = Array.isArray(cond.codes) ? cond.codes.join(', ') : '';
+                              return `${cond.variableName}${codes ? '=' + codes : ''}`;
+                            }).join(` ${op} `);
+                            return conds || '';
+                          }
+                          if (c.variableName) {
+                            const codes = Array.isArray(c.codes) ? c.codes.join(', ') : '';
+                            return `${c.variableName}${codes ? '=' + codes : ''}`;
+                          }
+                          return '';
+                        })()}
+                      </td>
+                      {/* Configure */}
+                      <td className="px-4 py-2 align-top">
+                        <div className="flex items-start gap-2">
+                          <CutConditionsEditor
+                            cut={cut}
+                            subGroupId={subGroup.id}
+                            selectableVariables={combinedSelectableVariables}
+                            categoricalVariables={categoricalVariables}
+                            isNumericVariable={isNumericVariable}
+                            updateCut={updateCut}
+                            openVariableSelector={openVariableSelector}
+                            setOpenVariableSelector={setOpenVariableSelector}
+                            openCodeSelector={openCodeSelector}
+                            setOpenCodeSelector={setOpenCodeSelector}
+                            getButtonRef={getButtonRef}
+                            codeButtonRefs={codeButtonRefs}
+                            variableButtonRefs={variableButtonRefs}
+                            rawData={rawData}
+                            columnMapping={columnMapping}
+                          />
+                          {subGroups.length > 1 && (
+                            <button
+                              onClick={() => removeSubGroup(subGroup.id)}
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="Remove banner heading"
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
-                })}
-              </tbody>
-            </table>
-
-            {/* Warning if sum of N doesn't equal total sample */}
-            {(() => {
-              const subGroupTotal = subGroup.cuts.reduce((sum, cut) => {
-                return sum + calculateCutSampleSize(cut);
-              }, 0);
-              const hasAllCutsDefined = subGroup.cuts.every(cut => {
-                // Check if cut has valid conditions defined
-                if (cut.sumCondition && cut.sumCondition.variables.length > 0) return true;
-                if (cut.conditionGroups && cut.conditionGroups.length > 0 &&
-                    cut.conditionGroups[0].conditions.some(c => c.variableName && c.codes.length > 0)) return true;
-                if (cut.variableName && cut.codes.length > 0) return true;
-                return false;
-              });
-
-              if (hasAllCutsDefined && subGroupTotal !== totalSampleSize && totalSampleSize > 0) {
-                const difference = totalSampleSize - subGroupTotal;
-                return (
-                  <div className="px-4 py-2 bg-red-50 border-t border-red-200">
-                    <span className="text-xs text-red-600 font-medium">
-                      Warning: Sum of N ({subGroupTotal.toLocaleString()}) does not equal Total Sample ({totalSampleSize.toLocaleString()}).
-                      {difference > 0
-                        ? ` Missing ${difference.toLocaleString()} respondents.`
-                        : ` Overlap of ${Math.abs(difference).toLocaleString()} respondents.`
-                      }
-                    </span>
-                  </div>
-                );
-              }
-              return null;
-            })()}
-
-            {/* Add Cut Button - Below the cuts */}
-            <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
-              <button
-                onClick={() => addCut(subGroup.id)}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs text-[#D14A2D] hover:bg-orange-50 rounded border border-dashed border-[#D14A2D] transition-colors"
-              >
-                <PlusIcon className="h-4 w-4" />
-                Add Cut
-              </button>
-            </div>
-          </div>
-        ))}
+                });
+              })}
+            </tbody>
+          </table>
+        </div>
 
         {/* Add Sub-Group Button */}
         <button
@@ -1930,22 +2768,7 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
         </button>
       </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-end gap-3 p-4 border-t border-gray-200 bg-gray-50">
-        <button
-          onClick={onCancel}
-          className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded-lg"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleSave}
-          className="px-4 py-2 text-sm text-white rounded-lg hover:opacity-90"
-          style={{ backgroundColor: BRAND_ORANGE }}
-        >
-          Save
-        </button>
-      </div>
+      {/* Footer removed (moved actions to header) */}
     </div>
   );
 };

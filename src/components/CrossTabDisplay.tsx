@@ -916,7 +916,7 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
                           );
                         })}
                       </tr>
-                      {/* Cut titles row with stat letters */}
+                    {/* Cut titles row with stat letters */}
                       <tr>
                         {columnData.slice(1).map((column, colIdx) => {
                           const actualColIdx = colIdx + 1; // +1 because we skip Total
@@ -932,6 +932,26 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
                           );
                         })}
                       </tr>
+                    {/* N row: sample size per column */}
+                    <tr>
+                      <th className="px-3 py-1 text-left text-[10px] font-bold text-white uppercase tracking-wider border-r border-white/20">
+                        N
+                      </th>
+                      {columnData.map((column) => {
+                        const base =
+                          variableCrossTabData.length > 0
+                            ? ((variableCrossTabData[0][column.id] as { base: number } | undefined)?.base || 0)
+                            : 0;
+                        return (
+                          <th
+                            key={`n-${column.id}`}
+                            className="px-3 py-1 text-[10px] font-bold text-white text-center border-r border-white/20 last:border-r-0"
+                          >
+                            {base}
+                          </th>
+                        );
+                      })}
+                    </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {/* Total Row */}
@@ -1080,7 +1100,7 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
                   );
                 })}
               </tr>
-              {/* Cut titles row with stat letters */}
+            {/* Cut titles row with stat letters */}
               <tr>
                 {columnData.slice(1).map((column, colIdx) => {
                   const actualColIdx = colIdx + 1; // +1 because we skip Total
@@ -1096,6 +1116,26 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
                   );
                 })}
               </tr>
+            {/* N row: sample size per column */}
+            <tr>
+              <th className="px-3 py-1 text-left text-[10px] font-bold text-white uppercase tracking-wider border-r border-white/20">
+                N
+              </th>
+              {columnData.map((column) => {
+                const base =
+                  crossTabData.length > 0
+                    ? ((crossTabData[0][column.id] as { base: number } | undefined)?.base || 0)
+                    : 0;
+                return (
+                  <th
+                    key={`n-${column.id}`}
+                    className="px-3 py-1 text-[10px] font-bold text-white text-center border-r border-white/20 last:border-r-0"
+                  >
+                    {base}
+                  </th>
+                );
+              })}
+            </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {/* Total Row */}
