@@ -16510,8 +16510,92 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           });
         }
 
+        const summaryTableIds = new Set(
+          expectedTables.filter(tableId =>
+            tableId.includes('_MeanSummaryTable') ||
+            tableId.includes('_SumSummaryTable') ||
+            tableId.includes('_NetSummaryTable') ||
+            tableId.includes('_Summary_') ||
+            tableId.endsWith('_VerbatimSummary')
+          )
+        );
+        const netNames = previewVariable
+          ? (netSummaryTableSelectedCodes[previewVariable.name] || [])
+              .map(net => (net.name || '').toLowerCase())
+              .filter(Boolean)
+          : [];
+
+        const resolveSectionTableId = (sectionTitle: string): string | null => {
+          const titleMatch = sectionTitle.match(/Table \d+:\s*(.+)/i);
+          const identifier = (titleMatch ? titleMatch[1] : sectionTitle).trim();
+          const baseName = previewVariable.name;
+          const normalizedIdentifier = identifier.replace(/^Q/i, '');
+          for (const tableId of expectedTables) {
+            const normalizedId = tableId.replace(/^Q/i, '');
+            if (
+              identifier === tableId ||
+              normalizedIdentifier === normalizedId ||
+              identifier.includes(tableId) ||
+              tableId.includes(identifier) ||
+              normalizedIdentifier === tableId ||
+              identifier === normalizedId
+            ) {
+              return tableId;
+            }
+          }
+          // Fallback: match by base name without prefix/suffix
+          if (identifier === baseName.replace(/^Q/i, '')) return baseName;
+          return null;
+        };
+
+        const processedSections: PreviewTableSection[] = finalSections.map(section => {
+          const tableId = resolveSectionTableId(section.title);
+          const lowerTitle = section.title.toLowerCase();
+          const matchesNetName = netNames.some(name => lowerTitle.includes(name));
+          const isNetSummaryTitle = lowerTitle.includes('net summary');
+          const isSummarySection = tableId
+            ? summaryTableIds.has(tableId) || matchesNetName
+            : /summary/i.test(section.title) || matchesNetName || isNetSummaryTitle;
+          if (!isSummarySection) return section;
+
+          if (!section.tableHtml) {
+            return { ...section, tableHtml: '' };
+          }
+
+          try {
+            const sectionDoc = parser.parseFromString(section.tableHtml, 'text/html');
+            const tableEl = sectionDoc.querySelector('table');
+            if (!tableEl) return { ...section, tableHtml: '' };
+
+            const rows = Array.from(tableEl.querySelectorAll('tr'));
+            const headerRows = rows.filter(r => r.querySelector('th'));
+            const baseRow = rows.find(r => {
+              const text = (r.textContent || '').toLowerCase();
+              return text.startsWith('base') || text.includes('total answering') || text.includes('total responding');
+            });
+
+            const keptRows: HTMLElement[] = [];
+            headerRows.forEach(r => keptRows.push(r.cloneNode(true) as HTMLElement));
+            if (baseRow) {
+              const alreadyIncluded = headerRows.includes(baseRow);
+              if (!alreadyIncluded) {
+                keptRows.push(baseRow.cloneNode(true) as HTMLElement);
+              }
+            }
+
+            // If no base row found, keep only headers
+            const colgroup = tableEl.querySelector('colgroup');
+            const trimmedHtml = keptRows.length > 0
+              ? `<table>${colgroup ? colgroup.outerHTML : ''}${keptRows.map(r => r.outerHTML).join('')}</table>`
+              : '';
+            return { ...section, tableHtml: trimmedHtml };
+          } catch {
+            return { ...section, tableHtml: '' };
+          }
+        });
+
         if (!isCancelled) {
-          setPreviewSectionsHtml(finalSections);
+          setPreviewSectionsHtml(processedSections);
           setPreviewDebugInfo(debugInfo || {});
           // Store rendered count for this variable
           if (previewVariable) {
@@ -33719,9 +33803,18 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             const displayLabel = isOpenEndType ? 'Frequency Distribution Table' : baseLabel;
             options.push({ id: popupVariableName, label: displayLabel });
           }
-          // Only add statement tables for numeric questions, not for single-select questions
-          const shouldUseStatements = configPopupVariable.statements && Object.keys(configPopupVariable.statements).length > 0 && !isOpenEndListType && isNumericQuestion;
+          const hasStatements = configPopupVariable.statements && Object.keys(configPopupVariable.statements).length > 0;
+          // Add statement tables for numeric questions and single-select grids
+          const shouldUseStatements = hasStatements && !isOpenEndListType && isNumericQuestion;
           if (shouldUseStatements) {
+            Object.entries(configPopupVariable.statements).forEach(([code, label]) => {
+              options.push({
+                id: `${popupVariableName}_${code}`,
+                label: String(label || code),
+              });
+            });
+          }
+          if (isSingleSelectGrid && hasStatements) {
             Object.entries(configPopupVariable.statements).forEach(([code, label]) => {
               options.push({
                 id: `${popupVariableName}_${code}`,
@@ -37420,12 +37513,11 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
                       const allSelectedTables: string[] = [];
                       const allPossible: string[] = [];
-                      allPossible.push(`${baseName}_MeanSummaryTable`);
                       netCodes.forEach((net, idx) => allPossible.push(`${baseName}_NetSummaryTable_${idx}`));
                       Object.keys(previewVariable.statements || {}).forEach(stmtCode => allPossible.push(`${baseName}_${stmtCode}`));
                       allPossible.forEach(t => {
                         const selected = !selections || selections.size === 0
-                          ? t !== `${baseName}_MeanSummaryTable`
+                          ? true
                           : selections.has(t);
                         if (selected) allSelectedTables.push(t);
                       });
@@ -37450,6 +37542,20 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                         }
                         const baseCounts = computeBaseCounts(stmtHeader);
                         const stmtCounts = (!isNetSummary && !isMeanSummary && stmtCode) ? computeCountsForStatement(stmtCode) : null;
+                        const summaryBaseCounts = (() => {
+                          const cuts: Record<string, number> = Object.fromEntries(bannerCols.map(col => [col.id, 0]));
+                          if (!fullRawData?.rows) return { total: 0, cuts };
+                          const headers = Object.values(statementHeaders).filter(Boolean) as string[];
+                          if (headers.length === 0) return { total: 0, cuts };
+                          let total = 0;
+                          fullRawData.rows.forEach(row => {
+                            const hasAny = headers.some(h => hasValue(row[h]));
+                            if (!hasAny) return;
+                            total++;
+                            bannerCols.forEach(col => { if (matchesCut(row, col)) cuts[col.id] += 1; });
+                          });
+                          return { total, cuts };
+                        })();
 
                         const displayTitle = (() => {
                           let t = `Table ${tableIdx + 1}: ${baseNumber}`;
@@ -37466,6 +37572,39 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                           return t;
                         })();
 
+                        const renderSummaryTable = () => {
+                          const base = summaryBaseCounts;
+                          const headerLabel = isNetSummary
+                            ? (netCodes[Number(tableName.match(/_NetSummaryTable_(\\d+)$/)?.[1] || 0)]?.name || 'Net Summary')
+                            : (isMeanSummary ? 'Mean Summary' : String(stmtLabel));
+                          return (
+                            <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '12px' }}>
+                              <thead>
+                                <tr style={{ backgroundColor: '#D14A2D', color: '#fff' }}>
+                                  <th style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'left', minWidth: '150px' }}>
+                                    {headerLabel}
+                                  </th>
+                                  <th style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center', minWidth: '100px' }}>Total</th>
+                                  {bannerCols.map((col, colIdx) => (
+                                    <th key={col.id} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center', minWidth: '100px' }}>
+                                      {col.title}<br/><span style={{ opacity: 0.7 }}>({String.fromCharCode(65 + colIdx)})</span>
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr style={{ backgroundColor: '#f5f5f5', fontStyle: 'italic' }}>
+                                  <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', fontWeight: 600 }}>Base (total answering)</td>
+                                  <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{base.total || 0}</td>
+                                  {bannerCols.map(col => (
+                                    <td key={col.id} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{base.cuts[col.id] ?? 0}</td>
+                                  ))}
+                                </tr>
+                              </tbody>
+                            </table>
+                          );
+                        };
+
                         return (
                           <div key={`inline-table-${tableName}-${tableIdx}`} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
                             <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
@@ -37474,105 +37613,30 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                             </div>
                             <div className="preview-table overflow-auto">
                               <div className="min-w-[720px] p-4">
-                                <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '12px' }}>
-                                  <thead>
-                                    <tr style={{ backgroundColor: '#D14A2D', color: '#fff' }}>
-                                      <th style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'left', minWidth: '150px' }} />
-                                      <th style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center', minWidth: '100px' }}>Total</th>
-                                      {bannerCols.map((col, colIdx) => (
-                                        <th key={col.id} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center', minWidth: '100px' }}>
-                                          {col.title}<br/><span style={{ opacity: 0.7 }}>({String.fromCharCode(65 + colIdx)})</span>
-                                        </th>
-                                      ))}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    <tr style={{ backgroundColor: '#f5f5f5', fontStyle: 'italic' }}>
-                                      <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', fontWeight: 600 }}>Base (total answering)</td>
-                                      <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{baseCounts.total || 0}</td>
-                                      {bannerCols.map(col => (
-                                        <td key={col.id} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{baseCounts.cuts[col.id] ?? 0}</td>
-                                      ))}
-                                    </tr>
-
-                                    {isNetSummary ? (
-                                      netCodes.map((net, netIdx) => {
-                                        const codesForNet = (net.codes || []).map(c => String(c));
-                                        return Object.entries(previewVariable.statements || {}).map(([sCode, sLabel]) => {
-                                          const counts = computeCountsForStatement(sCode);
-                                          const stmtHeaderForBase = statementHeaders[sCode] || null;
-                                          const stmtBase = computeBaseCounts(stmtHeaderForBase);
-                                          const totalNet = codesForNet.reduce((sum, c) => sum + (counts.total[c] ?? counts.total[c.replace(/^c/i, '')] ?? 0), 0);
-                                          const cutNet: Record<string, number> = {};
-                                          bannerCols.forEach(col => {
-                                            cutNet[col.id] = codesForNet.reduce((sum, c) => sum + (counts.cuts[c]?.[col.id] ?? counts.cuts[c.replace(/^c/i, '')]?.[col.id] ?? 0), 0);
-                                          });
-                                          return (
-                                            <React.Fragment key={`netstmt-${netIdx}-${sCode}`}>
-                                              <tr>
-                                                <td style={{ border: '1px solid #d1d5db', padding: '4px 6px' }}>{sLabel || sCode}</td>
-                                                <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{totalNet}</td>
-                                                {bannerCols.map(col => (
-                                                  <td key={`${col.id}-net-${sCode}-${netIdx}`} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
-                                                    {cutNet[col.id] ?? 0}
-                                                  </td>
-                                                ))}
-                                              </tr>
-                                              <tr>
-                                                <td style={{ border: '1px solid #d1d5db', padding: '4px 6px' }} />
-                                                <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
-                                                  {stmtBase.total > 0 ? `${((totalNet / stmtBase.total) * 100).toFixed(1)}%` : '-'}
-                                                </td>
-                                                {bannerCols.map(col => {
-                                                  const baseCut = stmtBase.cuts[col.id] || 0;
-                                                  const pct = baseCut > 0 ? `${((cutNet[col.id] / baseCut) * 100).toFixed(1)}%` : '-';
-                                                  return (
-                                                    <td key={`${col.id}-netpct-${sCode}-${netIdx}`} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
-                                                      {pct}
-                                                    </td>
-                                                  );
-                                                })}
-                                              </tr>
-                                            </React.Fragment>
-                                          );
-                                        });
-                                      }).flat()
-                                    ) : isMeanSummary ? (
-                                      Object.entries(previewVariable.statements || {}).map(([sCode, sLabel]) => {
-                                        const means = (() => {
-                                          const header = statementHeaders[sCode];
-                                          if (!header) return { total: null as number | null, cuts: Object.fromEntries(bannerCols.map(col => [col.id, null as number | null])) };
-                                          let sum = 0, count = 0;
-                                          const cutSum: Record<string, number> = Object.fromEntries(bannerCols.map(col => [col.id, 0]));
-                                          const cutCount: Record<string, number> = Object.fromEntries(bannerCols.map(col => [col.id, 0]));
-                                          fullRawData?.rows?.forEach(row => {
-                                            const val = row[header];
-                                            if (!hasValue(val)) return;
-                                            const num = Number(val);
-                                            if (isNaN(num)) return;
-                                            sum += num; count += 1;
-                                            bannerCols.forEach(col => { if (matchesCut(row, col)) { cutSum[col.id] += num; cutCount[col.id] += 1; } });
-                                          });
-                                          return {
-                                            total: count > 0 ? sum / count : null,
-                                            cuts: Object.fromEntries(bannerCols.map(col => [col.id, cutCount[col.id] > 0 ? cutSum[col.id] / cutCount[col.id] : null]))
-                                          };
-                                        })();
-                                        const fmt = (v: number | null) => v === null ? '-' : Number.isFinite(v) ? v.toFixed(1) : '-';
-                                        return (
-                                          <tr key={`mean-${sCode}`} style={{ backgroundColor: '#f5f5f5' }}>
-                                            <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', fontWeight: 600 }}>{sLabel || sCode}</td>
-                                            <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{fmt(means.total)}</td>
-                                            {bannerCols.map(col => (
-                                              <td key={`${col.id}-mean-${sCode}`} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
-                                                {fmt(means.cuts[col.id] ?? null)}
-                                              </td>
-                                            ))}
-                                          </tr>
-                                        );
-                                      })
-                                    ) : (
-                                      Object.entries(previewVariable.codes || {}).flatMap(([code, label]) => {
+                                {isNetSummary || isMeanSummary ? (
+                                  renderSummaryTable()
+                                ) : (
+                                  <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '12px' }}>
+                                    <thead>
+                                      <tr style={{ backgroundColor: '#D14A2D', color: '#fff' }}>
+                                        <th style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'left', minWidth: '150px' }} />
+                                        <th style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center', minWidth: '100px' }}>Total</th>
+                                        {bannerCols.map((col, colIdx) => (
+                                          <th key={col.id} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center', minWidth: '100px' }}>
+                                            {col.title}<br/><span style={{ opacity: 0.7 }}>({String.fromCharCode(65 + colIdx)})</span>
+                                          </th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      <tr style={{ backgroundColor: '#f5f5f5', fontStyle: 'italic' }}>
+                                        <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', fontWeight: 600 }}>Base (total answering)</td>
+                                        <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{baseCounts.total || 0}</td>
+                                        {bannerCols.map(col => (
+                                          <td key={col.id} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{baseCounts.cuts[col.id] ?? 0}</td>
+                                        ))}
+                                      </tr>
+                                      {Object.entries(previewVariable.codes || {}).flatMap(([code, label]) => {
                                         const counts = stmtCounts;
                                         const totalCount = counts ? counts.total[code] ?? 0 : 0;
                                         const rowBaseTotal = baseCounts.total || 0;
@@ -37603,10 +37667,10 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                             })}
                                           </tr>
                                         ];
-                                      })
-                                    )}
-                                  </tbody>
-                                </table>
+                                      })}
+                                    </tbody>
+                                  </table>
+                                )}
                               </div>
                             </div>
                           </div>
