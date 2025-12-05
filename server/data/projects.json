@@ -2506,7 +2506,7 @@
       "usePreloadedTasks": true,
       "customTasks": [],
       "id": "P-1762536256185",
-      "phase": "Kickoff",
+      "phase": "Reporting",
       "methodologyDisplay": "Quantitative - Message Testing",
       "phaseTimeline": {
         "Kickoff": {
