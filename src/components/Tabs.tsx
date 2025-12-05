@@ -11127,6 +11127,466 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             continue;
           }
 
+          // Handle MeanSummaryTable for single select grids
+          const isMeanSummaryTableForSSG = isSingleSelectGrid && tableName.endsWith('_MeanSummaryTable');
+          if (isMeanSummaryTableForSSG) {
+            const baseName = variable.name;
+            const statementEntries = variable.statements ? Object.entries(variable.statements) : [];
+
+            if (statementEntries.length === 0) {
+              tableNumber++;
+              continue;
+            }
+
+            // Record position for TOC
+            tablePositions.push({
+              tableNumber,
+              tableName,
+              rowNumber: currentRow,
+              variable
+            });
+
+            // Table title
+            const baseQuestionNumber = getBaseQuestionNumber(variable.name);
+            const tableTitle = `Table ${tableNumber}: ${baseQuestionNumber}: Mean Summary Table`;
+            const titleRow = dataCutsWorksheet.getRow(currentRow++);
+            titleRow.getCell(2).value = tableTitle;
+            titleRow.getCell(2).font = { bold: true, size: 12 };
+
+            // Question text
+            const questionRow = dataCutsWorksheet.getRow(currentRow++);
+            questionRow.getCell(2).value = variable.description || variable.name;
+            questionRow.getCell(2).font = { size: 11 };
+
+            // Build 3-row header structure
+            const headerStartRow = currentRow;
+            const groupTitleRow = headerStartRow;
+            const cutTitleRow = headerStartRow + 1;
+            const statLetterRow = headerStartRow + 2;
+            let currentCol = 2;
+
+            // Row label cell (merged across all 3 rows)
+            const rowLabelCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(currentCol);
+            rowLabelCell.value = '';
+            rowLabelCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, statLetterRow, currentCol);
+            [cutTitleRow, statLetterRow].forEach(row => {
+              const cell = dataCutsWorksheet.getRow(row).getCell(currentCol);
+              cell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+            });
+            currentCol++;
+
+            // Total column
+            const totalGroupCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(currentCol);
+            totalGroupCell.value = 'Total';
+            totalGroupCell.alignment = { horizontal: 'center', vertical: 'middle' };
+            totalGroupCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            totalGroupCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFD14A2D' }
+            };
+            totalGroupCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, cutTitleRow, currentCol);
+            const totalCutCell = dataCutsWorksheet.getRow(cutTitleRow).getCell(currentCol);
+            totalCutCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+            totalCutCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            totalCutCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            const totalStatCell = dataCutsWorksheet.getRow(statLetterRow).getCell(currentCol);
+            totalStatCell.value = '';
+            totalStatCell.alignment = { horizontal: 'center', vertical: 'middle' };
+            totalStatCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFD14A2D' }
+            };
+            totalStatCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            currentCol++;
+
+            // Banner group titles and cut columns
+            groupStructure.forEach((group, groupIdx) => {
+              const groupStartCol = currentCol;
+
+              // Group title
+              const groupCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(groupStartCol);
+              groupCell.value = group.title;
+              groupCell.alignment = { horizontal: 'center', vertical: 'middle' };
+              groupCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+              groupCell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFD14A2D' }
+              };
+              groupCell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              if (group.cutCount > 1) {
+                dataCutsWorksheet.mergeCells(groupTitleRow, groupStartCol, groupTitleRow, groupStartCol + group.cutCount - 1);
+              }
+
+              // Individual cut titles and stat letters
+              for (let i = 0; i < group.cutCount; i++) {
+                const cutCol = groupStartCol + i;
+                const bannerCol = bannerCols[group.startIdx + i];
+
+                // Cut title
+                const cutCell = dataCutsWorksheet.getRow(cutTitleRow).getCell(cutCol);
+                cutCell.value = bannerCol.title;
+                cutCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                cutCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                cutCell.fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: 'FFD14A2D' }
+                };
+                cutCell.border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+
+                // Stat letter
+                const statCell = dataCutsWorksheet.getRow(statLetterRow).getCell(cutCol);
+                const statLetter = String.fromCharCode(65 + group.startIdx + i);
+                statCell.value = `(${statLetter})`;
+                statCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                statCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                statCell.fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: 'FFD14A2D' }
+                };
+                statCell.border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+              }
+
+              currentCol += group.cutCount;
+            });
+
+            currentRow += 3; // Move past 3 header rows
+
+            // First pass: Calculate means and standard deviations for all statements
+            interface StatementMeanData {
+              stmtCode: string;
+              stmtLabel: string;
+              totalMean: number;
+              totalStdDev: number;
+              totalCount: number;
+              cutMeans: Record<string, number>;
+              cutStdDevs: Record<string, number>;
+              cutCounts: Record<string, number>;
+            }
+
+            const statementMeanDataList: StatementMeanData[] = [];
+
+            statementEntries.forEach(([stmtCode, stmtLabel]) => {
+              // Build column header for this statement
+              const baseNumber = variable.name.replace(/^Q/, '');
+              const stmtHeader = `Q${baseNumber}${stmtCode}`;
+              let stmtColHeader: string | null = null;
+              const variations = [stmtHeader, stmtHeader.replace(/^Q/, ''), baseNumber + stmtCode];
+              for (const v of variations) {
+                if (columnMapping[v]) { stmtColHeader = columnMapping[v]; break; }
+                const match = Object.keys(columnMapping).find(k => k.toLowerCase() === v.toLowerCase());
+                if (match) { stmtColHeader = columnMapping[match]; break; }
+              }
+              if (!stmtColHeader && fullRawData.columns) {
+                for (const v of variations) {
+                  const found = fullRawData.columns.find((c: string) => c.toLowerCase() === v.toLowerCase());
+                  if (found) { stmtColHeader = found; break; }
+                }
+              }
+
+              if (!stmtColHeader) return;
+
+              // Calculate mean and std dev
+              let totalSum = 0;
+              let totalCount = 0;
+              const totalValues: number[] = [];
+              const cutSums: Record<string, number> = {};
+              const cutCounts: Record<string, number> = {};
+              const cutValues: Record<string, number[]> = {};
+              bannerCols.forEach(col => {
+                cutSums[col.id] = 0;
+                cutCounts[col.id] = 0;
+                cutValues[col.id] = [];
+              });
+
+              fullRawData.rows.forEach((row: any) => {
+                const val = row[stmtColHeader!];
+                if (val === null || val === undefined || val === '') return;
+
+                const codeValue = getCodeValueForMean(variable, String(val));
+                if (codeValue === null) return;
+
+                totalSum += codeValue;
+                totalCount++;
+                totalValues.push(codeValue);
+
+                // Check banner cuts
+                bannerCols.forEach(col => {
+                  if (!col.colHeader) return;
+                  const bannerVal = row[col.colHeader];
+                  if (bannerVal === null || bannerVal === undefined || bannerVal === '') return;
+                  const bannerValStr = String(bannerVal).trim();
+                  const numBannerVal = Number(bannerValStr);
+                  for (const cutCode of col.codes) {
+                    let matches = false;
+                    if (bannerValStr === cutCode) matches = true;
+                    else if (!isNaN(numBannerVal) && String(numBannerVal) === cutCode) matches = true;
+                    else {
+                      const codeNoC = cutCode.replace(/^c/i, '');
+                      if (bannerValStr === codeNoC || (!isNaN(numBannerVal) && !isNaN(Number(codeNoC)) && numBannerVal === Number(codeNoC))) {
+                        matches = true;
+                      }
+                    }
+                    if (matches) {
+                      cutSums[col.id] += codeValue;
+                      cutCounts[col.id]++;
+                      cutValues[col.id].push(codeValue);
+                      break;
+                    }
+                  }
+                });
+              });
+
+              const totalMean = totalCount > 0 ? totalSum / totalCount : 0;
+              const totalStdDev = totalCount > 1 ? Math.sqrt(totalValues.reduce((acc, val) => acc + Math.pow(val - totalMean, 2), 0) / (totalCount - 1)) : 0;
+
+              const cutMeans: Record<string, number> = {};
+              const cutStdDevs: Record<string, number> = {};
+              bannerCols.forEach(col => {
+                const mean = cutCounts[col.id] > 0 ? cutSums[col.id] / cutCounts[col.id] : 0;
+                cutMeans[col.id] = mean;
+                cutStdDevs[col.id] = cutCounts[col.id] > 1
+                  ? Math.sqrt(cutValues[col.id].reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / (cutCounts[col.id] - 1))
+                  : 0;
+              });
+
+              statementMeanDataList.push({
+                stmtCode,
+                stmtLabel: String(stmtLabel),
+                totalMean,
+                totalStdDev,
+                totalCount,
+                cutMeans,
+                cutStdDevs,
+                cutCounts
+              });
+            });
+
+            // Calculate stat letters for all statements
+            const allStatLettersMean: Record<string, Record<number, { letter: string; is95: boolean }[]>> = {};
+
+            statementMeanDataList.forEach((data) => {
+              const { stmtCode, cutMeans, cutStdDevs, cutCounts } = data;
+              const codeStatLetters: Record<number, { letter: string; is95: boolean }[]> = {};
+
+              bannerCols.forEach((thisCol, colIdx) => {
+                const thisMean = cutMeans[thisCol.id] || 0;
+                const thisStdDev = cutStdDevs[thisCol.id] || 0;
+                const thisCount = cutCounts[thisCol.id] || 0;
+                const statLettersForCol: { letter: string; is95: boolean }[] = [];
+
+                // Within-group comparisons ONLY
+                bannerCols.forEach((otherCol, otherIdx) => {
+                  if (otherIdx === colIdx) return;
+                  if (otherCol.groupIdx !== thisCol.groupIdx) return;
+
+                  const otherMean = cutMeans[otherCol.id] || 0;
+                  const otherStdDev = cutStdDevs[otherCol.id] || 0;
+                  const otherCount = cutCounts[otherCol.id] || 0;
+
+                  if (thisMean > otherMean) {
+                    const { is95, is90 } = isSignificantForMeans(thisMean, thisCount, thisStdDev, otherMean, otherCount, otherStdDev);
+
+                    if (significanceLevel === 95) {
+                      if (is95) statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                    } else {
+                      if (is95) {
+                        statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                      } else if (is90) {
+                        statLettersForCol.push({ letter: String.fromCharCode(97 + otherIdx), is95: false });
+                      }
+                    }
+                  }
+                });
+
+                codeStatLetters[colIdx] = statLettersForCol;
+              });
+
+              allStatLettersMean[stmtCode] = codeStatLetters;
+            });
+
+            // Second pass: Render statements with stat letters
+            statementMeanDataList.forEach((data) => {
+              const { stmtCode, stmtLabel, totalMean, cutMeans } = data;
+
+              // Mean row
+              const meanRow = dataCutsWorksheet.getRow(currentRow++);
+              meanRow.getCell(2).value = String(stmtLabel);
+              meanRow.getCell(2).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+
+              meanRow.getCell(3).value = totalMean;
+              meanRow.getCell(3).numFmt = '0.00';
+              meanRow.getCell(3).alignment = { horizontal: 'center' };
+              meanRow.getCell(3).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+
+              let col = 4;
+              bannerCols.forEach((bannerCol, colIdx) => {
+                const cutMean = cutMeans[bannerCol.id] || 0;
+                const meanCell = meanRow.getCell(col);
+                meanCell.value = cutMean;
+                meanCell.numFmt = '0.00';
+                meanCell.alignment = { horizontal: 'center' };
+
+                // Add blue highlighting if this cell has stat letters
+                const statLettersForCode = allStatLettersMean[stmtCode] || {};
+                const statLetters = statLettersForCode[colIdx] || [];
+                if (statLetters.length > 0) {
+                  meanCell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFE6F3FF' }
+                  };
+                }
+
+                meanCell.border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                col++;
+              });
+
+              // Stat letters row
+              const statLettersForCode = allStatLettersMean[stmtCode] || {};
+              const hasAnyStatLettersForCode = Object.values(statLettersForCode).some(arr => arr && arr.length > 0);
+
+              if (hasAnyStatLettersForCode) {
+                const statRow = dataCutsWorksheet.getRow(currentRow++);
+                statRow.getCell(2).value = '';
+                statRow.getCell(2).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+
+                statRow.getCell(3).value = '';
+                statRow.getCell(3).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+
+                col = 4;
+                bannerCols.forEach((bannerCol, colIdx) => {
+                  const statLetters = statLettersForCode[colIdx] || [];
+                  const statLettersStr = statLetters.map(s => s.letter).join('');
+                  const statCell = statRow.getCell(col);
+                  statCell.value = statLettersStr;
+                  statCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                  if (statLetters.length > 0) {
+                    statCell.fill = {
+                      type: 'pattern',
+                      pattern: 'solid',
+                      fgColor: { argb: 'FFE6F3FF' }
+                    };
+                    statCell.font = { bold: true };
+                  }
+                  statCell.border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
+                  col++;
+                });
+              }
+            });
+
+            // Add comparison groups and significance explanation rows
+            const groupMapMeanSummary = new Map<number, number[]>();
+            bannerCols.forEach((col, idx) => {
+              if (!groupMapMeanSummary.has(col.groupIdx)) {
+                groupMapMeanSummary.set(col.groupIdx, []);
+              }
+              groupMapMeanSummary.get(col.groupIdx)!.push(idx);
+            });
+
+            const comparisonGroupsMeanSummary = Array.from(groupMapMeanSummary.values())
+              .map(colIndices =>
+                colIndices.map(idx => String.fromCharCode(65 + idx)).join('')
+              )
+              .join('/');
+
+            // Comparison groups row
+            const compGroupsRowMeanSummary = dataCutsWorksheet.getRow(currentRow++);
+            compGroupsRowMeanSummary.getCell(2).value = `Comparison Groups: ${comparisonGroupsMeanSummary}`;
+            compGroupsRowMeanSummary.getCell(2).font = { size: 9, italic: true };
+
+            // Uppercase explanation row
+            const upperRowMeanSummary = dataCutsWorksheet.getRow(currentRow++);
+            upperRowMeanSummary.getCell(2).value = 'Uppercase letters indicate significance at the 95% level.';
+            upperRowMeanSummary.getCell(2).font = { size: 9, italic: true };
+
+            // Lowercase explanation row (only if significance level is 90)
+            if (significanceLevel === 90) {
+              const lowerRowMeanSummary = dataCutsWorksheet.getRow(currentRow++);
+              lowerRowMeanSummary.getCell(2).value = 'Lowercase letters indicate significance at the 90% level.';
+              lowerRowMeanSummary.getCell(2).font = { size: 9, italic: true };
+            }
+
+            tableNumber++;
+            continue;
+          }
+
           // Check if this is a regular numeric question (not a grid) - handle BEFORE creating title/question rows
           const isNumericQuestion = variable.type?.toLowerCase().includes('numeric') && 
                                     !variable.type?.toLowerCase().includes('grid') &&
@@ -12262,7 +12722,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           // Record position for TOC (for regular tables)
           // Also define tableTitle here for use in tableDebugInfo
           let tableTitle = '';
-          if (!isNumericGridSummaryTable && !isNetSummaryTable && !isVerbatimSummary && !isSingleSelectGridIndividualTable && !isNumericQuestion) {
+          if (!isNumericGridSummaryTable && !isNetSummaryTable && !isMeanSummaryTableForSSG && !isVerbatimSummary && !isSingleSelectGridIndividualTable && !isNumericQuestion) {
             tablePositions.push({ tableNumber, tableName, rowNumber: currentRow, variable });
             
             // Write table title for regular tables
@@ -14060,7 +14520,91 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   }
                 });
               }
-              
+
+              // Add mean statistic for single select grid individual tables (Excel export)
+              const statsSelections = getStatsSelectionsForVariable(baseName);
+              if (statsSelections.mean) {
+                // Calculate mean from response codes
+                let totalSum = 0;
+                let totalCount = 0;
+                const cutSums: Record<string, number> = {};
+                const cutCounts: Record<string, number> = {};
+                bannerCols.forEach(col => {
+                  cutSums[col.id] = 0;
+                  cutCounts[col.id] = 0;
+                });
+
+                responseOptionValues.forEach(respOpt => {
+                  const codeValue = getCodeValueForMean(variable, respOpt.code);
+                  if (codeValue === null) return;
+
+                  const freqData = frequencyMap[respOpt.code] || { total: 0, cuts: {} };
+                  totalSum += codeValue * freqData.total;
+                  totalCount += freqData.total;
+
+                  bannerCols.forEach(col => {
+                    const cutCount = freqData.cuts[col.id] || 0;
+                    cutSums[col.id] += codeValue * cutCount;
+                    cutCounts[col.id] += cutCount;
+                  });
+                });
+
+                const totalMean = totalCount > 0 ? totalSum / totalCount : 0;
+
+                // Mean row
+                const meanRow = dataCutsWorksheet.getRow(currentRow++);
+                meanRow.getCell(2).value = 'Mean';
+                meanRow.getCell(2).font = { bold: true };
+                meanRow.getCell(2).fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: STATS_GREY_SELECT_GRID }
+                };
+                meanRow.getCell(2).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+
+                // Total mean
+                meanRow.getCell(3).value = totalMean;
+                meanRow.getCell(3).numFmt = '0.00';
+                meanRow.getCell(3).alignment = { horizontal: 'center' };
+                meanRow.getCell(3).fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: STATS_GREY_SELECT_GRID }
+                };
+                meanRow.getCell(3).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+
+                // Banner cut means
+                let col = 4;
+                bannerCols.forEach(bannerCol => {
+                  const cutMean = cutCounts[bannerCol.id] > 0 ? cutSums[bannerCol.id] / cutCounts[bannerCol.id] : 0;
+                  meanRow.getCell(col).value = cutMean;
+                  meanRow.getCell(col).numFmt = '0.00';
+                  meanRow.getCell(col).alignment = { horizontal: 'center' };
+                  meanRow.getCell(col).fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: STATS_GREY_SELECT_GRID }
+                  };
+                  meanRow.getCell(col).border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
+                  col++;
+                });
+              }
+
               // Skip regular response code processing for single select grid individual tables
               tableNumber++;
               continue;
@@ -33917,6 +34461,33 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         const individualSelectionSet = variableTableSelections[popupVariableName];
         const summarySortSet = summaryTableSortSelections[popupVariableName];
         const summarySortDefaultsToOn = isMultiSelectGrid;
+
+        // Calculate default selected table IDs for all table types (to properly initialize selection state)
+        const computedDefaultSelectedTableIds = (() => {
+          const defaults: string[] = [];
+          allTableOptionIds.forEach(tableName => {
+            // Apply same logic as isTableSelected when no explicit selection exists
+            if (isNumericGrid) {
+              const isIndividualOption = selectableIndividualTableIds.includes(tableName);
+              if (isIndividualOption) {
+                return; // Don't include individual tables for numeric grids
+              }
+            }
+            if (isOpenEndType) {
+              if (tableName === verbatimSummaryTableId) {
+                if (hasVerbatimSummary) defaults.push(tableName);
+              }
+              return; // Only include verbatim summary for open ends
+            }
+            if (isOpenEndListType) return; // Don't include any by default for open end lists
+            if (isSingleSelectGrid && tableName === `${popupVariableName}_MeanSummaryTable`) {
+              return; // Don't include mean summary table by default for single select grids
+            }
+            defaults.push(tableName); // Include all others by default
+          });
+          return defaults;
+        })();
+
         const isTableSelected = (tableName: string) => {
           if (!individualSelectionSet) {
             // Defaults when no explicit selections saved
@@ -34074,7 +34645,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                 checked={isSelected}
                                 onChange={(e) => {
                                   const wasSelected = isTableSelected(option.id);
-                                  handleToggleIndividualTable(popupVariableName, option.id, allTableOptionIds);
+                                  handleToggleIndividualTable(popupVariableName, option.id, allTableOptionIds, computedDefaultSelectedTableIds);
                                   if (wasSelected) {
                                     removeSummarySortSelection(popupVariableName, option.id);
                                   }
@@ -34198,7 +34769,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                       disabled={isDisabled}
                                       onChange={() => {
                                         if (isDisabled) return;
-                                        handleToggleIndividualTable(popupVariableName, option.id, allTableOptionIds, defaultIndividualSelectionIds);
+                                        handleToggleIndividualTable(popupVariableName, option.id, allTableOptionIds, computedDefaultSelectedTableIds);
                                       }}
                                     />
                                     <span className="truncate">{option.label}</span>
@@ -34332,7 +34903,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                         type="checkbox"
                                         className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
                                         checked={optionChecked}
-                                        onChange={() => handleToggleIndividualTable(popupVariableName, tableId, allTableOptionIds, defaultIndividualSelectionIds)}
+                                        onChange={() => handleToggleIndividualTable(popupVariableName, tableId, allTableOptionIds, computedDefaultSelectedTableIds)}
                                       />
                                       <span className="truncate font-medium">{net.name || `Net ${idx + 1}`}</span>
                                       <button
@@ -34385,7 +34956,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                     type="checkbox"
                                     className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
                                     checked={isTableSelected(option.id)}
-                                    onChange={() => handleToggleIndividualTable(popupVariableName, option.id, allTableOptionIds, defaultIndividualSelectionIds)}
+                                    onChange={() => handleToggleIndividualTable(popupVariableName, option.id, allTableOptionIds, computedDefaultSelectedTableIds)}
                                   />
                                   <span className="truncate font-medium">{option.label}</span>
                                   <button
@@ -37422,18 +37993,25 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                         return null;
                       };
 
-                      const bannerCols: Array<{ id: string; title: string; varName: string; codes: string[]; colHeader: string | null }> = [];
+                      const bannerCols: Array<{ id: string; title: string; varName: string; codes: string[]; colHeader: string | null; groupTitle: string; groupIdx: number }> = [];
+                      const groupStructure: Array<{ title: string; cutCount: number; startIdx: number }> = [];
                       if (selectedBannerGroup?.groups) {
-                        selectedBannerGroup.groups.forEach(g => {
+                        let currentIdx = 0;
+                        selectedBannerGroup.groups.forEach((g, gIdx) => {
+                          const groupCutCount = g.cuts.length;
+                          groupStructure.push({ title: g.title, cutCount: groupCutCount, startIdx: currentIdx });
                           g.cuts.forEach(cut => {
                             bannerCols.push({
                               id: cut.id,
                               title: cut.title,
                               varName: cut.variableName,
                               codes: cut.codes.map(c => String(c)),
-                              colHeader: getColumnHeader(cut.variableName)
+                              colHeader: getColumnHeader(cut.variableName),
+                              groupTitle: g.title,
+                              groupIdx: gIdx
                             });
                           });
+                          currentIdx += groupCutCount;
                         });
                       }
 
@@ -37511,13 +38089,47 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                         return { total: totals, cuts };
                       };
 
+                      // Proportion-based stat test (two-proportion z-test) for preview tables
+                      const isSignificant = (p1: number, n1: number, p2: number, n2: number): { is95: boolean; is90: boolean } => {
+                        if (!n1 || !n2 || n1 <= 0 || n2 <= 0) return { is95: false, is90: false };
+                        const prop1 = p1 / 100;
+                        const prop2 = p2 / 100;
+                        const pooledProp = (prop1 * n1 + prop2 * n2) / (n1 + n2);
+                        const se = Math.sqrt(pooledProp * (1 - pooledProp) * (1/n1 + 1/n2));
+                        if (se === 0) return { is95: false, is90: false };
+                        const z = Math.abs(prop1 - prop2) / se;
+                        return { is95: z > 1.96, is90: z > 1.645 && z <= 1.96 };
+                      };
+
+                      // Mean-based stat test (two-sample z-test with pooled variance) for preview tables
+                      const isSignificantForMeans = (mean1: number, n1: number, stdDev1: number, mean2: number, n2: number, stdDev2: number): { is95: boolean; is90: boolean } => {
+                        if (!n1 || !n2 || n1 <= 0 || n2 <= 0) return { is95: false, is90: false };
+                        const meanDiff = Math.abs(mean1 - mean2);
+                        if (meanDiff < 0.0001) return { is95: false, is90: false };
+                        const epsilon = 0.0001;
+                        const adjustedStdDev1 = Math.max(stdDev1, epsilon);
+                        const adjustedStdDev2 = Math.max(stdDev2, epsilon);
+                        const variance1 = adjustedStdDev1 * adjustedStdDev1;
+                        const variance2 = adjustedStdDev2 * adjustedStdDev2;
+                        const pooledVariance = ((n1 - 1) * variance1 + (n2 - 1) * variance2) / (n1 + n2 - 2);
+                        const pooledStdDev = Math.sqrt(Math.max(pooledVariance, epsilon * epsilon));
+                        const se = pooledStdDev * Math.sqrt(1/n1 + 1/n2);
+                        if (se === 0 || se < epsilon) return { is95: false, is90: false };
+                        const z = meanDiff / se;
+                        return { is95: z > 1.96, is90: z > 1.645 && z <= 1.96 };
+                      };
+
                       const allSelectedTables: string[] = [];
                       const allPossible: string[] = [];
+                      // Add mean summary table
+                      allPossible.push(`${baseName}_MeanSummaryTable`);
+                      // Add net summary tables
                       netCodes.forEach((net, idx) => allPossible.push(`${baseName}_NetSummaryTable_${idx}`));
+                      // Add individual statement tables
                       Object.keys(previewVariable.statements || {}).forEach(stmtCode => allPossible.push(`${baseName}_${stmtCode}`));
                       allPossible.forEach(t => {
                         const selected = !selections || selections.size === 0
-                          ? true
+                          ? (t === `${baseName}_MeanSummaryTable` ? false : true) // Mean summary defaults to unchecked
                           : selections.has(t);
                         if (selected) allSelectedTables.push(t);
                       });
@@ -37573,36 +38185,488 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                         })();
 
                         const renderSummaryTable = () => {
-                          const base = summaryBaseCounts;
                           const headerLabel = isNetSummary
                             ? (netCodes[Number(tableName.match(/_NetSummaryTable_(\\d+)$/)?.[1] || 0)]?.name || 'Net Summary')
                             : (isMeanSummary ? 'Mean Summary' : String(stmtLabel));
-                          return (
-                            <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '12px' }}>
-                              <thead>
-                                <tr style={{ backgroundColor: '#D14A2D', color: '#fff' }}>
-                                  <th style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'left', minWidth: '150px' }}>
-                                    {headerLabel}
-                                  </th>
-                                  <th style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center', minWidth: '100px' }}>Total</th>
-                                  {bannerCols.map((col, colIdx) => (
-                                    <th key={col.id} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center', minWidth: '100px' }}>
-                                      {col.title}<br/><span style={{ opacity: 0.7 }}>({String.fromCharCode(65 + colIdx)})</span>
+
+                          // For net summary tables, calculate and render all statements
+                          if (isNetSummary) {
+                            const netIndexMatch = tableName.match(/_NetSummaryTable_(\d+)$/);
+                            const netIndex = netIndexMatch ? parseInt(netIndexMatch[1], 10) : -1;
+                            const net = netIndex >= 0 && netIndex < netCodes.length ? netCodes[netIndex] : null;
+
+                            if (!net || !net.codes || net.codes.length === 0) {
+                              return <div>No net data available</div>;
+                            }
+
+                            // Calculate data for all statements
+                            const statementData: Array<{
+                              stmtCode: string;
+                              stmtLabel: string;
+                              stmtTotalBase: number;
+                              stmtCutBases: Record<string, number>;
+                              netTotalCount: number;
+                              netCutCounts: Record<string, number>;
+                            }> = [];
+
+                            Object.entries(previewVariable.statements || {}).forEach(([stmtCode, stmtText]) => {
+                              const stmtLabel = String(stmtText);
+                              const stmtHeader = statementHeaders[stmtCode];
+                              if (!stmtHeader) return;
+
+                              let stmtTotalBase = 0;
+                              const stmtCutBases: Record<string, number> = {};
+                              bannerCols.forEach(col => { stmtCutBases[col.id] = 0; });
+
+                              let netTotalCount = 0;
+                              const netCutCounts: Record<string, number> = {};
+                              bannerCols.forEach(col => { netCutCounts[col.id] = 0; });
+
+                              fullRawData?.rows?.forEach(row => {
+                                const val = row[stmtHeader];
+                                if (!hasValue(val)) return;
+
+                                // Count in base
+                                stmtTotalBase++;
+
+                                // Check banner cuts
+                                const matchedCuts: string[] = [];
+                                bannerCols.forEach(col => {
+                                  if (matchesCut(row, col)) {
+                                    matchedCuts.push(col.id);
+                                    stmtCutBases[col.id]++;
+                                  }
+                                });
+
+                                // Check if matches net codes
+                                const valStr = String(val).trim();
+                                let matchesNet = false;
+                                net.codes.forEach(netCode => {
+                                  const normalizedNetCode = netCode.replace(/^c/i, '');
+                                  if (valStr === netCode ||
+                                      valStr === normalizedNetCode ||
+                                      String(Number(valStr)) === normalizedNetCode ||
+                                      (!isNaN(Number(valStr)) && !isNaN(Number(normalizedNetCode)) && Number(valStr) === Number(normalizedNetCode))) {
+                                    matchesNet = true;
+                                  }
+                                });
+
+                                if (matchesNet) {
+                                  netTotalCount++;
+                                  matchedCuts.forEach(cutId => {
+                                    netCutCounts[cutId]++;
+                                  });
+                                }
+                              });
+
+                              statementData.push({
+                                stmtCode,
+                                stmtLabel,
+                                stmtTotalBase,
+                                stmtCutBases,
+                                netTotalCount,
+                                netCutCounts
+                              });
+                            });
+
+                            // Check if all bases are the same
+                            const allBasesSame = statementData.length > 0 &&
+                              statementData.every(data => data.stmtTotalBase === statementData[0].stmtTotalBase);
+
+                            return (
+                              <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '12px' }}>
+                                <thead>
+                                  {/* Row 1: Group titles */}
+                                  <tr style={{ backgroundColor: '#D14A2D', color: '#fff' }}>
+                                    <th rowSpan={3} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'left', minWidth: '150px' }}>
+                                      {/* Empty header cell - net name is in table title */}
                                     </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                <tr style={{ backgroundColor: '#f5f5f5', fontStyle: 'italic' }}>
-                                  <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', fontWeight: 600 }}>Base (total answering)</td>
-                                  <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{base.total || 0}</td>
-                                  {bannerCols.map(col => (
-                                    <td key={col.id} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{base.cuts[col.id] ?? 0}</td>
-                                  ))}
-                                </tr>
-                              </tbody>
-                            </table>
-                          );
+                                    <th rowSpan={2} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center', minWidth: '100px', verticalAlign: 'middle' }}>Total</th>
+                                    {groupStructure.map((group, gIdx) => (
+                                      <th key={`group-${gIdx}`} colSpan={group.cutCount} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center' }}>
+                                        {group.title}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                  {/* Row 2: Cut titles */}
+                                  <tr style={{ backgroundColor: '#D14A2D', color: '#fff' }}>
+                                    {bannerCols.map((col, colIdx) => (
+                                      <th key={`cut-${col.id}`} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center', minWidth: '100px' }}>
+                                        {col.title}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                  {/* Row 3: Stat letters */}
+                                  <tr style={{ backgroundColor: '#D14A2D', color: '#fff' }}>
+                                    <th style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center' }}></th>
+                                    {bannerCols.map((col, colIdx) => (
+                                      <th key={`stat-${col.id}`} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '4px', textAlign: 'center', fontSize: '11px' }}>
+                                        ({String.fromCharCode(65 + colIdx)})
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {statementData.map((data, idx) => {
+                                    const shouldShowBase = !allBasesSame || idx === 0;
+                                    const STATS_GREY = '#E8E8E8';
+
+                                    // Stat letters for this net row (percentages)
+                                    const statLettersForCut: Record<number, { letter: string; is95: boolean }[]> = {};
+                                    bannerCols.forEach((thisCol, colIdx) => {
+                                      const cutBase = data.stmtCutBases[thisCol.id] || 0;
+                                      const thisPct = cutBase > 0 ? (data.netCutCounts[thisCol.id] / cutBase) * 100 : 0;
+                                      const letters: { letter: string; is95: boolean }[] = [];
+
+                                      bannerCols.forEach((otherCol, otherIdx) => {
+                                        if (otherIdx === colIdx) return;
+                                        if (otherCol.groupIdx !== thisCol.groupIdx) return;
+
+                                        const otherBase = data.stmtCutBases[otherCol.id] || 0;
+                                        const otherPct = otherBase > 0 ? (data.netCutCounts[otherCol.id] / otherBase) * 100 : 0;
+
+                                        if (thisPct > otherPct) {
+                                          const { is95 } = isSignificant(thisPct, cutBase, otherPct, otherBase);
+                                          if (is95) letters.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                                        }
+                                      });
+
+                                      statLettersForCut[colIdx] = letters;
+                                    });
+                                    const hasAnyStatLetters = Object.values(statLettersForCut).some(arr => arr && arr.length > 0);
+
+                                    return (
+                                      <React.Fragment key={data.stmtCode}>
+                                        {shouldShowBase && (
+                                          <tr style={{ backgroundColor: STATS_GREY, fontStyle: 'italic' }}>
+                                            <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', fontWeight: 600 }}>Base (total answering)</td>
+                                            <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{data.stmtTotalBase}</td>
+                                            {bannerCols.map(col => (
+                                              <td key={col.id} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
+                                                {data.stmtCutBases[col.id] ?? 0}
+                                              </td>
+                                            ))}
+                                          </tr>
+                                        )}
+                                        <tr>
+                                          <td style={{ border: '1px solid #d1d5db', padding: '4px 6px' }}>{data.stmtLabel}</td>
+                                          <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{data.netTotalCount}</td>
+                                          {bannerCols.map((col, colIdx) => {
+                                            const letters = statLettersForCut[colIdx] || [];
+                                            const hasStats = letters.length > 0;
+                                            return (
+                                              <td key={col.id} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center', backgroundColor: hasStats ? '#E6F3FF' : 'transparent' }}>
+                                                {data.netCutCounts[col.id] ?? 0}
+                                              </td>
+                                            );
+                                          })}
+                                        </tr>
+                                        <tr>
+                                          <td style={{ border: '1px solid #d1d5db', padding: '4px 6px' }} />
+                                          <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
+                                            {data.stmtTotalBase > 0 ? `${((data.netTotalCount / data.stmtTotalBase) * 100).toFixed(1)}%` : '-'}
+                                          </td>
+                                          {bannerCols.map((col, colIdx) => {
+                                            const cutBase = data.stmtCutBases[col.id] || 0;
+                                            const pct = cutBase > 0 ? `${((data.netCutCounts[col.id] / cutBase) * 100).toFixed(1)}%` : '-';
+                                            const letters = statLettersForCut[colIdx] || [];
+                                            const hasStats = letters.length > 0;
+                                            return (
+                                              <td key={col.id} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center', backgroundColor: hasStats ? '#E6F3FF' : 'transparent' }}>
+                                                {pct}
+                                              </td>
+                                            );
+                                          })}
+                                        </tr>
+                                        {hasAnyStatLetters && (
+                                          <tr>
+                                            <td style={{ border: '1px solid #d1d5db', padding: '4px 6px' }} />
+                                            <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }} />
+                                            {bannerCols.map((col, colIdx) => {
+                                              const letters = statLettersForCut[colIdx] || [];
+                                              const lettersStr = letters.map(l => l.letter).join('');
+                                              const hasStats = letters.length > 0;
+                                              return (
+                                                <td key={col.id} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center', fontWeight: hasStats ? 'bold' : 'normal', backgroundColor: hasStats ? '#E6F3FF' : 'transparent' }}>
+                                                  {lettersStr}
+                                                </td>
+                                              );
+                                            })}
+                                          </tr>
+                                        )}
+                                      </React.Fragment>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            );
+                          }
+
+                          // For mean summary, calculate and show all statements with their means
+                          if (isMeanSummary) {
+                            // Statistical testing function for means
+                            const isSignificantForMeans = (mean1: number, n1: number, stdDev1: number, mean2: number, n2: number, stdDev2: number): { is95: boolean; is90: boolean } => {
+                              if (!n1 || !n2 || n1 <= 0 || n2 <= 0) return { is95: false, is90: false };
+
+                              const meanDiff = Math.abs(mean1 - mean2);
+                              if (meanDiff < 0.0001) return { is95: false, is90: false };
+
+                              const epsilon = 0.0001;
+                              const adjustedStdDev1 = Math.max(stdDev1, epsilon);
+                              const adjustedStdDev2 = Math.max(stdDev2, epsilon);
+
+                              const variance1 = adjustedStdDev1 * adjustedStdDev1;
+                              const variance2 = adjustedStdDev2 * adjustedStdDev2;
+                              const pooledVariance = ((n1 - 1) * variance1 + (n2 - 1) * variance2) / (n1 + n2 - 2);
+                              const pooledStdDev = Math.sqrt(Math.max(pooledVariance, epsilon * epsilon));
+
+                              const se = pooledStdDev * Math.sqrt(1/n1 + 1/n2);
+                              if (se === 0 || se < epsilon) return { is95: false, is90: false };
+
+                              const z = meanDiff / se;
+
+                              return { is95: z > 1.96, is90: z > 1.645 && z <= 1.96 };
+                            };
+
+                            // Helper to get numeric value from code
+                            const getCodeValue = (code: string): number | null => {
+                              const numMatch = code.match(/^c?(\d+)$/i);
+                              if (numMatch) {
+                                return parseInt(numMatch[1], 10);
+                              }
+                              const parsed = parseInt(code, 10);
+                              return isNaN(parsed) ? null : parsed;
+                            };
+
+                            // Calculate data for all statements
+                            const statementMeanData: Array<{
+                              stmtCode: string;
+                              stmtLabel: string;
+                              totalMean: number;
+                              totalStdDev: number;
+                              totalCount: number;
+                              cutMeans: Record<string, number>;
+                              cutStdDevs: Record<string, number>;
+                              cutCounts: Record<string, number>;
+                            }> = [];
+
+                            Object.entries(previewVariable.statements || {}).forEach(([stmtCode, stmtText]) => {
+                              const stmtLabel = String(stmtText);
+                              const stmtHeader = statementHeaders[stmtCode];
+                              if (!stmtHeader) return;
+
+                              let totalSum = 0;
+                              let totalCount = 0;
+                              const totalValues: number[] = [];
+                              const cutSums: Record<string, number> = {};
+                              const cutCounts: Record<string, number> = {};
+                              const cutValues: Record<string, number[]> = {};
+                              bannerCols.forEach(col => {
+                                cutSums[col.id] = 0;
+                                cutCounts[col.id] = 0;
+                                cutValues[col.id] = [];
+                              });
+
+                              fullRawData?.rows?.forEach(row => {
+                                const val = row[stmtHeader];
+                                if (!hasValue(val)) return;
+
+                                // Get numeric value
+                                const valStr = String(val).trim();
+                                let numericValue: number | null = null;
+
+                                // Try to match to a code and get its value
+                                const codeKeys = Object.keys(previewVariable.codes || {});
+                                for (const code of codeKeys) {
+                                  const codeVal = getCodeValue(code);
+                                  if (codeVal === null) continue;
+
+                                  const normalizedCode = code.replace(/^c/i, '');
+                                  if (valStr === code || valStr === normalizedCode ||
+                                      String(Number(valStr)) === normalizedCode ||
+                                      (!isNaN(Number(valStr)) && !isNaN(Number(normalizedCode)) && Number(valStr) === Number(normalizedCode))) {
+                                    numericValue = codeVal;
+                                    break;
+                                  }
+                                }
+
+                                if (numericValue === null) return;
+
+                                totalSum += numericValue;
+                                totalCount++;
+                                totalValues.push(numericValue);
+
+                                // Check banner cuts
+                                bannerCols.forEach(col => {
+                                  if (matchesCut(row, col)) {
+                                    cutSums[col.id] += numericValue!;
+                                    cutCounts[col.id]++;
+                                    cutValues[col.id].push(numericValue!);
+                                  }
+                                });
+                              });
+
+                              const totalMean = totalCount > 0 ? totalSum / totalCount : 0;
+                              const totalStdDev = totalCount > 1 ? Math.sqrt(totalValues.reduce((acc, val) => acc + Math.pow(val - totalMean, 2), 0) / (totalCount - 1)) : 0;
+
+                              const cutMeans: Record<string, number> = {};
+                              const cutStdDevs: Record<string, number> = {};
+                              bannerCols.forEach(col => {
+                                const mean = cutCounts[col.id] > 0 ? cutSums[col.id] / cutCounts[col.id] : 0;
+                                cutMeans[col.id] = mean;
+                                cutStdDevs[col.id] = cutCounts[col.id] > 1
+                                  ? Math.sqrt(cutValues[col.id].reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / (cutCounts[col.id] - 1))
+                                  : 0;
+                              });
+
+                              statementMeanData.push({
+                                stmtCode,
+                                stmtLabel,
+                                totalMean,
+                                totalStdDev,
+                                totalCount,
+                                cutMeans,
+                                cutStdDevs,
+                                cutCounts
+                              });
+                            });
+
+                            // Calculate stat letters for mean summary
+                            const allStatLettersMeanPreview: Record<string, Record<number, { letter: string; is95: boolean }[]>> = {};
+
+                            statementMeanData.forEach((data) => {
+                              const { stmtCode, cutMeans, cutStdDevs, cutCounts } = data;
+                              const codeStatLetters: Record<number, { letter: string; is95: boolean }[]> = {};
+
+                              bannerCols.forEach((thisCol, colIdx) => {
+                                const thisMean = cutMeans[thisCol.id] || 0;
+                                const thisStdDev = cutStdDevs[thisCol.id] || 0;
+                                const thisCount = cutCounts[thisCol.id] || 0;
+                                const statLettersForCol: { letter: string; is95: boolean }[] = [];
+
+                                // Within-group comparisons ONLY
+                                bannerCols.forEach((otherCol, otherIdx) => {
+                                  if (otherIdx === colIdx) return;
+                                  if (otherCol.groupIdx !== thisCol.groupIdx) return;
+
+                                  const otherMean = cutMeans[otherCol.id] || 0;
+                                  const otherStdDev = cutStdDevs[otherCol.id] || 0;
+                                  const otherCount = cutCounts[otherCol.id] || 0;
+
+                                  if (thisMean > otherMean) {
+                                    const { is95, is90 } = isSignificantForMeans(thisMean, thisCount, thisStdDev, otherMean, otherCount, otherStdDev);
+
+                                    // For preview, use 95% significance level
+                                    if (is95) {
+                                      statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                                    }
+                                  }
+                                });
+
+                                codeStatLetters[colIdx] = statLettersForCol;
+                              });
+
+                              allStatLettersMeanPreview[stmtCode] = codeStatLetters;
+                            });
+
+                            return (
+                              <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '12px' }}>
+                                <thead>
+                                  {/* Row 1: Group titles */}
+                                  <tr style={{ backgroundColor: '#D14A2D', color: '#fff' }}>
+                                    <th rowSpan={3} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'left', minWidth: '150px' }}>
+                                      {/* Empty header cell - mean summary title is in table title */}
+                                    </th>
+                                    <th rowSpan={2} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center', minWidth: '100px', verticalAlign: 'middle' }}>Total</th>
+                                    {groupStructure.map((group, gIdx) => (
+                                      <th key={`group-${gIdx}`} colSpan={group.cutCount} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center' }}>
+                                        {group.title}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                  {/* Row 2: Cut titles */}
+                                  <tr style={{ backgroundColor: '#D14A2D', color: '#fff' }}>
+                                    {bannerCols.map((col, colIdx) => (
+                                      <th key={`cut-${col.id}`} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center', minWidth: '100px' }}>
+                                        {col.title}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                  {/* Row 3: Stat letters */}
+                                  <tr style={{ backgroundColor: '#D14A2D', color: '#fff' }}>
+                                    <th style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center' }}></th>
+                                    {bannerCols.map((col, colIdx) => (
+                                      <th key={`stat-${col.id}`} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '4px', textAlign: 'center', fontSize: '11px' }}>
+                                        ({String.fromCharCode(65 + colIdx)})
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {statementMeanData.map((data, idx) => {
+                                    const statLettersForCode = allStatLettersMeanPreview[data.stmtCode] || {};
+                                    const hasAnyStatLettersForCode = Object.values(statLettersForCode).some(arr => arr && arr.length > 0);
+
+                                    return (
+                                      <React.Fragment key={data.stmtCode}>
+                                        <tr>
+                                          <td style={{ border: '1px solid #d1d5db', padding: '4px 6px' }}>{data.stmtLabel}</td>
+                                          <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
+                                            {data.totalMean.toFixed(2)}
+                                          </td>
+                                          {bannerCols.map((col, colIdx) => {
+                                            const statLetters = statLettersForCode[colIdx] || [];
+                                            const hasStats = statLetters.length > 0;
+                                            return (
+                                              <td
+                                                key={col.id}
+                                                style={{
+                                                  border: '1px solid #d1d5db',
+                                                  padding: '4px 6px',
+                                                  textAlign: 'center',
+                                                  backgroundColor: hasStats ? '#E6F3FF' : 'transparent'
+                                                }}
+                                              >
+                                                {data.cutMeans[col.id].toFixed(2)}
+                                              </td>
+                                            );
+                                          })}
+                                        </tr>
+                                        {hasAnyStatLettersForCode && (
+                                          <tr>
+                                            <td style={{ border: '1px solid #d1d5db', padding: '4px 6px' }}></td>
+                                            <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}></td>
+                                            {bannerCols.map((col, colIdx) => {
+                                              const statLetters = statLettersForCode[colIdx] || [];
+                                              const statLettersStr = statLetters.map(s => s.letter).join('');
+                                              const hasStats = statLetters.length > 0;
+                                              return (
+                                                <td
+                                                  key={col.id}
+                                                  style={{
+                                                    border: '1px solid #d1d5db',
+                                                    padding: '4px 6px',
+                                                    textAlign: 'center',
+                                                    fontWeight: hasStats ? 'bold' : 'normal',
+                                                    backgroundColor: hasStats ? '#E6F3FF' : 'transparent'
+                                                  }}
+                                                >
+                                                  {statLettersStr}
+                                                </td>
+                                              );
+                                            })}
+                                          </tr>
+                                        )}
+                                      </React.Fragment>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            );
+                          }
+
+                          // Fallback (shouldn't reach here)
+                          return <div>Summary table type not recognized</div>;
                         };
 
                         return (
@@ -37618,12 +38682,30 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                 ) : (
                                   <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '12px' }}>
                                     <thead>
+                                      {/* Row 1: Group titles */}
                                       <tr style={{ backgroundColor: '#D14A2D', color: '#fff' }}>
-                                        <th style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'left', minWidth: '150px' }} />
-                                        <th style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center', minWidth: '100px' }}>Total</th>
+                                        <th rowSpan={3} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'left', minWidth: '150px' }} />
+                                        <th rowSpan={2} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center', minWidth: '100px', verticalAlign: 'middle' }}>Total</th>
+                                        {groupStructure.map((group, gIdx) => (
+                                          <th key={`group-${gIdx}`} colSpan={group.cutCount} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center' }}>
+                                            {group.title}
+                                          </th>
+                                        ))}
+                                      </tr>
+                                      {/* Row 2: Cut titles */}
+                                      <tr style={{ backgroundColor: '#D14A2D', color: '#fff' }}>
                                         {bannerCols.map((col, colIdx) => (
-                                          <th key={col.id} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center', minWidth: '100px' }}>
-                                            {col.title}<br/><span style={{ opacity: 0.7 }}>({String.fromCharCode(65 + colIdx)})</span>
+                                          <th key={`cut-${col.id}`} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center', minWidth: '100px' }}>
+                                            {col.title}
+                                          </th>
+                                        ))}
+                                      </tr>
+                                      {/* Row 3: Stat letters */}
+                                      <tr style={{ backgroundColor: '#D14A2D', color: '#fff' }}>
+                                        <th style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center' }}></th>
+                                        {bannerCols.map((col, colIdx) => (
+                                          <th key={`stat-${col.id}`} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '4px', textAlign: 'center', fontSize: '11px' }}>
+                                            ({String.fromCharCode(65 + colIdx)})
                                           </th>
                                         ))}
                                       </tr>
@@ -37636,38 +38718,329 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                           <td key={col.id} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{baseCounts.cuts[col.id] ?? 0}</td>
                                         ))}
                                       </tr>
-                                      {Object.entries(previewVariable.codes || {}).flatMap(([code, label]) => {
-                                        const counts = stmtCounts;
-                                        const totalCount = counts ? counts.total[code] ?? 0 : 0;
-                                        const rowBaseTotal = baseCounts.total || 0;
-                                        return [
-                                          <tr key={`row-${code}`}>
-                                            <td style={{ border: '1px solid #d1d5db', padding: '4px 6px' }}>{String(label)}</td>
-                                            <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{totalCount}</td>
-                                            {bannerCols.map(col => (
-                                              <td key={`${col.id}-${code}`} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
-                                                {counts ? counts.cuts[code]?.[col.id] ?? 0 : 0}
+                                      {(() => {
+                                        // Calculate stat letters for all codes
+                                        const allStatLettersPreview: Record<string, Record<number, { letter: string; is95: boolean }[]>> = {};
+
+                                        Object.keys(previewVariable.codes || {}).forEach((code) => {
+                                          const codeStatLetters: Record<number, { letter: string; is95: boolean }[]> = {};
+
+                                          bannerCols.forEach((thisCol, colIdx) => {
+                                            const cutCount = stmtCounts ? stmtCounts.cuts[code]?.[thisCol.id] ?? 0 : 0;
+                                            const cutBase = baseCounts.cuts[thisCol.id] || 0;
+                                            const cutPct = cutBase > 0 ? (cutCount / cutBase) * 100 : 0;
+                                            const statLettersForCol: { letter: string; is95: boolean }[] = [];
+
+                                            // Within-group comparisons ONLY
+                                            bannerCols.forEach((otherCol, otherIdx) => {
+                                              if (otherIdx === colIdx) return;
+                                              if (otherCol.groupIdx !== thisCol.groupIdx) return;
+
+                                              const otherCount = stmtCounts ? stmtCounts.cuts[code]?.[otherCol.id] ?? 0 : 0;
+                                              const otherBase = baseCounts.cuts[otherCol.id] || 0;
+                                              const otherPct = otherBase > 0 ? (otherCount / otherBase) * 100 : 0;
+
+                                              if (cutPct > otherPct) {
+                                                const { is95 } = isSignificant(cutPct, cutBase, otherPct, otherBase);
+                                                if (is95) {
+                                                  statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                                                }
+                                              }
+                                            });
+
+                                            codeStatLetters[colIdx] = statLettersForCol;
+                                          });
+
+                                          allStatLettersPreview[code] = codeStatLetters;
+                                        });
+
+                                        return Object.entries(previewVariable.codes || {}).flatMap(([code, label]) => {
+                                          const counts = stmtCounts;
+                                          const totalCount = counts ? counts.total[code] ?? 0 : 0;
+                                          const rowBaseTotal = baseCounts.total || 0;
+                                          const statLettersForCode = allStatLettersPreview[code] || {};
+                                          const hasAnyStatLetters = Object.values(statLettersForCode).some(arr => arr && arr.length > 0);
+
+                                          const rows = [
+                                            <tr key={`row-${code}`}>
+                                              <td style={{ border: '1px solid #d1d5db', padding: '4px 6px' }}>{String(label)}</td>
+                                              <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{totalCount}</td>
+                                              {bannerCols.map((col, colIdx) => {
+                                                const statLetters = statLettersForCode[colIdx] || [];
+                                                const hasStats = statLetters.length > 0;
+                                                return (
+                                                  <td key={`${col.id}-${code}`} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center', backgroundColor: hasStats ? '#E6F3FF' : 'transparent' }}>
+                                                    {counts ? counts.cuts[code]?.[col.id] ?? 0 : 0}
+                                                  </td>
+                                                );
+                                              })}
+                                            </tr>,
+                                            <tr key={`pct-${code}`}>
+                                              <td style={{ border: '1px solid #d1d5db', padding: '4px 6px' }} />
+                                              <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
+                                                {rowBaseTotal > 0 ? `${((totalCount / rowBaseTotal) * 100).toFixed(1)}%` : '-'}
                                               </td>
-                                            ))}
-                                          </tr>,
-                                          <tr key={`pct-${code}`}>
+                                              {bannerCols.map((col, colIdx) => {
+                                                const cutBase = baseCounts.cuts[col.id] || 0;
+                                                const cutVal = counts ? counts.cuts[code]?.[col.id] ?? 0 : 0;
+                                                const pct = cutBase > 0 ? `${((cutVal / cutBase) * 100).toFixed(1)}%` : '-';
+                                                const statLetters = statLettersForCode[colIdx] || [];
+                                                const hasStats = statLetters.length > 0;
+                                                return (
+                                                  <td key={`${col.id}-pct-${code}`} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center', backgroundColor: hasStats ? '#E6F3FF' : 'transparent' }}>
+                                                    {pct}
+                                                  </td>
+                                                );
+                                              })}
+                                            </tr>
+                                          ];
+
+                                          // Add stat letters row if any exist
+                                          if (hasAnyStatLetters) {
+                                            rows.push(
+                                              <tr key={`stat-${code}`}>
+                                                <td style={{ border: '1px solid #d1d5db', padding: '4px 6px' }} />
+                                                <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }} />
+                                                {bannerCols.map((col, colIdx) => {
+                                                  const statLetters = statLettersForCode[colIdx] || [];
+                                                  const statLettersStr = statLetters.map(s => s.letter).join('');
+                                                  const hasStats = statLetters.length > 0;
+                                                  return (
+                                                    <td key={`${col.id}-stat-${code}`} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center', fontWeight: hasStats ? 'bold' : 'normal', backgroundColor: hasStats ? '#E6F3FF' : 'transparent' }}>
+                                                      {statLettersStr}
+                                                    </td>
+                                                  );
+                                                })}
+                                              </tr>
+                                            );
+                                          }
+
+                                          return rows;
+                                        });
+                                      })()}
+                                      {/* Add nets as stats rows for single select grid individual tables (preview) */}
+                                      {!isNetSummary && !isMeanSummary && stmtCounts && netCodes.length > 0 && netCodes.map((net, netIdx) => {
+                                        if (!net.codes || net.codes.length === 0) return null;
+
+                                        // Calculate net totals from stmtCounts
+                                        let netTotalCount = 0;
+                                        const netCutCounts: Record<string, number> = {};
+                                        bannerCols.forEach(col => { netCutCounts[col.id] = 0; });
+
+                                        net.codes.forEach(code => {
+                                          // Match code to previewVariable.codes
+                                          const codeKey = Object.keys(previewVariable.codes || {}).find(k => {
+                                            return k === code || k.replace(/^c/i, '') === code.replace(/^c/i, '');
+                                          });
+                                          if (codeKey && stmtCounts.total[codeKey] !== undefined) {
+                                            netTotalCount += stmtCounts.total[codeKey];
+                                            bannerCols.forEach(col => {
+                                              netCutCounts[col.id] += stmtCounts.cuts[codeKey]?.[col.id] ?? 0;
+                                            });
+                                          }
+                                        });
+
+                                        const rowBaseTotal = baseCounts.total || 0;
+                                        const STATS_GREY = '#E8E8E8';
+                                        const netStatLetters: Record<number, { letter: string; is95: boolean }[]> = {};
+
+                                        // Build stat letters per cut for the net (within-group comparisons)
+                                        bannerCols.forEach((thisCol, colIdx) => {
+                                          const cutBase = baseCounts.cuts[thisCol.id] || 0;
+                                          const thisPct = cutBase > 0 ? (netCutCounts[thisCol.id] / cutBase) * 100 : 0;
+                                          const statLettersForCol: { letter: string; is95: boolean }[] = [];
+
+                                          bannerCols.forEach((otherCol, otherIdx) => {
+                                            if (otherIdx === colIdx) return;
+                                            if (otherCol.groupIdx !== thisCol.groupIdx) return;
+
+                                            const otherBase = baseCounts.cuts[otherCol.id] || 0;
+                                            const otherPct = otherBase > 0 ? (netCutCounts[otherCol.id] / otherBase) * 100 : 0;
+
+                                            if (thisPct > otherPct) {
+                                              const { is95 } = isSignificant(thisPct, cutBase, otherPct, otherBase);
+                                              if (is95) {
+                                                statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                                              }
+                                            }
+                                          });
+
+                                          netStatLetters[colIdx] = statLettersForCol;
+                                        });
+
+                                        const netHasAnyStatLetters = Object.values(netStatLetters).some(arr => arr && arr.length > 0);
+
+                                          return [
+                                            <tr key={`net-${netIdx}`} style={{ backgroundColor: STATS_GREY }}>
+                                              <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', fontWeight: 'bold' }}>NET: {net.name}</td>
+                                              <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{netTotalCount}</td>
+                                              {bannerCols.map((col, colIdx) => {
+                                                const statLetters = netStatLetters[colIdx] || [];
+                                                const hasStats = statLetters.length > 0;
+                                                return (
+                                                  <td key={`${col.id}-net-${netIdx}`} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center', backgroundColor: hasStats ? '#E6F3FF' : 'transparent' }}>
+                                                    {netCutCounts[col.id]}
+                                                  </td>
+                                                );
+                                              })}
+                                            </tr>,
+                                          <tr key={`net-pct-${netIdx}`} style={{ backgroundColor: STATS_GREY }}>
                                             <td style={{ border: '1px solid #d1d5db', padding: '4px 6px' }} />
                                             <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
-                                              {rowBaseTotal > 0 ? `${((totalCount / rowBaseTotal) * 100).toFixed(1)}%` : '-'}
+                                              {rowBaseTotal > 0 ? `${((netTotalCount / rowBaseTotal) * 100).toFixed(1)}%` : '-'}
                                             </td>
-                                            {bannerCols.map(col => {
+                                            {bannerCols.map((col, colIdx) => {
                                               const cutBase = baseCounts.cuts[col.id] || 0;
-                                              const cutVal = counts ? counts.cuts[code]?.[col.id] ?? 0 : 0;
-                                              const pct = cutBase > 0 ? `${((cutVal / cutBase) * 100).toFixed(1)}%` : '-';
+                                              const pct = cutBase > 0 ? `${((netCutCounts[col.id] / cutBase) * 100).toFixed(1)}%` : '-';
+                                              const statLetters = netStatLetters[colIdx] || [];
+                                              const hasStats = statLetters.length > 0;
                                               return (
-                                                <td key={`${col.id}-pct-${code}`} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
+                                                <td key={`${col.id}-net-pct-${netIdx}`} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center', backgroundColor: hasStats ? '#E6F3FF' : 'transparent' }}>
                                                   {pct}
                                                 </td>
                                               );
                                             })}
-                                          </tr>
+                                          </tr>,
+                                          netHasAnyStatLetters ? (
+                                            <tr key={`net-stat-${netIdx}`} style={{ backgroundColor: STATS_GREY }}>
+                                              <td style={{ border: '1px solid #d1d5db', padding: '4px 6px' }} />
+                                              <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }} />
+                                              {bannerCols.map((col, colIdx) => {
+                                                const statLetters = netStatLetters[colIdx] || [];
+                                                const statLettersStr = statLetters.map(s => s.letter).join('');
+                                                const hasStats = statLetters.length > 0;
+                                                return (
+                                                  <td key={`${col.id}-net-stat-${netIdx}`} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center', fontWeight: hasStats ? 'bold' : 'normal', backgroundColor: hasStats ? '#E6F3FF' : 'transparent' }}>
+                                                    {statLettersStr}
+                                                  </td>
+                                                );
+                                              })}
+                                            </tr>
+                                          ) : null
                                         ];
                                       })}
+                                      {/* Add mean statistic for single select grid individual tables (preview) */}
+                                      {!isNetSummary && !isMeanSummary && stmtCounts && (() => {
+                                        const statsSelections = getStatsSelectionsForVariable(baseName);
+                                        if (!statsSelections.mean) return null;
+
+                                        // Calculate mean from response codes
+                                        const getCodeValue = (code: string): number | null => {
+                                          const numMatch = code.match(/^c?(\d+)$/i);
+                                          if (numMatch) {
+                                            return parseInt(numMatch[1], 10);
+                                          }
+                                          const parsed = parseInt(code, 10);
+                                          return isNaN(parsed) ? null : parsed;
+                                        };
+
+                                        let totalSum = 0;
+                                        let totalCount = 0;
+                                        const cutSums: Record<string, number> = {};
+                                        const cutCounts: Record<string, number> = {};
+                                        const cutSqSums: Record<string, number> = {};
+                                        bannerCols.forEach(col => {
+                                          cutSums[col.id] = 0;
+                                          cutCounts[col.id] = 0;
+                                          cutSqSums[col.id] = 0;
+                                        });
+
+                                        Object.keys(previewVariable.codes || {}).forEach(code => {
+                                          const codeValue = getCodeValue(code);
+                                          if (codeValue === null) return;
+
+                                          const count = stmtCounts.total[code] ?? 0;
+                                          totalSum += codeValue * count;
+                                          totalCount += count;
+
+                                          bannerCols.forEach(col => {
+                                            const cutCount = stmtCounts.cuts[code]?.[col.id] ?? 0;
+                                            cutSums[col.id] += codeValue * cutCount;
+                                            cutCounts[col.id] += cutCount;
+                                            cutSqSums[col.id] += codeValue * codeValue * cutCount;
+                                          });
+                                        });
+
+                                        const totalMean = totalCount > 0 ? totalSum / totalCount : 0;
+                                        const STATS_GREY = '#E8E8E8';
+
+                                        const cutMeans: Record<string, number> = {};
+                                        const cutStdDevs: Record<string, number> = {};
+                                        bannerCols.forEach(col => {
+                                          const n = cutCounts[col.id];
+                                          const sum = cutSums[col.id];
+                                          const sqSum = cutSqSums[col.id];
+                                          const mean = n > 0 ? sum / n : 0;
+                                          cutMeans[col.id] = mean;
+                                          const variance = n > 1 ? (sqSum - (sum * sum) / n) / (n - 1) : 0;
+                                          cutStdDevs[col.id] = variance > 0 ? Math.sqrt(variance) : 0;
+                                        });
+
+                                        // Stat letters for mean comparisons across cuts (within-group)
+                                        const meanStatLetters: Record<number, { letter: string; is95: boolean }[]> = {};
+                                        bannerCols.forEach((thisCol, colIdx) => {
+                                          const thisMean = cutMeans[thisCol.id];
+                                          const thisStdDev = cutStdDevs[thisCol.id];
+                                          const thisCount = cutCounts[thisCol.id];
+                                          const statLettersForCol: { letter: string; is95: boolean }[] = [];
+
+                                          bannerCols.forEach((otherCol, otherIdx) => {
+                                            if (otherIdx === colIdx) return;
+                                            if (otherCol.groupIdx !== thisCol.groupIdx) return;
+
+                                            const otherMean = cutMeans[otherCol.id];
+                                            const otherStdDev = cutStdDevs[otherCol.id];
+                                            const otherCount = cutCounts[otherCol.id];
+
+                                            if (thisMean > otherMean) {
+                                              const { is95 } = isSignificantForMeans(thisMean, thisCount, thisStdDev, otherMean, otherCount, otherStdDev);
+                                              if (is95) {
+                                                statLettersForCol.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+                                              }
+                                            }
+                                          });
+
+                                          meanStatLetters[colIdx] = statLettersForCol;
+                                        });
+                                        const meanHasAnyStats = Object.values(meanStatLetters).some(arr => arr && arr.length > 0);
+
+                                        return (
+                                          <React.Fragment key="mean-stat">
+                                            <tr style={{ backgroundColor: STATS_GREY }}>
+                                              <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', fontWeight: 'bold' }}>Mean</td>
+                                              <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
+                                                {totalMean.toFixed(2)}
+                                              </td>
+                                              {bannerCols.map((col, colIdx) => {
+                                                const cutMean = cutMeans[col.id];
+                                                const statLetters = meanStatLetters[colIdx] || [];
+                                                const hasStats = statLetters.length > 0;
+                                                return (
+                                                  <td key={`${col.id}-mean`} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center', backgroundColor: hasStats ? '#E6F3FF' : 'transparent' }}>
+                                                    {cutMean.toFixed(2)}
+                                                  </td>
+                                                );
+                                              })}
+                                            </tr>
+                                            {meanHasAnyStats && (
+                                              <tr style={{ backgroundColor: STATS_GREY }}>
+                                                <td style={{ border: '1px solid #d1d5db', padding: '4px 6px' }} />
+                                                <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }} />
+                                                {bannerCols.map((col, colIdx) => {
+                                                  const statLetters = meanStatLetters[colIdx] || [];
+                                                  const statLettersStr = statLetters.map(s => s.letter).join('');
+                                                  const hasStats = statLetters.length > 0;
+                                                  return (
+                                                    <td key={`${col.id}-mean-stat`} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center', fontWeight: hasStats ? 'bold' : 'normal', backgroundColor: hasStats ? '#E6F3FF' : 'transparent' }}>
+                                                      {statLettersStr}
+                                                    </td>
+                                                  );
+                                                })}
+                                              </tr>
+                                            )}
+                                          </React.Fragment>
+                                        );
+                                      })()}
                                     </tbody>
                                   </table>
                                 )}
