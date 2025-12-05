@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowLeftIcon,
@@ -1606,15 +1606,15 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         const prevSize = Object.keys(prev || {}).length;
         const nextSize = Object.keys(next || {}).length;
         const qid = selectedQuestionnaire?.id || 'none';
-        console.log('🟠 [MAPPING STATE] setColumnMapping called', { questionnaireId: qid, prevSize, nextSize });
+        console.log('≡ƒƒá [MAPPING STATE] setColumnMapping called', { questionnaireId: qid, prevSize, nextSize });
         // Persist mapping to localStorage per questionnaire for durability across refreshes
         if (selectedQuestionnaire && selectedQuestionnaire.id) {
           const storageKey = `columnMapping_${selectedQuestionnaire.id}`;
           localStorage.setItem(storageKey, JSON.stringify(next));
-          console.log('🟠 [MAPPING STATE] Saved mapping to localStorage', { storageKey, keys: nextSize });
+          console.log('≡ƒƒá [MAPPING STATE] Saved mapping to localStorage', { storageKey, keys: nextSize });
         }
       } catch (e) {
-        console.warn('⚠️ [MAPPING STATE] Failed to persist mapping to localStorage', e);
+        console.warn('ΓÜá∩╕Å [MAPPING STATE] Failed to persist mapping to localStorage', e);
       }
       return next;
     });
@@ -2626,7 +2626,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     selectedBannerVariable: string,
     bannerGroup: any
   ): any => {
-    console.log(`🔍 calculateBannerTableDataForVariable CALLED for ${selectedBannerVariable}:`, {
+    console.log(`≡ƒöì calculateBannerTableDataForVariable CALLED for ${selectedBannerVariable}:`, {
       variableType: variable.type,
       hasVariable: !!variable,
       hasBannerGroup: !!bannerGroup,
@@ -2639,7 +2639,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     });
 
     if (!bannerGroup || !fullRawData || !fullRawData.rows || fullRawData.rows.length === 0 || !columnMapping) {
-      console.log(`🔍 calculateBannerTableDataForVariable EARLY RETURN for ${selectedBannerVariable}: Missing required data`);
+      console.log(`≡ƒöì calculateBannerTableDataForVariable EARLY RETURN for ${selectedBannerVariable}: Missing required data`);
       return {};
     }
 
@@ -2649,7 +2649,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       : fullRawData.rows;
 
     if (filteredRows.length === 0) {
-      console.log(`🔍 calculateBannerTableDataForVariable: No rows match filter conditions`);
+      console.log(`≡ƒöì calculateBannerTableDataForVariable: No rows match filter conditions`);
       return {};
     }
 
@@ -2728,7 +2728,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                              !isScaleSummary;
     const isMultiSelectGridQuestion = variable.type?.toLowerCase().includes('multi-select grid');
 
-    console.log(`🔍 Question type check for ${selectedBannerVariable}:`, {
+    console.log(`≡ƒöì Question type check for ${selectedBannerVariable}:`, {
       variableType: variable.type,
       isNumericQuestion,
       isSummaryTable,
@@ -2797,7 +2797,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                !variable.type?.toLowerCase().includes('grid');
 
     if (!isSummaryTable && !isNumericQuestion && !isMultiSelectCheck && !isMultiSelectGridQuestion && !stubColumnHeader) {
-      console.log(`🔍 Early return for ${selectedBannerVariable}: No stubColumnHeader found`);
+      console.log(`≡ƒöì Early return for ${selectedBannerVariable}: No stubColumnHeader found`);
       // Return empty object instead of null so the table still renders
       return {};
     }
@@ -3170,7 +3170,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                              (variable.type?.toLowerCase().includes('multi-select') &&
                               variable.type?.toLowerCase().includes('grid'));
 
-    console.log(`🔍 Multi-select check for ${selectedBannerVariable}:`, {
+    console.log(`≡ƒöì Multi-select check for ${selectedBannerVariable}:`, {
       variableType: variable.type,
       isMultiSelectQuestion,
       hasCodes: !!variable.codes,
@@ -3183,7 +3183,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       // Use the variable name directly (e.g., "G7") - don't extract base number
       const variableName = selectedBannerVariable.replace(/^Q/, '');
 
-      console.log(`🔍 MULTI-SELECT calculateBannerTableDataForVariable - ${selectedBannerVariable}:`, {
+      console.log(`≡ƒöì MULTI-SELECT calculateBannerTableDataForVariable - ${selectedBannerVariable}:`, {
         variableName,
         variableCodes: Object.keys(variable.codes),
         hasColumnMapping: !!columnMapping && Object.keys(columnMapping).length > 0,
@@ -3246,7 +3246,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         multiSelectColMap[code] = colHeader;
         
         if (code === Object.keys(variable.codes)[0]) {
-          console.log(`🔍 MULTI-SELECT COLUMN MAPPING - ${selectedBannerVariable}, Code "${code}":`, {
+          console.log(`≡ƒöì MULTI-SELECT COLUMN MAPPING - ${selectedBannerVariable}, Code "${code}":`, {
             code,
             codeNum,
             expectedHeader,
@@ -3260,7 +3260,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       });
       
       const foundColumns = Object.values(multiSelectColMap).filter(h => h !== null);
-      console.log(`🔍 MULTI-SELECT COLUMN MAPPING SUMMARY - ${selectedBannerVariable}:`, {
+      console.log(`≡ƒöì MULTI-SELECT COLUMN MAPPING SUMMARY - ${selectedBannerVariable}:`, {
         totalCodes: Object.keys(variable.codes).length,
         foundColumns: foundColumns.length,
         foundColumnHeaders: foundColumns,
@@ -3333,7 +3333,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         const codeDataEntry = codeData[code];
         return Object.values(codeDataEntry).some(colData => colData.count > 0 || colData.base > 0);
       });
-      console.log(`🔍 MULTI-SELECT DATA CALCULATION - ${selectedBannerVariable}:`, {
+      console.log(`≡ƒöì MULTI-SELECT DATA CALCULATION - ${selectedBannerVariable}:`, {
         totalCodes: Object.keys(variable.codes).length,
         codesWithData: codesWithData.length,
         codesWithDataList: codesWithData,
@@ -3696,7 +3696,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         const results: { letter: string; is95: boolean }[] = [];
         const thisCol = bannerCols[colIdx];
 
-        logStatDebug('🔍 getStatLetters CALLED', {
+        logStatDebug('≡ƒöì getStatLetters CALLED', {
           var: currentStatDebugVar,
           code: currentStatDebugCode || code,
           colIdx,
@@ -3736,7 +3736,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         const thisData = thisCodeData?.[thisCol.id] || {};
         const thisBase = cutBases[thisCol.id] || thisData.base || 0;
 
-        logStatDebug('📊 Code data resolved', {
+        logStatDebug('≡ƒôè Code data resolved', {
           code,
           foundCodeData: !!thisCodeData && Object.keys(thisCodeData).length > 0,
           codeDataKeys: Object.keys(thisCodeData).slice(0, 5),
@@ -3764,7 +3764,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             if (thisPct <= 1) thisPct *= 100;
           }
         }
-        logStatDebug('📈 this column', {
+        logStatDebug('≡ƒôê this column', {
           var: currentStatDebugVar,
           code: currentStatDebugCode || code,
           colIdx,
@@ -3812,7 +3812,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           if (thisPct > otherPct) {
             comparisonsMade++;
             const { is95, is90 } = isSignificant(thisPct, thisBase, otherPct, otherBase);
-            logStatDebug('✅ compare vs other (WITHIN GROUP)', {
+            logStatDebug('Γ£à compare vs other (WITHIN GROUP)', {
               thisCol: thisCol?.title, otherCol: otherCol?.title,
               thisPct, thisBase, otherPct, otherBase, is95, is90, sigLevel: significanceLevel,
               letterWouldBe: String.fromCharCode(65 + otherIdx)
@@ -3831,7 +3831,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           }
         });
 
-        logStatDebug('🔄 Within-group comparison summary', {
+        logStatDebug('≡ƒöä Within-group comparison summary', {
           comparisonsMade,
           comparisonsSkippedSameCol,
           comparisonsSkippedDiffGroup,
@@ -3841,7 +3841,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
         // Fallback: if no letters within subgroup, compare across all cuts in banner
         if (results.length === 0) {
-          logStatDebug('⚠️ No within-group results, trying FALLBACK (all cuts)');
+          logStatDebug('ΓÜá∩╕Å No within-group results, trying FALLBACK (all cuts)');
           let fallbackComparisonsMade = 0;
           let fallbackComparisonsNotHigher = 0;
 
@@ -3868,7 +3868,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             if (thisPct > otherPct) {
               fallbackComparisonsMade++;
               const { is95, is90 } = isSignificant(thisPct, thisBase, otherPct, otherBase);
-              logStatDebug('✅ fallback compare (all cuts)', {
+              logStatDebug('Γ£à fallback compare (all cuts)', {
                 thisCol: thisCol?.title, otherCol: otherCol?.title,
                 thisPct, thisBase, otherPct, otherBase, is95, is90, sigLevel: significanceLevel,
                 letterWouldBe: String.fromCharCode(65 + otherIdx)
@@ -3887,14 +3887,14 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             }
           });
 
-          logStatDebug('🔄 Fallback comparison summary', {
+          logStatDebug('≡ƒöä Fallback comparison summary', {
             fallbackComparisonsMade,
             fallbackComparisonsNotHigher,
             resultsFromFallback: results.length
           });
         }
 
-        logStatDebug('🎯 getStatLetters FINAL RESULT', {
+        logStatDebug('≡ƒÄ» getStatLetters FINAL RESULT', {
           var: currentStatDebugVar,
           code: currentStatDebugCode || code,
           colIdx,
@@ -4424,7 +4424,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           
           // Debug: Log multi-select question data immediately after calculation
           if (isMultiSelectQuestion) {
-            console.log(`🔍 MULTI-SELECT DEBUG - ${variable.name} (after calculateBannerTableDataForVariable):`, {
+            console.log(`≡ƒöì MULTI-SELECT DEBUG - ${variable.name} (after calculateBannerTableDataForVariable):`, {
               variableName: variable.name,
               variableType: variable.type,
               variableCodes: variable.codes,
@@ -4440,7 +4440,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               })) : []
             });
             if (!bannerTableData || Object.keys(bannerTableData).length === 0) {
-              console.log(`⚠️ MULTI-SELECT EMPTY DATA - ${variable.name}: bannerTableData is empty!`);
+              console.log(`ΓÜá∩╕Å MULTI-SELECT EMPTY DATA - ${variable.name}: bannerTableData is empty!`);
             }
           }
           
@@ -4547,7 +4547,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             // Use data keys if available, otherwise fall back to variable codes
             sortedCodes = codesFromData.length > 0 ? codesFromData : codesFromVariable;
             
-            console.log(`🔍 MULTI-SELECT SORTED CODES - ${variable.name}:`, {
+            console.log(`≡ƒöì MULTI-SELECT SORTED CODES - ${variable.name}:`, {
               codesFromData,
               codesFromVariable,
               selectedCodes: sortedCodes,
@@ -4741,7 +4741,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               const respData: Record<string, { total: number; cuts: Record<string, number> }> = {};
 
               if (shouldDebugStats()) {
-                appendStatLog('📋 Banner structure (SSG statement table)', {
+                appendStatLog('≡ƒôï Banner structure (SSG statement table)', {
                   variable: variable.name,
                   statement: stmtCode,
                   bannerColsCount: bannerCols.length,
@@ -4945,7 +4945,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 currentStatDebugCode = `${stmtCode}_${code}`;
 
                 if (shouldDebugStats()) {
-                  appendStatLog('🚀 row start (SSG statement table)', {
+                  appendStatLog('≡ƒÜÇ row start (SSG statement table)', {
                     variable: variable.name,
                     statement: stmtCode,
                     code,
@@ -4967,7 +4967,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   const thisCol = bannerCols[colIdx];
 
                   if (shouldDebugStats()) {
-                    appendStatLog('📈 this column (SSG)', {
+                    appendStatLog('≡ƒôê this column (SSG)', {
                       var: variable.name,
                       statement: stmtCode,
                       code,
@@ -5000,7 +5000,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                       const { is95, is90 } = isSignificant(cutPct, cutBase, otherPct, otherBase);
 
                       if (shouldDebugStats()) {
-                        appendStatLog('✅ compare vs other (SSG WITHIN GROUP)', {
+                        appendStatLog('Γ£à compare vs other (SSG WITHIN GROUP)', {
                           thisCol: thisCol?.title,
                           otherCol: otherCol?.title,
                           thisPct: cutPct,
@@ -5027,7 +5027,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   });
 
                   if (shouldDebugStats()) {
-                    appendStatLog('🔄 Within-group comparison summary (SSG)', {
+                    appendStatLog('≡ƒöä Within-group comparison summary (SSG)', {
                       comparisonsMade,
                       comparisonsSkippedDiffGroup,
                       resultsFromWithinGroup: statLettersForCol.length
@@ -5043,7 +5043,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                     const letters = codeStatLetters[Number(k)] || [];
                     letterStrings[`col${k}`] = letters.map(l => l.letter).join('');
                   });
-                  appendStatLog('🔤 Actual letters by column (SSG)', letterStrings);
+                  appendStatLog('≡ƒöñ Actual letters by column (SSG)', letterStrings);
                 }
 
                 allStatLettersForStmt[code] = codeStatLetters;
@@ -5247,7 +5247,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   dataRowNum++;
 
                   if (shouldDebugStats()) {
-                    appendStatLog('📝 Writing stat letters to Excel (SSG)', {
+                    appendStatLog('≡ƒô¥ Writing stat letters to Excel (SSG)', {
                       variable: variable.name,
                       statement: stmtCode,
                       code,
@@ -6131,7 +6131,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             // Use data keys if available, otherwise fall back to variable codes
             sortedCodes = codesFromData.length > 0 ? codesFromData : codesFromVariable;
             
-            console.log(`🔍 MULTI-SELECT SORTED CODES - ${variable.name}:`, {
+            console.log(`≡ƒöì MULTI-SELECT SORTED CODES - ${variable.name}:`, {
               codesFromData,
               codesFromVariable,
               selectedCodes: sortedCodes,
@@ -6453,7 +6453,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             
             // Debug: Log data access for first code
             if (code === sortedCodes[0]) {
-              console.log(`🔍 MULTI-SELECT DATA ACCESS - ${variable.name}, Code "${code}":`, {
+              console.log(`≡ƒöì MULTI-SELECT DATA ACCESS - ${variable.name}, Code "${code}":`, {
                 code,
                 label,
                 cellData,
@@ -6473,14 +6473,14 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               const codeWithoutR = code.replace(/^r/i, '');
               if (codeWithoutR !== code && (bannerTableData as any)[codeWithoutR]) {
                 cellData = (bannerTableData as any)[codeWithoutR];
-                console.log(`🔍 MULTI-SELECT FOUND DATA (without r prefix) - ${variable.name}, Code "${code}" -> "${codeWithoutR}":`, cellData);
+                console.log(`≡ƒöì MULTI-SELECT FOUND DATA (without r prefix) - ${variable.name}, Code "${code}" -> "${codeWithoutR}":`, cellData);
               }
               // Try with 'r' prefix if it doesn't have it
               else if (!code.startsWith('r') && !code.startsWith('R') && (bannerTableData as any)[`r${code}`]) {
                 cellData = (bannerTableData as any)[`r${code}`];
-                console.log(`🔍 MULTI-SELECT FOUND DATA (with r prefix) - ${variable.name}, Code "${code}" -> "r${code}":`, cellData);
+                console.log(`≡ƒöì MULTI-SELECT FOUND DATA (with r prefix) - ${variable.name}, Code "${code}" -> "r${code}":`, cellData);
               } else {
-                console.log(`⚠️ MULTI-SELECT NO DATA FOUND - ${variable.name}, Code "${code}":`, {
+                console.log(`ΓÜá∩╕Å MULTI-SELECT NO DATA FOUND - ${variable.name}, Code "${code}":`, {
                   code,
                   triedVariations: [code, codeWithoutR, `r${code}`],
                   availableKeys: bannerTableData ? Object.keys(bannerTableData) : []
@@ -6523,7 +6523,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           
           // Debug: Log total data for multi-select questions
           if (isMultiSelectQuestion && code === sortedCodes[0]) {
-            console.log(`🔍 MULTI-SELECT TOTAL DATA - ${variable.name}, Code "${code}":`, {
+            console.log(`≡ƒöì MULTI-SELECT TOTAL DATA - ${variable.name}, Code "${code}":`, {
               code,
               cellData,
               totalData,
@@ -6567,8 +6567,8 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           currentStatDebugVar = variable.name;
           currentStatDebugCode = code;
           if (shouldDebugStats()) {
-            appendStatLog('🚀 row start', { variable: variable.name, code });
-            appendStatLog('📋 Banner structure', {
+            appendStatLog('≡ƒÜÇ row start', { variable: variable.name, code });
+            appendStatLog('≡ƒôï Banner structure', {
               bannerColsCount: bannerCols.length,
               cols: bannerCols.map((c, idx) => ({
                 idx,
@@ -6607,7 +6607,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             try {
               const counts: Record<string, number> = {};
               Object.keys(allStatLetters).forEach(k => { counts[k] = allStatLetters[Number(k)]?.length || 0; });
-              appendStatLog('📊 letters summary', { variable: variable.name, code, counts });
+              appendStatLog('≡ƒôè letters summary', { variable: variable.name, code, counts });
 
               // Show actual stat letter strings for each column
               const letterStrings: Record<string, string> = {};
@@ -6615,7 +6615,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 const letters = allStatLetters[Number(k)] || [];
                 letterStrings[`col${k}`] = letters.map(l => l.letter).join('');
               });
-              appendStatLog('🔤 Actual letters by column', letterStrings);
+              appendStatLog('≡ƒöñ Actual letters by column', letterStrings);
             } catch {}
           }
           // Record stats into debug info for preview (per response row)
@@ -6895,7 +6895,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 : '';
 
               if (shouldDebugStats()) {
-                appendStatLog('📝 Writing stat letters to Excel', {
+                appendStatLog('≡ƒô¥ Writing stat letters to Excel', {
                   variable: currentStatDebugVar,
                   code: currentStatDebugCode,
                   colIdx,
@@ -13635,7 +13635,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 const isFirstCode = responseOptionValues[0]?.code === respOpt.code;
                 const isS6 = variable.name === 'S6';
                 if (shouldDebugStats() && isFirstCode && isS6) {
-                  appendStatLog('🚀 STATEMENT START (Data&Cuts SSG)', {
+                  appendStatLog('≡ƒÜÇ STATEMENT START (Data&Cuts SSG)', {
                     variable: variable.name,
                     statement: normalizedStmtCode,
                     totalBase
@@ -13646,7 +13646,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   bannerCols.forEach((col, idx) => {
                     cutBasesInfo[`col${idx}_${col.title}`] = cutBases[col.id] || 0;
                   });
-                  appendStatLog('📊 cutBases (Data&Cuts SSG)', cutBasesInfo);
+                  appendStatLog('≡ƒôè cutBases (Data&Cuts SSG)', cutBasesInfo);
                 }
 
                 const codeStatLetters: Record<number, { letter: string; is95: boolean }[]> = {};
@@ -13730,9 +13730,9 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                     }
                   });
                   if (hasAnyLetters) {
-                    appendStatLog('✅ Stat letters found (Data&Cuts SSG)', letterStrings);
+                    appendStatLog('Γ£à Stat letters found (Data&Cuts SSG)', letterStrings);
                   } else {
-                    appendStatLog('❌ NO stat letters (Data&Cuts SSG)', {
+                    appendStatLog('Γ¥î NO stat letters (Data&Cuts SSG)', {
                       statement: normalizedStmtCode,
                       code: respOpt.code
                     });
@@ -14967,7 +14967,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           const isS6DebugRegular = variable.name === 'S6';
 
           if (isS6DebugRegular && shouldDebugStats()) {
-            appendStatLog('[S6] 🚀 Starting stat letter calculation', {
+            appendStatLog('[S6] ≡ƒÜÇ Starting stat letter calculation', {
               variable: variable.name,
               type: variable.type,
               totalBase,
@@ -14979,7 +14979,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             bannerCols.forEach((col, idx) => {
               cutBasesInfo[`col${idx}_${col.title}`] = cutBases[col.id] || 0;
             });
-            appendStatLog('[S6] 📊 cutBases', cutBasesInfo);
+            appendStatLog('[S6] ≡ƒôè cutBases', cutBasesInfo);
           }
 
           responseCodes.forEach(code => {
@@ -14988,7 +14988,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             const totalCount = codeData['total']?.count || 0;
 
             if (isS6DebugRegular && shouldDebugStats()) {
-              appendStatLog('[S6] 📊 Processing code', {
+              appendStatLog('[S6] ≡ƒôè Processing code', {
                 code,
                 label: getRowLabelForCode(code),
                 totalPct,
@@ -15018,7 +15018,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   const { is95, is90 } = isSignificant(thisPct, thisBase, otherPct, otherBase);
 
                   if (isS6DebugRegular && shouldDebugStats()) {
-                    appendStatLog('[S6] ✅ within-group comparison', {
+                    appendStatLog('[S6] Γ£à within-group comparison', {
                       code,
                       thisCol: thisCol.title,
                       otherCol: otherCol.title,
@@ -15061,9 +15061,9 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 }
               });
               if (hasAnyLetters) {
-                appendStatLog(`[S6] ✅ Stat letters found for code ${code}`, letterStrings);
+                appendStatLog(`[S6] Γ£à Stat letters found for code ${code}`, letterStrings);
               } else {
-                appendStatLog(`[S6] ❌ NO stat letters for code ${code}`, { code, label: getRowLabelForCode(code) });
+                appendStatLog(`[S6] Γ¥î NO stat letters for code ${code}`, { code, label: getRowLabelForCode(code) });
               }
             }
           });
@@ -15853,7 +15853,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           
           // ExcelJS positioning: ext.width is in pixels, col positioning uses column indices (can be fractional)
           // Excel column width: 1 unit = width of one character in default font (Calibri 11pt)
-          // At 96 DPI: 1 column unit ≈ 7 pixels (this is the standard Excel conversion)
+          // At 96 DPI: 1 column unit Γëê 7 pixels (this is the standard Excel conversion)
           
           // Calculate total pixel width to end of column D
           const totalWidthToEndOfDInColumnUnits = colAWidth + colBWidth + colCWidth + colDWidth;
@@ -16819,7 +16819,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     // Generate expected headers for each related variable
     const expectedHeaders: string[] = [];
     
-    // For numeric grids, generate expected headers from question data (statements × responseOptions)
+    // For numeric grids, generate expected headers from question data (statements ├ù responseOptions)
     if (isNumericGrid && question) {
       // Get statement codes (rows) - same logic as convertQuestionsToVariables
       const rowCodes: string[] = [];
@@ -16883,7 +16883,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         }
       }
       
-      // Generate all combinations: each row × each column
+      // Generate all combinations: each row ├ù each column
       // Group by column first (c1, c2, c3...), then by row within each column
       if (rowCodes.length > 0) {
         if (colCodes.length > 0) {
@@ -16928,7 +16928,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       }
     }
     
-    // For multi-select grids, generate expected headers from question data (statements × responseOptions)
+    // For multi-select grids, generate expected headers from question data (statements ├ù responseOptions)
     // Similar to numeric grids, but for multi-select grids
     if (isMultiSelectGrid && question) {
       // Get statement codes (rows) - same logic as convertQuestionsToVariables
@@ -16986,7 +16986,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       let finalRowCodes = rowCodes;
       let finalColCodes = colCodes;
       
-      // Generate all combinations: each row × each column
+      // Generate all combinations: each row ├ù each column
       // Group by column first (c1, c2, c3...), then by row within each column
       if (finalRowCodes.length > 0) {
         if (finalColCodes.length > 0) {
@@ -17210,7 +17210,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       if (!expectedHeaders.includes(baseHeader)) {
         // Add the base question column at the beginning (e.g., QB4, QB5, QB6)
         expectedHeaders.unshift(baseHeader);
-        console.log(`🔍 [HEADER DEBUG] Added base header ${baseHeader} for ${baseQuestionNumber}`);
+        console.log(`≡ƒöì [HEADER DEBUG] Added base header ${baseHeader} for ${baseQuestionNumber}`);
       }
 
       // For open-ended questions, only add coded headers (e.g., QS3r1, QS3r2)
@@ -17283,7 +17283,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     // Check for numeric grid - include both "numeric list" (converted) and "numeric grid"
     const isNumericGrid = typeLower.includes('numeric grid') || typeLower.includes('numeric list');
     
-    // For numeric grids, generate expected headers from QNR: rows × columns
+    // For numeric grids, generate expected headers from QNR: rows ├ù columns
     if (isNumericGrid) {
       const expectedHeaders: string[] = [];
       
@@ -17399,7 +17399,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         rowCodes.push('r1');
       }
       
-      // Generate all combinations: each row × each column
+      // Generate all combinations: each row ├ù each column
       // Group by column first (c1, c2, c3...), then by row within each column
       if (rowCodes.length > 0) {
         if (colCodes.length > 0) {
@@ -17458,7 +17458,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       return { headers: [], rows: [] };
     }
 
-    console.log('🔍 [QUESTIONS DEBUG] questionnaireQuestions:', {
+    console.log('≡ƒöì [QUESTIONS DEBUG] questionnaireQuestions:', {
       totalQuestions: questionnaireQuestions.length,
       questionNumbers: questionnaireQuestions.map(q => q.number || q.id).slice(0, 30),
       hasB4: questionnaireQuestions.some(q => (q.number || q.id) === 'B4'),
@@ -17487,7 +17487,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
       const expectedHeaders = getExpectedColumnHeadersForBase(baseNumber, variables);
       if (String(baseNumber).replace(/^Q/, '').toUpperCase() === 'S3') {
-        console.log('🟣 [PROCESSED TRACE] S3 expected headers from getExpectedColumnHeadersForBase (pre-raw injection):', expectedHeaders);
+        console.log('≡ƒƒú [PROCESSED TRACE] S3 expected headers from getExpectedColumnHeadersForBase (pre-raw injection):', expectedHeaders);
       }
       expectedHeaders.forEach(header => {
         if (!expectedHeadersSet.has(header)) {
@@ -17539,9 +17539,9 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     // Do NOT inject coded 'r' columns into expected headers from the data file.
     // Expected headers are driven solely by QNR and saved coding state elsewhere.
     if (allExpectedHeaders.some(h => /^QS3r\d+$/i.test(h))) {
-      console.log('🟥 [PROCESSED TRACE] S3 unexpected coded headers present in allExpectedHeaders:', allExpectedHeaders.filter(h => /^QS3r\d+$/i.test(h)));
+      console.log('≡ƒƒÑ [PROCESSED TRACE] S3 unexpected coded headers present in allExpectedHeaders:', allExpectedHeaders.filter(h => /^QS3r\d+$/i.test(h)));
     } else {
-      console.log('🟢 [PROCESSED TRACE] S3 OK: no coded headers in allExpectedHeaders.');
+      console.log('≡ƒƒó [PROCESSED TRACE] S3 OK: no coded headers in allExpectedHeaders.');
     }
 
     // Always include "record" as the first column if it exists in the data
@@ -17551,9 +17551,9 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     }
     finalHeaders.push(...allExpectedHeaders);
     if (finalHeaders.some(h => /^QS3r\d+$/i.test(h))) {
-      console.log('🟥 [PROCESSED TRACE] S3 coded headers ended up in finalHeaders:', finalHeaders.filter(h => /^QS3r\d+$/i.test(h)));
+      console.log('≡ƒƒÑ [PROCESSED TRACE] S3 coded headers ended up in finalHeaders:', finalHeaders.filter(h => /^QS3r\d+$/i.test(h)));
     } else {
-      console.log('🟢 [PROCESSED TRACE] S3 OK: no coded headers in finalHeaders.');
+      console.log('≡ƒƒó [PROCESSED TRACE] S3 OK: no coded headers in finalHeaders.');
     }
 
     // Process data rows - only include rows that have a record/respno value
@@ -17919,7 +17919,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       filteredColumns.splice(insertIndex, 0, ...codeColumnNames);
 
       // Debug logging
-      console.log('🔍 [CODING DEBUG] Saving coded data:', {
+      console.log('≡ƒöì [CODING DEBUG] Saving coded data:', {
         variableName: selectedOpenEndVariable.name,
         baseVariableName,
         codeColumnNames,
@@ -17960,7 +17960,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         });
       } catch {}
 
-      console.log('🔍 [CODING DEBUG] Updated fullRawData state');
+      console.log('≡ƒöì [CODING DEBUG] Updated fullRawData state');
 
       // Prepare expected headers debug for this variable (what will show in Data tab)
       try {
@@ -17981,7 +17981,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
       // Save to backend
       try {
-        console.log('🔍 [CODING DEBUG] Sending to backend...');
+        console.log('≡ƒöì [CODING DEBUG] Sending to backend...');
         const response = await fetch(`${API_BASE_URL}/api/questionnaire/raw-data/${selectedQuestionnaire.id}`, {
           method: 'PUT',
           headers: {
@@ -17996,14 +17996,14 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('🔍 [CODING DEBUG] Backend save failed:', response.status, errorText);
+          console.error('≡ƒöì [CODING DEBUG] Backend save failed:', response.status, errorText);
           throw new Error('Failed to save raw data to server');
         }
 
         const result = await response.json();
-        console.log('🔍 [CODING DEBUG] Backend save succeeded:', result);
+        console.log('≡ƒöì [CODING DEBUG] Backend save succeeded:', result);
       } catch (saveError) {
-        console.error('🔍 [CODING DEBUG] Error saving to backend:', saveError);
+        console.error('≡ƒöì [CODING DEBUG] Error saving to backend:', saveError);
         setOpenEndCodingError('Data saved locally but failed to persist to server. Changes may be lost on refresh.');
       }
 
@@ -18030,7 +18030,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
       // No need to create separate variables - coded columns will show as expected headers
       // for the base variable automatically (pulled from fullRawData.columns)
-      console.log('🔍 [CODING DEBUG] Coded columns saved. They will appear as expected headers for', selectedOpenEndVariable.name);
+      console.log('≡ƒöì [CODING DEBUG] Coded columns saved. They will appear as expected headers for', selectedOpenEndVariable.name);
 
       setVariableTableSelections(prev => {
         const summaryId = `${selectedOpenEndVariable.name}_VerbatimSummary`;
@@ -18154,11 +18154,11 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         });
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('🔍 [CODING DEBUG] Backend delete save failed:', response.status, errorText);
+          console.error('≡ƒöì [CODING DEBUG] Backend delete save failed:', response.status, errorText);
           throw new Error('Failed to save deletion to server');
         }
       } catch (e) {
-        console.error('🔍 [CODING DEBUG] Error persisting deletion:', e);
+        console.error('≡ƒöì [CODING DEBUG] Error persisting deletion:', e);
         // Keep UI consistent even if backend fails; user can refresh to retry
       }
     } finally {
@@ -18168,7 +18168,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       });
     }
   }, [fullRawData, selectedQuestionnaire]);
-  // (Deleted) handleOpenEndDelete – reverting to previous behavior with no delete control
+  // (Deleted) handleOpenEndDelete ΓÇô reverting to previous behavior with no delete control
 
   // Load questionnaire details function
   const loadQuestionnaireDetails = useCallback(async () => {
@@ -18513,7 +18513,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           const stateMapping = columnMappingState || {};
           const serverMapping = data.columnMapping || {};
           const merged = { ...serverMapping, ...localParsed, ...stateMapping };
-          console.log('🟢 [LOAD FILE INFO] Using merged mapping', {
+          console.log('≡ƒƒó [LOAD FILE INFO] Using merged mapping', {
             questionnaireId: selectedQuestionnaire.id,
             serverKeys: Object.keys(serverMapping).length,
             localKeys: Object.keys(localParsed).length,
@@ -18525,7 +18525,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           // If merged contains more keys than server, write back to server
           if (Object.keys(merged).length > Object.keys(serverMapping).length) {
             try {
-              console.log('🟢 [LOAD FILE INFO] Writing merged mapping back to server', {
+              console.log('≡ƒƒó [LOAD FILE INFO] Writing merged mapping back to server', {
                 questionnaireId: selectedQuestionnaire.id
               });
               fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
@@ -18551,26 +18551,26 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             if (stored) {
               const parsed = JSON.parse(stored);
               if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
-                console.log('🟡 [LOAD FILE INFO] Falling back to localStorage mapping', {
+                console.log('≡ƒƒí [LOAD FILE INFO] Falling back to localStorage mapping', {
                   questionnaireId: selectedQuestionnaire.id,
                   keys: Object.keys(parsed).length
                 });
                 setColumnMapping(parsed);
                 setHasAttemptedMapping(true);
               } else {
-                console.log('🟡 [LOAD FILE INFO] localStorage mapping empty, clearing');
+                console.log('≡ƒƒí [LOAD FILE INFO] localStorage mapping empty, clearing');
                 setColumnMapping({});
               }
             } else {
-              console.log('🟡 [LOAD FILE INFO] No server mapping and no localStorage mapping');
+              console.log('≡ƒƒí [LOAD FILE INFO] No server mapping and no localStorage mapping');
               setColumnMapping({});
             }
           } catch {
-            console.warn('⚠️ [LOAD FILE INFO] Failed reading localStorage mapping');
+            console.warn('ΓÜá∩╕Å [LOAD FILE INFO] Failed reading localStorage mapping');
             setColumnMapping({});
           }
         } else {
-          console.log('🟠 [LOAD FILE INFO] Upload in progress or no mapping; clearing');
+          console.log('≡ƒƒá [LOAD FILE INFO] Upload in progress or no mapping; clearing');
           setColumnMapping({});
           // Don't set hasAttemptedMapping to false when loading - only set it when explicitly clearing
           // This prevents auto-mapping when loading a file without a mapping
@@ -18595,7 +18595,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       } else if (response.status === 404) {
         // Only clear if we get a 404 (file doesn't exist)
         // Don't clear on other errors as they might be temporary
-        console.log('🟢 [LOAD FILE INFO DEBUG] 404 - file not found, clearing state');
+        console.log('≡ƒƒó [LOAD FILE INFO DEBUG] 404 - file not found, clearing state');
         setUploadedFileInfo(null);
         setColumnMapping({});
         setColumnHeaders([]);
@@ -18662,7 +18662,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       if (stored) {
         const parsed = JSON.parse(stored);
         if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
-          console.log('🟣 [PRELOAD] Loaded mapping from localStorage on questionnaire change', {
+          console.log('≡ƒƒú [PRELOAD] Loaded mapping from localStorage on questionnaire change', {
             questionnaireId: selectedQuestionnaire.id,
             keys: Object.keys(parsed).length
           });
@@ -18679,7 +18679,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     if (!selectedQuestionnaire) return;
     if (uploadedFileInfo) return;
     if (columnMapping && Object.keys(columnMapping).length > 0) {
-      console.log('🟣 [PRELOAD] Synthesizing uploadedFileInfo based on local mapping presence');
+      console.log('≡ƒƒú [PRELOAD] Synthesizing uploadedFileInfo based on local mapping presence');
       setUploadedFileInfo({
         fileName: 'Unknown',
         uploadedAt: new Date().toISOString(),
@@ -18753,13 +18753,13 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       // Don't load file info if we just uploaded a file (within last 2 seconds)
       // This prevents loading old mappings right after upload
       if (uploadCompletedAtRef.current && Date.now() - uploadCompletedAtRef.current < 2000) {
-        console.log('🟢 [LOAD FILE INFO DEBUG] Skipping loadFileInfo - upload completed recently');
+        console.log('≡ƒƒó [LOAD FILE INFO DEBUG] Skipping loadFileInfo - upload completed recently');
         return;
       }
       
       // Don't load file info if we're still uploading
       if (isUploadingNewFileRef.current) {
-        console.log('🟢 [LOAD FILE INFO DEBUG] Skipping loadFileInfo - upload in progress');
+        console.log('≡ƒƒó [LOAD FILE INFO DEBUG] Skipping loadFileInfo - upload in progress');
         return;
       }
       
@@ -18788,7 +18788,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
   // Function to perform automatic mapping
   const performAutomaticMapping = useCallback(async (forceRemap: boolean = false) => {
     const startTime = performance.now();
-    console.log('🔵 [MAPPING DEBUG] performAutomaticMapping called', {
+    console.log('≡ƒö╡ [MAPPING DEBUG] performAutomaticMapping called', {
       forceRemap,
       hasAttemptedMapping,
       selectedQuestionnaire: selectedQuestionnaire?.id,
@@ -18802,27 +18802,27 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     // NEVER auto-map - only allow mapping if forceRemap is explicitly true (from refresh button)
     // This prevents any automatic mapping from happening
     if (!forceRemap) {
-      console.log('🔵 [MAPPING DEBUG] performAutomaticMapping BLOCKED - forceRemap is false (auto-mapping disabled)');
+      console.log('≡ƒö╡ [MAPPING DEBUG] performAutomaticMapping BLOCKED - forceRemap is false (auto-mapping disabled)');
       return;
     }
     
     // BLOCK mapping if we just uploaded a file (within last 2 seconds)
     // This prevents automatic mapping right after upload, even if forceRemap is true
     if (uploadCompletedAtRef.current && Date.now() - uploadCompletedAtRef.current < 2000) {
-      console.log('🔵 [MAPPING DEBUG] performAutomaticMapping BLOCKED - upload completed recently (within 2 seconds)');
+      console.log('≡ƒö╡ [MAPPING DEBUG] performAutomaticMapping BLOCKED - upload completed recently (within 2 seconds)');
       return;
     }
     
     // BLOCK mapping if we're still uploading
     if (isUploadingNewFileRef.current) {
-      console.log('🔵 [MAPPING DEBUG] performAutomaticMapping BLOCKED - upload in progress');
+      console.log('≡ƒö╡ [MAPPING DEBUG] performAutomaticMapping BLOCKED - upload in progress');
       return;
     }
     
     // Allow remapping if forceRemap is true, otherwise check hasAttemptedMapping
     const shouldSkip = !forceRemap && hasAttemptedMapping;
     if (!selectedQuestionnaire || columnHeaders.length === 0 || variables.length === 0 || shouldSkip) {
-      console.log('🔵 [MAPPING DEBUG] performAutomaticMapping SKIPPED', {
+      console.log('≡ƒö╡ [MAPPING DEBUG] performAutomaticMapping SKIPPED', {
         shouldSkip,
         reason: !selectedQuestionnaire ? 'no questionnaire' : 
                 columnHeaders.length === 0 ? 'no column headers' :
@@ -18832,7 +18832,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       return;
     }
     
-    console.log('🔵 [MAPPING DEBUG] performAutomaticMapping PROCEEDING (forceRemap=true)');
+    console.log('≡ƒö╡ [MAPPING DEBUG] performAutomaticMapping PROCEEDING (forceRemap=true)');
     setMappingVariables(true);
     try {
       // Filter out computed/summary variables that shouldn't be mapped
@@ -19017,7 +19017,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         // Debug C1 specifically
         if (group.baseNumber.toLowerCase() === 'c1') {
           const c1ColumnHeaders = columnHeaders.filter(h => h.toLowerCase().includes('c1r'));
-          console.log('🔵 [MAPPING PRIMARY] Processing C1', {
+          console.log('≡ƒö╡ [MAPPING PRIMARY] Processing C1', {
             baseNumber: group.baseNumber,
             expectedHeaders: expectedHeaders,
             c1ColumnHeadersInFile: c1ColumnHeaders.slice(0, 10),
@@ -19035,7 +19035,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             );
             const matchingButUsed = matchingColHeaders.filter(h => usedColumnHeaders.has(h));
             const matchingAndAvailable = matchingColHeaders.filter(h => !usedColumnHeaders.has(h));
-            console.log('🔵 [MAPPING PRIMARY] C1 header check', {
+            console.log('≡ƒö╡ [MAPPING PRIMARY] C1 header check', {
               expectedHeader,
               expectedNormalized,
               matchingColHeaders,
@@ -19164,7 +19164,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         }).map(q => q.number || q.id);
         // Check variables for C1
         const c1InVariables = variables.filter(v => v.name.toLowerCase().includes('c1')).map(v => v.name);
-        console.log('🔵 [MAPPING FALLBACK] Looking for B2 and C1', {
+        console.log('≡ƒö╡ [MAPPING FALLBACK] Looking for B2 and C1', {
           b2BaseNumbers: b2Group,
           c1BaseNumbers: c1Group,
           c1InQnrQuestions: c1InQnrQuestions,
@@ -19206,7 +19206,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               return qNum.includes('b2') || qNum.includes('[b2') || qNum.includes('qb2');
             }).map((q: any) => q.questionNumber) || [];
 
-            console.log('🔵 [MAPPING FALLBACK] Processing B2', {
+            console.log('≡ƒö╡ [MAPPING FALLBACK] Processing B2', {
               baseNumber: group.baseNumber,
               expectedHeadersCount: expectedHeaders.length,
               expectedHeadersSample: expectedHeaders.slice(0, 5),
@@ -19250,7 +19250,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               // Check if any unmapped headers have column suffix (grid pattern)
               const gridUnmapped = unmappedHeaders.filter(h => /r\d+c\d+$/i.test(h));
               if (gridUnmapped.length > 0) {
-                console.log('🔵 [MAPPING FALLBACK] Skipping question - missing data', {
+                console.log('≡ƒö╡ [MAPPING FALLBACK] Skipping question - missing data', {
                   baseNumber: group.baseNumber,
                   unmappedCount: unmappedHeaders.length,
                   gridUnmappedCount: gridUnmapped.length,
@@ -19327,7 +19327,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   });
 
                   if (matchingColDef) {
-                    console.log('🔵 [MAPPING FALLBACK] Grid column matched via columnDefinitions', unmappedHeader, '->', matchingColDef.columnName);
+                    console.log('≡ƒö╡ [MAPPING FALLBACK] Grid column matched via columnDefinitions', unmappedHeader, '->', matchingColDef.columnName);
                     expectedHeadersMapping[unmappedHeader] = matchingColDef.columnName;
                     usedColumnHeaders.add(matchingColDef.columnName);
                     return;
@@ -19352,7 +19352,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                       return colLower.includes('r98') || colLower.includes('r97');
                     });
                     if (otherColumn) {
-                      console.log('🔵 [MAPPING FALLBACK] Grid "Other" column matched by pattern', unmappedHeader, '->', otherColumn);
+                      console.log('≡ƒö╡ [MAPPING FALLBACK] Grid "Other" column matched by pattern', unmappedHeader, '->', otherColumn);
                       expectedHeadersMapping[unmappedHeader] = otherColumn;
                       usedColumnHeaders.add(otherColumn);
                     }
@@ -19404,7 +19404,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 if (!qnrResponseOption) {
                   // Log when we can't find a matching option for grid questions
                   if (isGridQuestion) {
-                    console.log('🔵 [MAPPING FALLBACK] No QNR option found for grid header', unmappedHeader, {
+                    console.log('≡ƒö╡ [MAPPING FALLBACK] No QNR option found for grid header', unmappedHeader, {
                       expectedCode,
                       columnSuffix,
                       statementOptionsCount: qnrStatementOptions.length,
@@ -19475,7 +19475,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   // e.g., columnNameFromCode='QB2r98' + columnSuffix='c1' = 'QB2r98c1'
                   const targetColumnName = columnNameFromCode ? (columnNameFromCode + columnSuffix) : null;
 
-                  console.log('🔵 [MAPPING FALLBACK] Found text match for', unmappedHeader, {
+                  console.log('≡ƒö╡ [MAPPING FALLBACK] Found text match for', unmappedHeader, {
                     qnrText: cleanQnrText,
                     datamapText,
                     columnNameFromCode,
@@ -19504,7 +19504,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                     });
 
                     if (matchingCol) {
-                      console.log('🔵 [MAPPING FALLBACK] Mapped', unmappedHeader, '->', matchingCol);
+                      console.log('≡ƒö╡ [MAPPING FALLBACK] Mapped', unmappedHeader, '->', matchingCol);
                       expectedHeadersMapping[unmappedHeader] = matchingCol;
                       usedColumnHeaders.add(matchingCol);
                       return;
@@ -19527,7 +19527,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                       });
 
                       if (matchingDef) {
-                        console.log('🔵 [MAPPING FALLBACK] Mapped via columnDefinitions', unmappedHeader, '->', matchingDef.columnName);
+                        console.log('≡ƒö╡ [MAPPING FALLBACK] Mapped via columnDefinitions', unmappedHeader, '->', matchingDef.columnName);
                         expectedHeadersMapping[unmappedHeader] = matchingDef.columnName;
                         usedColumnHeaders.add(matchingDef.columnName);
                         return;
@@ -19594,7 +19594,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       }
       
       const finalMapping = expectedHeadersMapping;
-      console.log('🔵 [MAPPING DEBUG] About to save mapping', {
+      console.log('≡ƒö╡ [MAPPING DEBUG] About to save mapping', {
         mappingKeys: Object.keys(finalMapping).length,
         isUploadingNewFile: isUploadingNewFileRef.current,
         uploadCompletedAt: uploadCompletedAtRef.current
@@ -19602,13 +19602,13 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       
       // Double-check: Don't save if we just uploaded a file
       if (isUploadingNewFileRef.current || (uploadCompletedAtRef.current && Date.now() - uploadCompletedAtRef.current < 5000)) {
-        console.log('🔵 [MAPPING DEBUG] BLOCKED saving mapping to backend - upload in progress or just completed');
+        console.log('≡ƒö╡ [MAPPING DEBUG] BLOCKED saving mapping to backend - upload in progress or just completed');
         return;
       }
       
       // Save the automatic mapping to the backend first
       const saveApiStartTime = performance.now();
-      console.log('🔵 [MAPPING DEBUG] CALLING BACKEND /api/questionnaire/map-columns');
+      console.log('≡ƒö╡ [MAPPING DEBUG] CALLING BACKEND /api/questionnaire/map-columns');
       const saveResponse = await fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
         method: 'POST',
         headers: {
@@ -19631,7 +19631,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         const savedMapping = result.mapping || finalMapping;
         
         // Update state only after successful save to prevent double rendering
-        console.log('🔵 [MAPPING DEBUG] Setting mapping after save', {
+        console.log('≡ƒö╡ [MAPPING DEBUG] Setting mapping after save', {
           mappingKeys: Object.keys(savedMapping).length,
           isUploadingNewFile: isUploadingNewFileRef.current
         });
@@ -19650,7 +19650,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         const endTime = performance.now();
       } else {
         // Still update state even if save failed (user can see the mapping)
-        console.log('🔵 [MAPPING DEBUG] Save failed, but setting mapping locally', {
+        console.log('≡ƒö╡ [MAPPING DEBUG] Save failed, but setting mapping locally', {
           mappingKeys: Object.keys(finalMapping).length,
           isUploadingNewFile: isUploadingNewFileRef.current
         });
@@ -19729,13 +19729,13 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     baseQuestionMap.forEach((group) => {
       let headers = getExpectedColumnHeadersForBase(group.baseNumber, variables);
       if (String(group.baseNumber).replace(/^Q/, '').toUpperCase() === 'S3') {
-        console.log('🟡 [MAPPING TRACE] S3 expected headers (initial):', headers);
+        console.log('≡ƒƒí [MAPPING TRACE] S3 expected headers (initial):', headers);
       }
       // Include headers saved from Variables debug for this base
       const codedFromVars = codedHeadersDebug[`Q${group.baseNumber}`] || codedHeadersDebug[String(group.baseNumber)] || [];
       if (codedFromVars.length > 0) {
         if (String(group.baseNumber).replace(/^Q/, '').toUpperCase() === 'S3') {
-          console.log('🟡 [MAPPING TRACE] S3 codedFromVars present; appending:', codedFromVars);
+          console.log('≡ƒƒí [MAPPING TRACE] S3 codedFromVars present; appending:', codedFromVars);
         }
         const unique = new Set(headers.map(h => h.replace(/_/g, '')));
         codedFromVars.forEach(h => {
@@ -19758,7 +19758,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
              []) as Array<{ code: number; theme: string }>;
           if (Array.isArray(savedThemesArr) && savedThemesArr.length > 0) {
             if (String(group.baseNumber).replace(/^Q/, '').toUpperCase() === 'S3') {
-              console.log('🟡 [MAPPING TRACE] S3 savedThemes found; scanning data for coded columns', {
+              console.log('≡ƒƒí [MAPPING TRACE] S3 savedThemes found; scanning data for coded columns', {
                 savedThemesCount: savedThemesArr.length,
                 fullRawDataCols: fullRawData?.columns?.length || 0,
                 columnHeadersCount: columnHeaders.length
@@ -19772,7 +19772,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             });
             if (codedCols.length > 0) {
               if (String(group.baseNumber).replace(/^Q/, '').toUpperCase() === 'S3') {
-                console.log('🟡 [MAPPING TRACE] S3 adding coded columns from data:', codedCols.slice(0, 10), '... total:', codedCols.length);
+                console.log('≡ƒƒí [MAPPING TRACE] S3 adding coded columns from data:', codedCols.slice(0, 10), '... total:', codedCols.length);
               }
               const qPrefixed = codedCols.map(c => (c.startsWith('Q') || c.startsWith('q')) ? c.replace(/^q/i, 'Q') : `Q${c}`);
               const unique = new Set(headers);
@@ -19781,13 +19781,13 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             }
           } else {
             if (String(group.baseNumber).replace(/^Q/, '').toUpperCase() === 'S3') {
-              console.log('🟡 [MAPPING TRACE] S3 no savedThemes; NOT adding coded columns from data.');
+              console.log('≡ƒƒí [MAPPING TRACE] S3 no savedThemes; NOT adding coded columns from data.');
             }
           }
         }
       }
       if (String(group.baseNumber).replace(/^Q/, '').toUpperCase() === 'S3') {
-        console.log('🟡 [MAPPING TRACE] S3 expected headers (post-inserts):', headers);
+        console.log('≡ƒƒí [MAPPING TRACE] S3 expected headers (post-inserts):', headers);
       }
       headers.forEach(header => {
         if (!expectedHeadersSet.has(header)) {
@@ -20184,7 +20184,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     } else if (viewMode === 'project' && selectedProject) {
       onHeaderChange(selectedProject.name);
     } else if (viewMode === 'qnr' && selectedQuestionnaire && selectedProject) {
-      onHeaderChange(`${selectedProject.name} • ${selectedQuestionnaire.name}`);
+      onHeaderChange(`${selectedProject.name} ΓÇó ${selectedQuestionnaire.name}`);
     }
   }, [viewMode, selectedProject, selectedQuestionnaire, onHeaderChange]);
 
@@ -29552,7 +29552,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                   disabled={!!deletingCodedTables[variable.name]}
                                   title="Remove all code columns for this question"
                                 >
-                                  {deletingCodedTables[variable.name] ? 'Deleting…' : 'Delete coded table'}
+                                  {deletingCodedTables[variable.name] ? 'DeletingΓÇª' : 'Delete coded table'}
                                 </button>
                               </div>
                               {codedHeadersDebug[variable.name] && codedHeadersDebug[variable.name].length > 0 && (
@@ -31677,14 +31677,14 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                         setShowAllHeaders(false);
                         
                         // Set flag to prevent restoring old mapping from server
-                        console.log('🟡 [UPLOAD DEBUG] Starting file upload', {
+                        console.log('≡ƒƒí [UPLOAD DEBUG] Starting file upload', {
                           fileName: file.name,
                           questionnaireId: selectedQuestionnaire.id
                         });
                         isUploadingNewFileRef.current = true;
                         
                         // Clear mapping state when uploading a new file
-                        console.log('🟡 [UPLOAD DEBUG] Clearing mapping state');
+                        console.log('≡ƒƒí [UPLOAD DEBUG] Clearing mapping state');
                         setColumnMapping({});
                         setHasAttemptedMapping(false);
                         setDatamapData(null);
@@ -31764,11 +31764,11 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                             // Load datamap and raw data in background after upload
                             // This prevents loadFileInfo from loading old mappings if it gets triggered
                             if (selectedQuestionnaire) {
-                              console.log('🟡 [UPLOAD DEBUG] Loading datamap and raw data');
+                              console.log('≡ƒƒí [UPLOAD DEBUG] Loading datamap and raw data');
                               // Load both datamap and raw data, then clear the flag
                               Promise.all([loadDatamap(), loadFullRawData()]).finally(() => {
                                 // Clear the uploading flag AFTER datamap loads to prevent loadFileInfo from loading old mappings
-                                console.log('🟡 [UPLOAD DEBUG] Datamap and raw data loaded, now clearing upload flag');
+                                console.log('≡ƒƒí [UPLOAD DEBUG] Datamap and raw data loaded, now clearing upload flag');
                                 isUploadingNewFileRef.current = false;
                                 // Record when upload completed to prevent loadFileInfo from running too soon
                                 uploadCompletedAtRef.current = Date.now();
@@ -31779,7 +31779,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                               });
                             } else {
                               // If no questionnaire, clear the flag immediately
-                              console.log('🟡 [UPLOAD DEBUG] Upload complete, clearing upload flag');
+                              console.log('≡ƒƒí [UPLOAD DEBUG] Upload complete, clearing upload flag');
                               isUploadingNewFileRef.current = false;
                               uploadCompletedAtRef.current = Date.now();
                               setTimeout(() => {
@@ -31789,7 +31789,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                             
                             // Don't call loadFileInfo after upload - it would clear the mapping
                             // The user will click the refresh button when they want to map, which will load file info
-                            console.log('🟡 [UPLOAD DEBUG] Upload complete - NOT calling loadFileInfo (user must click refresh to map)');
+                            console.log('≡ƒƒí [UPLOAD DEBUG] Upload complete - NOT calling loadFileInfo (user must click refresh to map)');
                           }
                         } catch (error) {
                         } finally {
@@ -32096,7 +32096,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                         // Check for numeric grid - include both "numeric list" (converted) and "numeric grid"
                                         const isNumericGrid = typeLower.includes('numeric grid') || typeLower.includes('numeric list');
                                         
-                                        // For numeric grids, generate expected headers from QNR: rows × columns
+                                        // For numeric grids, generate expected headers from QNR: rows ├ù columns
                                         let expectedHeaders: string[] = [];
                                         if (isNumericGrid) {
                                           // Get row codes (statementOptions)
@@ -32158,7 +32158,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                             }
                                           }
                                           
-                                          // Generate all combinations: each row × each column
+                                          // Generate all combinations: each row ├ù each column
                                           if (rowCodes.length > 0) {
                                             if (colCodes.length > 0) {
                                               // Sort columns numerically
@@ -32232,7 +32232,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                            []) as Array<{ code: number; theme: string }>;
                                         const hasSavedThemes = Array.isArray(savedThemesArr) && savedThemesArr.length > 0;
                                         if (String(qNumStr).replace(/^Q/, '').toUpperCase() === 'S3') {
-                                          console.log('🟪 [DATA TAB TRACE] S3 augmentation check', { isOpenEndType, hasSavedThemes, savedThemesCount: savedThemesArr.length });
+                                          console.log('≡ƒƒ¬ [DATA TAB TRACE] S3 augmentation check', { isOpenEndType, hasSavedThemes, savedThemesCount: savedThemesArr.length });
                                         }
                                         if (isOpenEndType && hasSavedThemes) {
                                           const headersSource: string[] = (fullRawData && fullRawData.columns && fullRawData.columns.length > 0)
@@ -32474,7 +32474,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                         disabled={rawDataColumnStart === 0}
                                         className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                       >
-                                        ←
+                                        ΓåÉ
                                       </button>
                                       <span className="text-xs text-gray-600">
                                         {Math.floor(rawDataColumnStart / rawDataColumnsPerPage) + 1}/{Math.ceil(nonRecordCount / rawDataColumnsPerPage)}
@@ -32484,7 +32484,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                         disabled={rawDataColumnStart + rawDataColumnsPerPage >= nonRecordCount}
                                         className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                       >
-                                        →
+                                        ΓåÆ
                                       </button>
                                     </div>
                                   );
@@ -32671,7 +32671,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                       {/* DEBUG: Raw Question IDs from Column 1 */}
                                       {datamapData?.questions && datamapData.questions.length > 0 && (
                                         <div className="bg-blue-50 border-2 border-blue-400 rounded-lg p-4">
-                                          <h4 className="text-sm font-bold text-blue-900 mb-3">🐛 DEBUG: Raw Question IDs (Column 1)</h4>
+                                          <h4 className="text-sm font-bold text-blue-900 mb-3">≡ƒÉ¢ DEBUG: Raw Question IDs (Column 1)</h4>
                                           <div className="overflow-x-auto max-h-64 overflow-y-auto">
                                             <table className="min-w-full divide-y divide-blue-200">
                                               <thead className="bg-blue-100 sticky top-0">
@@ -32790,17 +32790,17 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                                   const getQuestionType = (type: string): string => {
                                                     const lowerType = type.toLowerCase();
 
-                                                    // Open text → Open end
+                                                    // Open text ΓåÆ Open end
                                                     if (lowerType.includes('open text')) {
                                                       return 'Open end';
                                                     }
 
-                                                    // Open numeric → Numeric
+                                                    // Open numeric ΓåÆ Numeric
                                                     if (lowerType.includes('open numeric')) {
                                                       return 'Numeric';
                                                     }
 
-                                                    // Values: 0-1 → Multi-select
+                                                    // Values: 0-1 ΓåÆ Multi-select
                                                     if (lowerType.match(/values?:\s*0\s*-\s*1/i)) {
                                                       return 'Multi-select';
                                                     }
@@ -32811,12 +32811,12 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                                       const min = parseInt(valuesMatch[1]);
                                                       const max = parseInt(valuesMatch[2]);
 
-                                                      // Values 1-99 → Single select
+                                                      // Values 1-99 ΓåÆ Single select
                                                       if (min >= 1 && max <= 99) {
                                                         return 'Single select';
                                                       }
 
-                                                      // Values outside 1-99 → Numeric
+                                                      // Values outside 1-99 ΓåÆ Numeric
                                                       return 'Numeric';
                                                     }
 
@@ -33216,17 +33216,17 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                                   const getQuestionType = (type: string): string => {
                                                     const lowerType = type.toLowerCase();
 
-                                                    // Open text → Open end
+                                                    // Open text ΓåÆ Open end
                                                     if (lowerType.includes('open text')) {
                                                       return 'Open end';
                                                     }
 
-                                                    // Open numeric → Numeric
+                                                    // Open numeric ΓåÆ Numeric
                                                     if (lowerType.includes('open numeric')) {
                                                       return 'Numeric';
                                                     }
 
-                                                    // Values: 0-1 → Multi-select
+                                                    // Values: 0-1 ΓåÆ Multi-select
                                                     if (lowerType.match(/values?:\s*0\s*-\s*1/i)) {
                                                       return 'Multi-select';
                                                     }
@@ -33237,12 +33237,12 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                                       const min = parseInt(valuesMatch[1]);
                                                       const max = parseInt(valuesMatch[2]);
 
-                                                      // Values 1-99 → Single select
+                                                      // Values 1-99 ΓåÆ Single select
                                                       if (min >= 1 && max <= 99) {
                                                         return 'Single select';
                                                       }
 
-                                                      // Values outside 1-99 → Numeric
+                                                      // Values outside 1-99 ΓåÆ Numeric
                                                       return 'Numeric';
                                                     }
 
@@ -34310,7 +34310,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                 <span className="text-xs text-gray-500">
                                   Codes: {Array.isArray(singleSelectNetTableOptions[idx].codes) && singleSelectNetTableOptions[idx].codes.length > 0
                                     ? singleSelectNetTableOptions[idx].codes.join(', ')
-                                    : '—'}
+                                    : 'ΓÇö'}
                                 </span>
                               </label>
                             ))}
@@ -34542,7 +34542,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                           checked={holdSelectionArray.includes(option.code)}
                           onChange={() => handleHoldOptionSelection(popupVariableName, option.code)}
                         />
-                        <span className="truncate">{option.code} – {option.text}</span>
+                        <span className="truncate">{option.code} ΓÇô {option.text}</span>
                       </label>
                     ))}
                   </div>
@@ -35312,7 +35312,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                           // Persist mapping to backend so it survives refresh
                           if (selectedQuestionnaire) {
                             try {
-                              console.log('🟠 [MAPPING SAVE] Saving mapping via Column Headers modal', {
+                              console.log('≡ƒƒá [MAPPING SAVE] Saving mapping via Column Headers modal', {
                                 questionnaireId: selectedQuestionnaire.id,
                                 keys: Object.keys(newMapping).length
                               });
@@ -35329,11 +35329,11 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                   mapping: newMapping
                                 })
                               });
-                              console.log('🟠 [MAPPING SAVE] Response', { ok: resp.ok, status: resp.status });
+                              console.log('≡ƒƒá [MAPPING SAVE] Response', { ok: resp.ok, status: resp.status });
                               // Refresh the file info to reflect saved mapping status
                               debouncedLoadFileInfo(500);
                             } catch (e) {
-                              console.warn('⚠️ [MAPPING SAVE] Failed to save mapping', e);
+                              console.warn('ΓÜá∩╕Å [MAPPING SAVE] Failed to save mapping', e);
                               // Ignore errors here; UI already reflects local mapping
                             }
                           }
@@ -35377,7 +35377,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 onClick={() => setShowMappingResultsModal(false)}
                 className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
               >
-                ×
+                ├ù
               </button>
             </div>
             <div className="overflow-auto flex-1">
@@ -35781,7 +35781,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                         // Save to backend
                         if (selectedQuestionnaire) {
                           try {
-                            console.log('🟠 [MAPPING SAVE] Saving mapping via Unmapped Header modal', {
+                            console.log('≡ƒƒá [MAPPING SAVE] Saving mapping via Unmapped Header modal', {
                               questionnaireId: selectedQuestionnaire.id,
                               keys: Object.keys(newMapping).length
                             });
@@ -35798,14 +35798,14 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                 mapping: newMapping
                               })
                             });
-                            console.log('🟠 [MAPPING SAVE] Response', { ok: saveResponse.ok, status: saveResponse.status });
+                            console.log('≡ƒƒá [MAPPING SAVE] Response', { ok: saveResponse.ok, status: saveResponse.status });
                             if (saveResponse.ok) {
                               // Wait a bit for the backend to persist, then reload
                               await new Promise(resolve => setTimeout(resolve, 400));
                               debouncedLoadFileInfo(800);
                             }
                           } catch (error) {
-                            console.warn('⚠️ [MAPPING SAVE] Failed to save mapping', error);
+                            console.warn('ΓÜá∩╕Å [MAPPING SAVE] Failed to save mapping', error);
                           }
                         }
                         
@@ -35998,7 +35998,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                             <div className="flex items-center justify-between">
                                               <span>{header}</span>
                                               {isSelected && (
-                                                <span className="text-xs text-orange-600">✓</span>
+                                                <span className="text-xs text-orange-600">Γ£ô</span>
                                               )}
                                               {isUsed && header !== currentMapping && (
                                                 <span className="text-xs text-gray-400">Already mapped</span>
@@ -36423,7 +36423,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-gray-600">
                     {openEndCodingSaved && (
-                      <span className="text-green-600 font-medium">✓ Codes saved successfully</span>
+                      <span className="text-green-600 font-medium">Γ£ô Codes saved successfully</span>
                     )}
                   </div>
                   <div className="flex gap-3">
@@ -37123,7 +37123,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             <div className="p-6 overflow-y-auto">
               {previewLoading ? (
                 <div className="text-center text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg p-6">
-                  Generating preview…
+                  Generating previewΓÇª
                 </div>
               ) : previewError ? (
                 <div className="text-center text-sm text-red-600 border border-dashed border-red-300 rounded-lg p-6">
@@ -37143,7 +37143,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   `}</style>
                   {/* DEBUG BOX: Expected Table Types */}
                   <div className="mb-4 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
-                    <div className="text-xs font-bold text-yellow-800 uppercase mb-2">🔧 Debug: Expected Table Types</div>
+                    <div className="text-xs font-bold text-yellow-800 uppercase mb-2">≡ƒöº Debug: Expected Table Types</div>
                     <div className="text-xs text-yellow-700 space-y-1">
                       <div><strong>Variable Type:</strong> {previewVariable?.type || 'Unknown'}</div>
                       <div><strong>Variable Name:</strong> {previewVariable?.name || 'N/A'}</div>
@@ -37245,7 +37245,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                           return (
                             <li key={`debug-table-${idx}`}>
                               <span className="font-mono bg-yellow-100 px-1 rounded">{tableName}</span>
-                              <span className="text-yellow-600 ml-2">→ {tableType}</span>
+                              <span className="text-yellow-600 ml-2">ΓåÆ {tableType}</span>
                             </li>
                           );
                         })}
@@ -37257,7 +37257,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                         )}
                       </div>
                       <div className="mt-2 pt-2 border-t border-yellow-300 text-red-600">
-                        <div><strong>⚠️ Issue:</strong> {previewSectionsHtml.length === 0 && previewTableList.length > 0 
+                        <div><strong>ΓÜá∩╕Å Issue:</strong> {previewSectionsHtml.length === 0 && previewTableList.length > 0 
                           ? 'Tables expected but none rendered. Check buildTabSpecsWorkbook for multi-select handling.' 
                           : previewSectionsHtml.length === 0 
                             ? 'No tables expected or rendered.' 
@@ -37300,6 +37300,319 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                         </div>
                       );
                     })
+                  ) : previewVariable && previewVariable.type?.toLowerCase().includes('single select grid') ? (
+                    // Inline fallback for single select grids when parsed sections are missing
+                    (() => {
+                      const baseName = previewVariable.name;
+                      const baseNumber = baseName.replace(/^Q/, '');
+                      const selections = variableTableSelections[baseName];
+                      const selectedBannerGroup = newBannerGroups[0] || null;
+                      const netCodes = netSummaryTableSelectedCodes[baseName] || [];
+
+                      const getColumnHeader = (varName: string): string | null => {
+                        const variants = [
+                          varName,
+                          varName.startsWith('Q') ? varName : `Q${varName}`,
+                          varName.startsWith('Q') ? varName.substring(1) : varName
+                        ];
+                        for (const v of variants) {
+                          if (columnMapping[v]) return columnMapping[v];
+                          const match = Object.keys(columnMapping).find(k => k.toLowerCase() === v.toLowerCase());
+                          if (match) return columnMapping[match];
+                        }
+                        if (fullRawData?.columns) {
+                          for (const v of variants) {
+                            const direct = fullRawData.columns.find(c => c.toLowerCase() === v.toLowerCase());
+                            if (direct) return direct;
+                          }
+                        }
+                        return null;
+                      };
+
+                      const bannerCols: Array<{ id: string; title: string; varName: string; codes: string[]; colHeader: string | null }> = [];
+                      if (selectedBannerGroup?.groups) {
+                        selectedBannerGroup.groups.forEach(g => {
+                          g.cuts.forEach(cut => {
+                            bannerCols.push({
+                              id: cut.id,
+                              title: cut.title,
+                              varName: cut.variableName,
+                              codes: cut.codes.map(c => String(c)),
+                              colHeader: getColumnHeader(cut.variableName)
+                            });
+                          });
+                        });
+                      }
+
+                      const statementHeaders: Record<string, string | null> = {};
+                      Object.keys(previewVariable.statements || {}).forEach(stmtCode => {
+                        const normalized = /^r\d+/i.test(stmtCode) ? stmtCode : `r${stmtCode}`;
+                        const candidates = [
+                          `Q${baseName}${normalized}`,
+                          `${baseName}${normalized}`,
+                          `Q${baseNumber}${normalized}`,
+                          `${baseNumber}${normalized}`
+                        ];
+                        let header: string | null = null;
+                        for (const c of candidates) {
+                          header = getColumnHeader(c);
+                          if (header) break;
+                        }
+                        statementHeaders[stmtCode] = header;
+                      });
+
+                      const hasValue = (val: any) => val !== null && val !== undefined && String(val).trim() !== '';
+                      const matchesCut = (row: any, col: typeof bannerCols[number]) => {
+                        if (!col.colHeader) return false;
+                        const v = row[col.colHeader];
+                        if (!hasValue(v)) return false;
+                        const s = String(v).trim();
+                        const n = Number(s);
+                        return col.codes.some(code => {
+                          const c = String(code);
+                          const cNoC = c.replace(/^c/i, '');
+                          if (s === c || s === cNoC) return true;
+                          if (!isNaN(n) && (n === Number(c) || n === Number(cNoC))) return true;
+                          return false;
+                        });
+                      };
+
+                      const computeBaseCounts = (stmtHeader: string | null) => {
+                        const cuts: Record<string, number> = Object.fromEntries(bannerCols.map(col => [col.id, 0]));
+                        if (!stmtHeader || !fullRawData?.rows) return { total: 0, cuts };
+                        let total = 0;
+                        fullRawData.rows.forEach(row => {
+                          if (!hasValue(row[stmtHeader])) return;
+                          total++;
+                          bannerCols.forEach(col => { if (matchesCut(row, col)) cuts[col.id] += 1; });
+                        });
+                        return { total, cuts };
+                      };
+
+                      const computeCountsForStatement = (stmtCode: string) => {
+                        const header = statementHeaders[stmtCode];
+                        const codeKeys = Object.keys(previewVariable.codes || {});
+                        const totals: Record<string, number> = Object.fromEntries(codeKeys.map(c => [c, 0]));
+                        const cuts: Record<string, Record<string, number>> = Object.fromEntries(
+                          codeKeys.map(c => [c, Object.fromEntries(bannerCols.map(col => [col.id, 0]))])
+                        );
+                        if (!header || !fullRawData?.rows) return { total: totals, cuts };
+                        const matchesCode = (val: any, code: string) => {
+                          if (!hasValue(val)) return false;
+                          const s = String(val).trim();
+                          const n = Number(s);
+                          const noC = code.replace(/^c/i, '');
+                          if (s === code || s === noC) return true;
+                          if (!isNaN(n) && (n === Number(code) || n === Number(noC))) return true;
+                          const label = previewVariable.codes?.[code];
+                          if (label && String(label).trim().toLowerCase() === s.toLowerCase()) return true;
+                          return false;
+                        };
+                        fullRawData.rows.forEach(row => {
+                          const val = row[header];
+                          const match = codeKeys.find(code => matchesCode(val, code));
+                          if (!match) return;
+                          totals[match] += 1;
+                          bannerCols.forEach(col => { if (matchesCut(row, col)) cuts[match][col.id] += 1; });
+                        });
+                        return { total: totals, cuts };
+                      };
+
+                      const allSelectedTables: string[] = [];
+                      const allPossible: string[] = [];
+                      allPossible.push(`${baseName}_MeanSummaryTable`);
+                      netCodes.forEach((net, idx) => allPossible.push(`${baseName}_NetSummaryTable_${idx}`));
+                      Object.keys(previewVariable.statements || {}).forEach(stmtCode => allPossible.push(`${baseName}_${stmtCode}`));
+                      allPossible.forEach(t => {
+                        const selected = !selections || selections.size === 0
+                          ? t !== `${baseName}_MeanSummaryTable`
+                          : selections.has(t);
+                        if (selected) allSelectedTables.push(t);
+                      });
+
+                      return allSelectedTables.map((tableName, tableIdx) => {
+                        const isNetSummary = tableName.includes('_NetSummaryTable');
+                        const isMeanSummary = tableName.endsWith('_MeanSummaryTable');
+
+                        let stmtCode: string | null = null;
+                        let stmtLabel: string | null = null;
+                        if (!isNetSummary && !isMeanSummary) {
+                          const m = tableName.match(new RegExp(`^${baseName}_(.+)$`));
+                          if (m) {
+                            stmtCode = m[1];
+                            stmtLabel = previewVariable.statements?.[stmtCode] || stmtCode;
+                          }
+                        }
+
+                        let stmtHeader: string | null = null;
+                        if (!isNetSummary && !isMeanSummary && stmtCode) {
+                          stmtHeader = statementHeaders[stmtCode] || null;
+                        }
+                        const baseCounts = computeBaseCounts(stmtHeader);
+                        const stmtCounts = (!isNetSummary && !isMeanSummary && stmtCode) ? computeCountsForStatement(stmtCode) : null;
+
+                        const displayTitle = (() => {
+                          let t = `Table ${tableIdx + 1}: ${baseNumber}`;
+                          if (isNetSummary) {
+                            const m = tableName.match(/_NetSummaryTable_(\d+)$/);
+                            const idx = m ? parseInt(m[1], 10) : -1;
+                            const net = idx >= 0 && idx < netCodes.length ? netCodes[idx] : null;
+                            t = net ? `Table ${tableIdx + 1}: ${baseNumber}: ${net.name}` : `Table ${tableIdx + 1}: ${baseNumber}: Net Summary`;
+                          } else if (isMeanSummary) {
+                            t = `Table ${tableIdx + 1}: ${baseNumber}: Mean Summary Table`;
+                          } else if (stmtLabel) {
+                            t = `Table ${tableIdx + 1}: ${baseNumber}: ${stmtLabel}`;
+                          }
+                          return t;
+                        })();
+
+                        return (
+                          <div key={`inline-table-${tableName}-${tableIdx}`} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+                            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                              <div className="text-xs font-semibold text-orange-600 uppercase tracking-wide">{displayTitle}</div>
+                              <div className="text-sm text-gray-800 mt-1">{previewVariable.description || previewVariable.name}</div>
+                            </div>
+                            <div className="preview-table overflow-auto">
+                              <div className="min-w-[720px] p-4">
+                                <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '12px' }}>
+                                  <thead>
+                                    <tr style={{ backgroundColor: '#D14A2D', color: '#fff' }}>
+                                      <th style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'left', minWidth: '150px' }} />
+                                      <th style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center', minWidth: '100px' }}>Total</th>
+                                      {bannerCols.map((col, colIdx) => (
+                                        <th key={col.id} style={{ border: '1px solid rgba(255,255,255,0.3)', padding: '8px', textAlign: 'center', minWidth: '100px' }}>
+                                          {col.title}<br/><span style={{ opacity: 0.7 }}>({String.fromCharCode(65 + colIdx)})</span>
+                                        </th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <tr style={{ backgroundColor: '#f5f5f5', fontStyle: 'italic' }}>
+                                      <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', fontWeight: 600 }}>Base (total answering)</td>
+                                      <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{baseCounts.total || 0}</td>
+                                      {bannerCols.map(col => (
+                                        <td key={col.id} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{baseCounts.cuts[col.id] ?? 0}</td>
+                                      ))}
+                                    </tr>
+
+                                    {isNetSummary ? (
+                                      netCodes.map((net, netIdx) => {
+                                        const codesForNet = (net.codes || []).map(c => String(c));
+                                        return Object.entries(previewVariable.statements || {}).map(([sCode, sLabel]) => {
+                                          const counts = computeCountsForStatement(sCode);
+                                          const stmtHeaderForBase = statementHeaders[sCode] || null;
+                                          const stmtBase = computeBaseCounts(stmtHeaderForBase);
+                                          const totalNet = codesForNet.reduce((sum, c) => sum + (counts.total[c] ?? counts.total[c.replace(/^c/i, '')] ?? 0), 0);
+                                          const cutNet: Record<string, number> = {};
+                                          bannerCols.forEach(col => {
+                                            cutNet[col.id] = codesForNet.reduce((sum, c) => sum + (counts.cuts[c]?.[col.id] ?? counts.cuts[c.replace(/^c/i, '')]?.[col.id] ?? 0), 0);
+                                          });
+                                          return (
+                                            <React.Fragment key={`netstmt-${netIdx}-${sCode}`}>
+                                              <tr>
+                                                <td style={{ border: '1px solid #d1d5db', padding: '4px 6px' }}>{sLabel || sCode}</td>
+                                                <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{totalNet}</td>
+                                                {bannerCols.map(col => (
+                                                  <td key={`${col.id}-net-${sCode}-${netIdx}`} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
+                                                    {cutNet[col.id] ?? 0}
+                                                  </td>
+                                                ))}
+                                              </tr>
+                                              <tr>
+                                                <td style={{ border: '1px solid #d1d5db', padding: '4px 6px' }} />
+                                                <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
+                                                  {stmtBase.total > 0 ? `${((totalNet / stmtBase.total) * 100).toFixed(1)}%` : '-'}
+                                                </td>
+                                                {bannerCols.map(col => {
+                                                  const baseCut = stmtBase.cuts[col.id] || 0;
+                                                  const pct = baseCut > 0 ? `${((cutNet[col.id] / baseCut) * 100).toFixed(1)}%` : '-';
+                                                  return (
+                                                    <td key={`${col.id}-netpct-${sCode}-${netIdx}`} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
+                                                      {pct}
+                                                    </td>
+                                                  );
+                                                })}
+                                              </tr>
+                                            </React.Fragment>
+                                          );
+                                        });
+                                      }).flat()
+                                    ) : isMeanSummary ? (
+                                      Object.entries(previewVariable.statements || {}).map(([sCode, sLabel]) => {
+                                        const means = (() => {
+                                          const header = statementHeaders[sCode];
+                                          if (!header) return { total: null as number | null, cuts: Object.fromEntries(bannerCols.map(col => [col.id, null as number | null])) };
+                                          let sum = 0, count = 0;
+                                          const cutSum: Record<string, number> = Object.fromEntries(bannerCols.map(col => [col.id, 0]));
+                                          const cutCount: Record<string, number> = Object.fromEntries(bannerCols.map(col => [col.id, 0]));
+                                          fullRawData?.rows?.forEach(row => {
+                                            const val = row[header];
+                                            if (!hasValue(val)) return;
+                                            const num = Number(val);
+                                            if (isNaN(num)) return;
+                                            sum += num; count += 1;
+                                            bannerCols.forEach(col => { if (matchesCut(row, col)) { cutSum[col.id] += num; cutCount[col.id] += 1; } });
+                                          });
+                                          return {
+                                            total: count > 0 ? sum / count : null,
+                                            cuts: Object.fromEntries(bannerCols.map(col => [col.id, cutCount[col.id] > 0 ? cutSum[col.id] / cutCount[col.id] : null]))
+                                          };
+                                        })();
+                                        const fmt = (v: number | null) => v === null ? '-' : Number.isFinite(v) ? v.toFixed(1) : '-';
+                                        return (
+                                          <tr key={`mean-${sCode}`} style={{ backgroundColor: '#f5f5f5' }}>
+                                            <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', fontWeight: 600 }}>{sLabel || sCode}</td>
+                                            <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{fmt(means.total)}</td>
+                                            {bannerCols.map(col => (
+                                              <td key={`${col.id}-mean-${sCode}`} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
+                                                {fmt(means.cuts[col.id] ?? null)}
+                                              </td>
+                                            ))}
+                                          </tr>
+                                        );
+                                      })
+                                    ) : (
+                                      Object.entries(previewVariable.codes || {}).flatMap(([code, label]) => {
+                                        const counts = stmtCounts;
+                                        const totalCount = counts ? counts.total[code] ?? 0 : 0;
+                                        const rowBaseTotal = baseCounts.total || 0;
+                                        return [
+                                          <tr key={`row-${code}`}>
+                                            <td style={{ border: '1px solid #d1d5db', padding: '4px 6px' }}>{String(label)}</td>
+                                            <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>{totalCount}</td>
+                                            {bannerCols.map(col => (
+                                              <td key={`${col.id}-${code}`} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
+                                                {counts ? counts.cuts[code]?.[col.id] ?? 0 : 0}
+                                              </td>
+                                            ))}
+                                          </tr>,
+                                          <tr key={`pct-${code}`}>
+                                            <td style={{ border: '1px solid #d1d5db', padding: '4px 6px' }} />
+                                            <td style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
+                                              {rowBaseTotal > 0 ? `${((totalCount / rowBaseTotal) * 100).toFixed(1)}%` : '-'}
+                                            </td>
+                                            {bannerCols.map(col => {
+                                              const cutBase = baseCounts.cuts[col.id] || 0;
+                                              const cutVal = counts ? counts.cuts[code]?.[col.id] ?? 0 : 0;
+                                              const pct = cutBase > 0 ? `${((cutVal / cutBase) * 100).toFixed(1)}%` : '-';
+                                              return (
+                                                <td key={`${col.id}-pct-${code}`} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center' }}>
+                                                  {pct}
+                                                </td>
+                                              );
+                                            })}
+                                          </tr>
+                                        ];
+                                      })
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()
                   ) : (
                     // Show placeholders for expected tables when sections aren't parsed yet
                     previewTableList.map((tableName, idx) => {
@@ -37766,24 +38079,24 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                         <p className="text-yellow-900 font-semibold mb-2">No Banner Data Available</p>
                         <div className="space-y-1">
                           {errorMessages.map((msg, idx) => (
-                            <p key={idx} className="text-yellow-800 text-sm">• {msg}</p>
+                            <p key={idx} className="text-yellow-800 text-sm">ΓÇó {msg}</p>
                           ))}
                         </div>
 
                         <div className="mt-4 pt-4 border-t border-yellow-300">
                           <p className="text-yellow-900 font-semibold mb-2">Debug Information:</p>
                           <div className="text-xs space-y-1 text-yellow-800">
-                            <p>• Variable name: {debugInfoModalVariable.name}</p>
-                            <p>• Is summary table: {(debugInfoModalVariable as any).isSummaryTable ? 'Yes' : 'No'}</p>
-                            <p>• Is grid: {isGrid ? 'Yes' : 'No'}</p>
+                            <p>ΓÇó Variable name: {debugInfoModalVariable.name}</p>
+                            <p>ΓÇó Is summary table: {(debugInfoModalVariable as any).isSummaryTable ? 'Yes' : 'No'}</p>
+                            <p>ΓÇó Is grid: {isGrid ? 'Yes' : 'No'}</p>
                             {isGrid && (
                               <>
-                                <p>• Grid type: {isNumericGrid ? 'Numeric' : isSingleSelectGrid ? 'Single-Select' : 'Unknown'}</p>
-                                <p>• Parts: {debugInfoModalVariable.name.split('_').join(', ')}</p>
+                                <p>ΓÇó Grid type: {isNumericGrid ? 'Numeric' : isSingleSelectGrid ? 'Single-Select' : 'Unknown'}</p>
+                                <p>ΓÇó Parts: {debugInfoModalVariable.name.split('_').join(', ')}</p>
                               </>
                             )}
-                            <p>• Raw data rows: {fullRawData ? fullRawData.rows.length : 0}</p>
-                            <p>• Raw data columns: {fullRawData && fullRawData.rows.length > 0 ? Object.keys(fullRawData.rows[0]).length : 0}</p>
+                            <p>ΓÇó Raw data rows: {fullRawData ? fullRawData.rows.length : 0}</p>
+                            <p>ΓÇó Raw data columns: {fullRawData && fullRawData.rows.length > 0 ? Object.keys(fullRawData.rows[0]).length : 0}</p>
                           </div>
                         </div>
                       </div>
@@ -37863,7 +38176,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 return unmappedCount > 0 ? (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <h3 className="text-sm font-semibold text-yellow-900 mb-2">
-                      ⚠️ You have {unmappedCount} unmapped variable{unmappedCount !== 1 ? 's' : ''}
+                      ΓÜá∩╕Å You have {unmappedCount} unmapped variable{unmappedCount !== 1 ? 's' : ''}
                     </h3>
                     <div className="text-sm text-yellow-800 space-y-2">
                       <p>If you're seeing many unmapped variables, consider checking:</p>
@@ -37886,7 +38199,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 ) : (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                     <h3 className="text-sm font-semibold text-green-900 mb-2">
-                      ✓ All variables are mapped
+                      Γ£ô All variables are mapped
                     </h3>
                     <p className="text-sm text-green-800">
                       Your questionnaire questions have been successfully matched to your data file columns. You can now view and analyze your data in the Raw Data tab.
