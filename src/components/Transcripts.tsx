@@ -1047,17 +1047,29 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
 
   useEffect(() => {
     if (!selectedProject) return;
-    const updated = allVisibleProjects.find(
+    
+    // Always check against the full project list (not filtered) to allow any project to be selected
+    // The filtering is only for display purposes in the project list
+    const allProjects = [...qualActiveProjects, ...qualArchivedProjects];
+    const updated = allProjects.find(
       project => project.id === selectedProject.id
     );
-    if (!updated) {
-      setSelectedProject(null);
-      return;
-    }
-    if (updated !== selectedProject) {
+    
+    // If project exists in the full list, update the reference (in case project data changed)
+    if (updated && updated !== selectedProject) {
       setSelectedProject(updated);
     }
-  }, [allVisibleProjects, selectedProject?.id]);
+    // If project doesn't exist in full list, it might have been deleted - clear selection
+    // But don't clear just because it's not in the filtered list
+    if (!updated) {
+      // Only clear if project truly doesn't exist (check in all projects including archived)
+      const allProjectsIncludingArchived = [...projects, ...archivedProjects];
+      const existsAnywhere = allProjectsIncludingArchived.find(p => p.id === selectedProject.id);
+      if (!existsAnywhere) {
+        setSelectedProject(null);
+      }
+    }
+  }, [selectedProject?.id, qualActiveProjects, qualArchivedProjects, projects, archivedProjects]);
 
 
   const handleFileSelect = async (file: File | null) => {

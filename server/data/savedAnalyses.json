@@ -4,19 +4,119 @@
     "projectId": "P-1761243049041",
     "name": "AA DG",
     "data": {
-      "Demographics": [],
-      "BACKGROUND": [],
-      "CURRENT PERCEPTIONS & ATTITUDES": [],
-      "BARRIERS TO TREATMENT & UNMET NEEDS": [],
-      "MOTIVATIONS & FUTURE CONSIDERATION": [],
-      "COMMUNITY ENGAGEMENT & INFO SOURCES": [],
-      "Misc.": []
+      "Demographics": [
+        {
+          "Interview Date": "Oct 1, 2025",
+          "Interview Time": "3:00 PM",
+          "respno": "R01",
+          "transcriptId": "T-1765236331426"
+        }
+      ],
+      "BACKGROUND": [
+        {
+          "Living Situation": "The respondent is 50 years old, married, and has two stepchildren from a previous marriage who are now adults and living independently. He resides with his wife and a small dog in Georgia, having moved from Ohio 16 years ago. The respondent recently stopped working due to health issues and is now on long-term disability. His daily routine includes walking the dog, spending time on the computer, watching shows, and reading.",
+          "Free Time Activities": "Since leaving his job in October 2024, the respondent spends his free time walking his dog, engaging with his computer, watching various shows, and reading extensively. He no longer participates in the corporate world and enjoys a more relaxed lifestyle. These activities help him fill his days now that he is not working.",
+          "SMA Journey": "The respondent was diagnosed with SMA Type 3 at the age of 40. Initially, he was in denial about his condition and avoided regular medical consultations. Over time, he noticed a decline in his physical abilities, particularly in his upper body strength. He has been using a wheelchair consistently for about eight or nine years following a leg injury in his mid-thirties.",
+          "Current Health Description": "The respondent describes his health as generally good except for the impact of SMA. He maintains regular physicals and is considered healthy by his primary care physician, although there is some misunderstanding about his condition being labeled as muscular dystrophy. His SMA significantly affects his daily life, requiring assistance with basic activities like getting in and out of bed and bathing.",
+          "Seeing HCPs for SMA Care": "The respondent does not see a neurologist regularly for SMA care. He initially avoided medical consultations due to denial and a lack of actionable advice from doctors. He returned to a neurologist in 2017 or 2018 after learning about potential treatments but remains skeptical about the benefits of regular consultations.",
+          "Reasons for Not Seeing HCPs": "The respondent's reluctance to see healthcare providers regularly stems from his early experiences where doctors could not offer concrete advice or hope for his condition. He also attributes his avoidance to a desire to focus on his career and maintain a sense of normalcy without being burdened by frequent medical appointments.",
+          "Current SMA Management": "The respondent manages his SMA with the help of his wife and a caregiver who assists with daily activities. He has participated in clinical trials and explored treatments like Spinraza, but his management primarily focuses on adapting to his physical limitations and maintaining quality of life.",
+          "Number of HCPs Seen": "",
+          "HCP Involvement in Treatment Decisions": "The respondent's primary care physician is not deeply involved in his SMA treatment decisions due to a lack of specialized knowledge. He relies more on information from support groups and personal research to guide his treatment choices. His decision to participate in clinical trials was influenced by his own initiative rather than direct medical advice.",
+          "Primary SMA Doctor": "",
+          "Others Involved in Health Decisions": "The respondent's wife plays a significant role in his health decisions, providing daily support and assistance. He also values input from a caregiver who helps with his daily routine. His involvement in support groups has also influenced his understanding and decisions regarding SMA management.",
+          "Extent of Involvement of Others": "The respondent's wife is heavily involved in his daily care, assisting with essential tasks and supporting his health decisions. A caregiver also contributes by helping with bathing and household tasks. This support system is crucial for managing his condition and maintaining his quality of life.",
+          "Reliance on Support System": "The respondent relies heavily on his wife and a caregiver for daily assistance and support. This reliance is essential due to his physical limitations caused by SMA, which prevent him from performing many tasks independently. His support system is a critical component of his ability to manage his condition.",
+          "Comfort in Making Treatment Decisions": "The respondent expresses a level of comfort in making treatment decisions, largely informed by his own research and experiences. He acknowledges the limitations of his primary care physician's knowledge about SMA and takes a proactive approach to understanding his treatment options through support groups and personal investigation.",
+          "Health Goals - Short-term": "",
+          "Health Goals - Long-term": "",
+          "Personal Aspirations": "",
+          "respno": "R01",
+          "transcriptId": "T-1765236331426"
+        }
+      ],
+      "CURRENT PERCEPTIONS & ATTITUDES": [
+        {
+          "Awareness of Available Treatments": "The respondent is aware of treatments like Spinraza and has participated in clinical trials. He learned about these treatments primarily through Facebook support groups for SMA. His awareness is self-driven, as he actively seeks information to understand his options better.",
+          "Experience with Treatments": "The respondent participated in a clinical trial for Spinraza from December 2023 to April 2025. He also took Evrisky until April 2022. His experiences with these treatments have been mixed, leading to a decision to discontinue due to a lack of perceived benefit and dissatisfaction with the trial process.",
+          "Benefits of Discontinued Treatment": "",
+          "Drawbacks of Discontinued Treatment": "The respondent found that the clinical trial for Spinraza did not accurately represent his condition's progress, leading to his decision to exit the trial. He felt that the testing methods were not reflective of his actual experience, contributing to his skepticism about the treatment's effectiveness.",
+          "Reasons for Discontinuation": "The respondent discontinued the clinical trial for Spinraza because he did not respond to the treatment and felt that the testing did not accurately represent his condition. He also expressed concerns about the trial's reliance on a subset of participants showing improvement, which did not include his experience.",
+          "Life Changes Leading to Discontinuation": "",
+          "Insurance Coverage Impact": "",
+          "Consider Restarting Discontinued Treatment": "The respondent has considered restarting treatment but remains hesitant due to past experiences and concerns about effectiveness. He has discussed this with an advocate who assisted him during the clinical trial process, indicating a cautious approach to future treatment decisions.",
+          "Impressions of Untaken Treatment": "",
+          "Information Source for Untaken Treatment": "",
+          "Consideration of Untaken Treatment": "",
+          "HCP Discussion on Untaken Treatment": "",
+          "Impact of HCP on Decision": "",
+          "Consideration of Future Treatments": "The respondent is open to considering future treatments but emphasizes the need for an advocate to help navigate the process. He remains cautious and informed, seeking treatments that align with his understanding and expectations.",
+          "Awareness of Treatments in Development": "",
+          "Impressions of Treatments in Development": "",
+          "Consideration of Treatments in Development": "",
+          "Consideration Factors for Future Treatment": "",
+          "Anti-myostatins Awareness": "",
+          "respno": "R01",
+          "transcriptId": "T-1765236331426"
+        }
+      ],
+      "BARRIERS TO TREATMENT & UNMET NEEDS": [
+        {
+          "Reasons for Not Being on Treatment": "",
+          "Factors Driving Treatment Consideration": "",
+          "Symptom Tracking Frequency": "The respondent does not track his symptoms daily but notices changes over months. He reflects on his condition periodically, recognizing differences in his abilities over time rather than through systematic tracking.",
+          "Symptom Tracking Methods": "The respondent does not use formal methods to track his symptoms. Instead, he relies on retrospective observation, noting changes in his abilities over several months. This approach reflects his broader perspective on managing his condition.",
+          "HCP Discussion on Treatment Need": "",
+          "Emotional Factors": "The respondent's emotional journey with SMA includes initial denial and a reluctance to associate with the disabled community. Over time, he has come to terms with his condition, influenced by early experiences and societal perceptions of disability.",
+          "Practical/Logistical Factors": "",
+          "Clinical Factors": "",
+          "Treatment Benefit Requirement": "",
+          "Financial/Access Barriers": "",
+          "Challenges in Accessing Treatment": "The respondent faces challenges in accessing treatment due to a lack of advocacy and support in navigating the healthcare system. He expresses a desire for an advocate to assist with understanding and accessing potential treatments.",
+          "Unmet Needs": "",
+          "respno": "R01",
+          "transcriptId": "T-1765236331426"
+        }
+      ],
+      "MOTIVATIONS & FUTURE CONSIDERATION": [
+        {
+          "Likelihood of Future Treatment Consideration": "The respondent is likely to consider future treatments if they align with his understanding and expectations. He remains open to new options but emphasizes the importance of having support to navigate the process.",
+          "Factors Influencing Future Consideration": "",
+          "Desired Treatment Outcomes": "",
+          "Influential Decision Makers": "",
+          "Confidence Factors in Treatment Decision": "",
+          "respno": "R01",
+          "transcriptId": "T-1765236331426"
+        }
+      ],
+      "COMMUNITY ENGAGEMENT & INFO SOURCES": [
+        {
+          "Connection to SMA Community": "The respondent has connected with the SMA community through Facebook support groups. Initially hesitant to associate with the disabled community, he gradually embraced this connection as his condition progressed.",
+          "Participation in Support Groups": "The respondent participates in online support groups, primarily on Facebook, where he gathers information and connects with others facing similar challenges. This participation has been a significant source of information and support for him.",
+          "Reasons for Non-involvement in Communities": "Initially, the respondent avoided involvement in the disabled community due to prejudice and societal perceptions. His early experiences shaped his reluctance, but he eventually recognized the value of connecting with others in similar situations.",
+          "Trusted Information Sources": "The respondent trusts information from Facebook support groups, where he engages with others who have firsthand experience with SMA. These groups provide him with insights and updates on treatments and management strategies.",
+          "Untrusted Sources": "",
+          "Information Discovery Methods": "The respondent discovers information primarily through online support groups. He values the shared experiences and knowledge of others in the SMA community, which guide his understanding and decisions.",
+          "Preferred Information Format": "",
+          "Improving Information Accessibility": "",
+          "respno": "R01",
+          "transcriptId": "T-1765236331426"
+        }
+      ],
+      "Misc.": [
+        {
+          "Final Comments": "",
+          "Additional Notes": "",
+          "respno": "R01",
+          "transcriptId": "T-1765236331426"
+        }
+      ]
     },
     "guideMap": {
       "bySheet": {}
     },
     "quotes": {},
-    "savedAt": "2025-12-08T21:49:35.659Z",
+    "savedAt": "2025-12-08T23:28:14.361Z",
     "savedBy": "You",
     "context": {},
     "columnSchema": {
