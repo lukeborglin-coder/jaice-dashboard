@@ -1790,9 +1790,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                           Interview Time
                         </th>
                         <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                          Original
-                        </th>
-                        <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                           Cleaned
                         </th>
                         <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
@@ -1901,16 +1898,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                                   </div>
                                 )}
                               </div>
-                            </td>
-                            <td className="px-3 py-4 whitespace-nowrap text-center">
-                              <button
-                                onClick={() => handleDownload(transcript, false)}
-                                disabled={addingTranscriptIds.size > 0}
-                                className="text-blue-600 hover:text-blue-800 p-1 rounded-lg hover:bg-blue-50 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Download Original"
-                              >
-                                <DocumentTextIcon className="h-5 w-5" />
-                              </button>
                             </td>
                             <td className="px-3 py-4 whitespace-nowrap text-center">
                               {transcript.isCleaned ? (
@@ -2150,9 +2137,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                               Interview Time
                             </th>
                             <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                              Original
-                            </th>
-                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                               Cleaned
                             </th>
                             <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
@@ -2270,16 +2254,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                                       </div>
                                     )}
                                   </div>
-                                </td>
-                                <td className="px-3 py-4 whitespace-nowrap text-center">
-                                  <button
-                                    onClick={() => handleDownload(transcript, false)}
-                                    disabled={addingTranscriptIds.size > 0}
-                                    className="text-blue-600 hover:text-blue-800 p-1 rounded-lg hover:bg-blue-50 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Download Original"
-                                  >
-                                    <DocumentTextIcon className="h-5 w-5" />
-                                  </button>
                                 </td>
                                 <td className="px-3 py-4 whitespace-nowrap text-center">
                                   {transcript.isCleaned ? (

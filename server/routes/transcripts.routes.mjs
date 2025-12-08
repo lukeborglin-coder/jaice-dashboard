@@ -376,13 +376,9 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
       hasStartedContent = true;
     }
 
-    // Handle blank lines - add ONE blank paragraph between speakers (single line break)
+    // Handle blank lines - skip them, we'll add spacing only when needed between speakers
     if (!trimmedLine) {
-      // If previous line was a speaker and we haven't added blanks yet, add ONE blank paragraph
-      if (previousWasSpeaker && !previousWasBlank) {
-        paragraphs.push(new Paragraph({ text: '' }));
-        previousWasBlank = true;
-      }
+      // Skip blank lines - spacing will be handled when we encounter the next speaker
       continue;
     }
 
@@ -395,7 +391,12 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
     if (moderatorMatch || respondentMatch) {
       const match = moderatorMatch || respondentMatch;
       const speaker = match[1];
-      const text = match[2];
+      let text = match[2];
+
+      // Ensure there's a space after the colon if text exists
+      if (text && !text.startsWith(' ')) {
+        text = ' ' + text;
+      }
 
       // Add ONE blank line before speaker if previous line was also a speaker (different speaker turn)
       if (previousWasSpeaker) {
@@ -412,7 +413,6 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
       );
       
       // Process the text to bold speaker notes in parentheses
-      let remainingText = ' ' + text;
       const noteRegex = /(\([^)]+\))/g;
       let lastIndex = 0;
       let noteMatch;
@@ -443,9 +443,9 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
         if (textAfter.trim()) {
           children.push(new TextRun({ text: textAfter }));
         }
-      } else if (lastIndex === 0) {
-        // No notes found, add the entire text
-        children.push(new TextRun({ text: ' ' + text }));
+      } else if (lastIndex === 0 && text.trim()) {
+        // No notes found, add the entire text (space already added above)
+        children.push(new TextRun({ text: text }));
       }
 
       paragraphs.push(
@@ -688,10 +688,19 @@ Output ONLY the cleaned transcript. No explanations or notes. Start directly wit
             { role: 'user', content: `Clean this transcript:\n\n${transcriptText}` }
           ],
           temperature: 0.1,
+          max_tokens: 16384, // Maximum output tokens for gpt-4o to prevent truncation
         });
 
         if (!response.choices || !response.choices[0] || !response.choices[0].message || !response.choices[0].message.content) {
           throw new Error('OpenAI API returned invalid response');
+        }
+
+        // Check if response was truncated due to token limit
+        const finishReason = response.choices[0].finish_reason;
+        if (finishReason === 'length') {
+          console.error('⚠️ WARNING: Transcript cleaning response was truncated due to token limit!');
+          console.error('⚠️ The cleaned transcript may be incomplete. Consider using a longer max_tokens value or chunking the transcript.');
+          throw new Error('Transcript cleaning was truncated - the transcript is too long. The response exceeded the maximum token limit.');
         }
 
         cleanedText = response.choices[0].message.content.trim();
