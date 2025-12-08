@@ -52,10 +52,8 @@ import {
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 import { IconTable, IconBook2, IconUsers, IconQuoteFilled, IconCopy } from '@tabler/icons-react';
-
-const BRAND_ORANGE = '#D14A2D';
-const BRAND_BG = '#F7F7F8';
-const BRAND_GRAY = '#5D5F62';
+import { BRAND_ORANGE, BRAND_BG, BRAND_GRAY } from '../utils/constants';
+import { formatQuoteText } from '../utils/qualTools/quoteFormatting';
 
 interface Project {
   id: string;
@@ -136,85 +134,6 @@ interface VerbatimQuote {
   context: string;
 }
 
-// Helper function to format quote text with bold speaker tags
-function formatQuoteText(text: string) {
-  // First, split by lines
-  const lines = text.split('\n');
-  const allElements: JSX.Element[] = [];
-  let key = 0;
-  
-
-  lines.forEach((line, lineIndex) => {
-    // Check if line contains multiple speakers (e.g., "Moderator: ... Respondent: ...")
-    const speakerPattern = /([A-Za-z0-9]+):\s*/gi;
-    const matches = [...line.matchAll(speakerPattern)];
-    
-    if (matches.length > 1) {
-      // Multiple speakers on same line - split them
-      let lastIndex = 0;
-      matches.forEach((match, matchIndex) => {
-      const speaker = match[1];
-        const startPos = match.index!;
-        const endPos = matchIndex < matches.length - 1 ? matches[matchIndex + 1].index! : line.length;
-        const content = line.substring(startPos + match[0].length, endPos).trim();
-        
-        // Add a single line break before each speaker except the first
-        if (matchIndex > 0) {
-          allElements.push(<br key={key++} />);
-        }
-        
-        // Normalize speaker names - ONLY Moderator/Interviewer stay as Moderator, everything else becomes Respondent
-        let normalizedSpeaker = speaker;
-        if (speaker.toLowerCase() === 'interviewer' || speaker.toLowerCase() === 'moderator') {
-          normalizedSpeaker = 'Moderator';
-        } else {
-          // ALL other speakers (R01, R02, actual names like "Elsie", etc.) become "Respondent"
-          normalizedSpeaker = 'Respondent';
-        }
-        
-        allElements.push(
-          <React.Fragment key={key++}>
-            <strong>{normalizedSpeaker}:</strong> <em>{content}</em>
-        </React.Fragment>
-      );
-      });
-    } else if (matches.length === 1) {
-      // Single speaker on line
-      const match = matches[0];
-      const speaker = match[1];
-      const content = line.substring(match[0].length).trim();
-      
-      // Normalize speaker names - ONLY Moderator/Interviewer stay as Moderator, everything else becomes Respondent
-      let normalizedSpeaker = speaker;
-      if (speaker.toLowerCase() === 'interviewer' || speaker.toLowerCase() === 'moderator') {
-        normalizedSpeaker = 'Moderator';
-      } else {
-        // ALL other speakers (R01, R02, actual names like "Elsie", etc.) become "Respondent"
-        normalizedSpeaker = 'Respondent';
-      }
-      
-      allElements.push(
-        <React.Fragment key={key++}>
-          <strong>{normalizedSpeaker}:</strong> <em>{content}</em>
-        </React.Fragment>
-      );
-    } else {
-      // No speaker pattern - regular text
-      allElements.push(
-        <React.Fragment key={key++}>
-        {line}
-      </React.Fragment>
-    );
-    }
-    
-    // Add line break between different lines
-    if (lineIndex < lines.length - 1) {
-      allElements.push(<br key={key++} />);
-    }
-  });
-
-  return <>{allElements}</>;
-}
 
 // Helper function to parse and render Markdown content
 function parseMarkdownContent(content: string) {
@@ -3791,7 +3710,7 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                         <div key={index} className="space-y-2">
                           <div className="bg-white border-l-4 border-blue-500 rounded p-3 text-sm text-gray-800">
                             {/* Quote text */}
-                            {formatQuoteText(quote.text)}
+                            {formatQuoteText(quote.text, { normalizeSpeakers: true })}
                           </div>
                           {quote.context && (
                             <div className="text-xs text-gray-600 italic">
@@ -3873,7 +3792,7 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                                     {item.quotes.map((q, qi) => (
                                       <div key={qi} className="space-y-2">
                                         <div className="bg-white border-l-4 border-blue-500 rounded p-3 text-sm text-gray-800">
-                                          {formatQuoteText(q.text)}
+                                          {formatQuoteText(q.text, { normalizeSpeakers: true })}
                                         </div>
                                         {q.context && (
                                           <div className="text-xs text-gray-600 italic">

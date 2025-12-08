@@ -20,6 +20,7 @@ export default function AppRouter() {
 			<Route path="/admin-center/*" element={<App />} />
 			<Route path="/feedback/*" element={<App />} />
 			<Route path="/qnr/*" element={<App />} />
+			<Route path="/data-quality/*" element={<App />} />
 		</Routes>
 	)
 }

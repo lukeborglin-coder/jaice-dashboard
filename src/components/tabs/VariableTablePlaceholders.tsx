@@ -159,6 +159,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
   const isMultiSelect = typeLower.includes('multi-select') && !typeLower.includes('grid');
   const isMultiSelectGrid = typeLower.includes('multi-select grid');
   const isNumericGrid = typeLower.includes('numeric grid');
+  const isOpenEndListType = typeLower.includes('open end list');
   // Get nets for single select questions and single select grids
   const netsForVariable = (isSingleSelect || isSingleSelectGrid)
     ? (netSummaryTableSelectedCodes[variableName] || [])
@@ -2663,6 +2664,75 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     );
   };
 
+  // Get open end response counts for a specific variable name
+  const getOpenEndResponseCountsForVariable = (targetVariableName: string): Array<{ text: string; count: number }> => {
+    if (!getVariableDataByExpectedHeader) return [];
+    
+    const variableData = getVariableDataByExpectedHeader(targetVariableName);
+    if (!variableData || !variableData.values) return [];
+    
+    // First, count all responses
+    const rawCounts: Record<string, number> = {};
+    const responseTexts: string[] = [];
+    
+    variableData.values.forEach((value: any) => {
+      if (value === null || value === undefined || value === '') return;
+      
+      const text = String(value).trim();
+      if (text === '') return;
+      
+      if (!rawCounts[text]) {
+        responseTexts.push(text);
+      }
+      rawCounts[text] = (rawCounts[text] || 0) + 1;
+    });
+    
+    // Group similar responses
+    const grouped: Array<{ text: string; count: number; originalTexts: string[] }> = [];
+    const processed = new Set<string>();
+    
+    responseTexts.forEach(text => {
+      if (processed.has(text)) return;
+      
+      // Find all similar responses
+      const similarTexts: string[] = [text];
+      let totalCount = rawCounts[text];
+      
+      // Use the most common spelling as the representative text
+      let representativeText = text;
+      let maxCount = rawCounts[text];
+      
+      responseTexts.forEach(otherText => {
+        if (otherText === text || processed.has(otherText)) return;
+        
+        if (areSimilar(text, otherText)) {
+          similarTexts.push(otherText);
+          totalCount += rawCounts[otherText];
+          
+          // Use the text with the highest count as representative
+          if (rawCounts[otherText] > maxCount) {
+            maxCount = rawCounts[otherText];
+            representativeText = otherText;
+          }
+        }
+      });
+      
+      // Mark all similar texts as processed
+      similarTexts.forEach(t => processed.add(t));
+      
+      grouped.push({
+        text: representativeText,
+        count: totalCount,
+        originalTexts: similarTexts
+      });
+    });
+    
+    // Sort by count (descending) and return
+    return grouped
+      .map(({ text, count }) => ({ text, count }))
+      .sort((a, b) => b.count - a.count);
+  };
+
   // Render actual table for open end individual tables
   const renderOpenEndTable = (option: TableOption) => {
     const isOpenEndType = typeLower.includes('open end') && !typeLower.includes('list');
@@ -2779,6 +2849,139 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     );
   };
 
+  // Render actual table for open-end list summary tables
+  const renderOpenEndListSummaryTable = (option: TableOption) => {
+    if (option.type !== 'summary' || !isOpenEndListType) {
+      return null;
+    }
+    
+    // Extract response option code from option ID (e.g., "S12_r1_FrequencyDistributionTable" -> "r1")
+    // The format is: {variableName}_{code}_FrequencyDistributionTable
+    const codeMatch = option.id.match(/_(r\d+|c\d+)_FrequencyDistributionTable$/i);
+    if (!codeMatch) return null;
+    
+    const responseOptionCode = codeMatch[1]; // e.g., "r1" or "c1"
+    
+    // Get base question number
+    const baseQuestionNumber = getBaseQuestionNumber(variableName);
+    const baseNum = baseQuestionNumber.replace(/^Q/i, '');
+    
+    // Construct expected header (e.g., Q12r1, Q12r2, etc.)
+    // For open-end lists, expected headers use "r" prefix (r1, r2, etc.)
+    // Extract numeric part from code (r1 -> 1, c1 -> 1)
+    const rowNum = responseOptionCode.replace(/[^0-9]/g, '');
+    // Always use "r" prefix for open-end list expected headers
+    const expectedHeader = `Q${baseNum}r${rowNum}`;
+    
+    // Get response option name/label
+    let responseOptionName = responseOptionCode;
+    if (variable && variable.codes && variable.codes[responseOptionCode]) {
+      responseOptionName = String(variable.codes[responseOptionCode]);
+    } else {
+      // Try to get from questionnaire
+      const matchingQuestion = questionnaireQuestions.find(question => {
+        const qNum = question.number || question.id;
+        if (!qNum) return false;
+        const qNumStr = String(qNum);
+        const normalizedQNum = qNumStr.replace(/^Q/i, '');
+        const normalizedBase = baseNum.replace(/^Q/i, '');
+        return (
+          qNumStr === baseQuestionNumber ||
+          normalizedQNum === normalizedBase ||
+          `Q${normalizedQNum}` === baseQuestionNumber
+        );
+      });
+      
+      if (matchingQuestion && Array.isArray(matchingQuestion.responseOptions)) {
+        // Find matching option by index (rowNum) or by code
+        const matchingOption = matchingQuestion.responseOptions.find((opt: any, idx: number) => {
+          const optCode = typeof opt === 'string' ? `r${idx + 1}` : (opt.code || `r${idx + 1}`);
+          const optRowNum = optCode.replace(/[^0-9]/g, '');
+          return optCode.toLowerCase() === responseOptionCode.toLowerCase() || 
+                 optRowNum === rowNum ||
+                 String(idx + 1) === rowNum;
+        });
+        
+        if (matchingOption) {
+          responseOptionName = typeof matchingOption === 'string' 
+            ? matchingOption 
+            : (matchingOption.text || matchingOption.label || matchingOption.value || responseOptionCode);
+        }
+      }
+    }
+    
+    // Get data for this specific response option
+    const totalResponding = countRespondentsWithData(expectedHeader, getVariableDataByExpectedHeader);
+    const responseCounts = getOpenEndResponseCountsForVariable(expectedHeader);
+    
+    // Check if sort by frequency is enabled (open ends default to true)
+    const sortState = variableSortByFrequency[variableName];
+    const isSortedByFrequency = sortState !== undefined ? sortState : true;
+    
+    // Sort by count if enabled
+    let sortedResponses = isSortedByFrequency
+      ? [...responseCounts].sort((a, b) => b.count - a.count)
+      : responseCounts;
+    
+    return (
+      <div key={option.id} className="border border-gray-300 rounded-lg overflow-hidden bg-white">
+        <div className="bg-gray-50 border-b border-gray-200 px-4 py-2">
+          <h4 className="text-sm font-semibold text-gray-900">{responseOptionName}</h4>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <colgroup>
+              <col className="w-auto" />
+              <col className="w-20" />
+              <col className="w-20" />
+            </colgroup>
+            <thead>
+              <tr className="bg-gray-200 border-b border-gray-200">
+                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
+                </th>
+                <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
+                  Count
+                </th>
+                <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  %
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <td className={`px-4 py-2 text-sm font-semibold border-r border-gray-200 ${totalResponding === 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                  Base (total responding)
+                </td>
+                <td className={`px-2 py-2 text-sm text-center font-medium border-r border-gray-200 ${totalResponding === 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                  {formatNumber(totalResponding)}
+                </td>
+                <td className={`px-2 py-2 text-sm text-center font-medium ${totalResponding === 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                  100%
+                </td>
+              </tr>
+              {sortedResponses.map((response, idx) => {
+                const percentage = totalResponding > 0 ? Math.round((response.count / totalResponding) * 100) : 0;
+                return (
+                  <tr key={`openendlist-${idx}`} className="border-b border-gray-200 hover:bg-gray-50">
+                    <td className="px-4 py-2 text-sm text-gray-900 border-r border-gray-200">
+                      {response.text}
+                    </td>
+                    <td className="px-2 py-2 text-sm text-center text-gray-900 border-r border-gray-200">
+                      {formatNumber(response.count)}
+                    </td>
+                    <td className="px-2 py-2 text-sm text-center text-gray-900">
+                      {percentage}%
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
   const renderTableBox = (option: TableOption) => {
     // For single select individual tables, render actual table instead of placeholder
     if (option.type === 'individual' && isSingleSelect && !isSingleSelectGrid) {
@@ -2825,6 +3028,11 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     // For multi-select grid summary tables, render actual table instead of placeholder
     if (option.type === 'summary' && isMultiSelectGrid) {
       return renderMultiSelectGridSummaryTable(option);
+    }
+    
+    // For open-end list summary tables, render actual table instead of placeholder
+    if (option.type === 'summary' && isOpenEndListType) {
+      return renderOpenEndListSummaryTable(option);
     }
 
     const availableStats = getStatsForTableType(option.type, variable);

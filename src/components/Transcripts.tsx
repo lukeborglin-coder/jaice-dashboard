@@ -16,10 +16,8 @@ import { IconScript, IconTable } from '@tabler/icons-react';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 import { normalizeTranscriptList, buildTranscriptDisplayName } from '../utils/respnoUtils';
-
-const BRAND_ORANGE = '#D14A2D';
-const BRAND_BG = '#F7F7F8';
-const BRAND_GRAY = '#5D5F62';
+import { BRAND_ORANGE, BRAND_BG, BRAND_GRAY } from '../utils/constants';
+import TranscriptsHome from './qualTools/Transcripts/TranscriptsHome';
 
 interface Project {
   id: string;
@@ -148,7 +146,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   const [transcripts, setTranscripts] = useState<ProjectTranscripts>({});
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [cleanTranscript, setCleanTranscript] = useState(true);
+  const [cleanType, setCleanType] = useState<'simple' | 'detailed'>('simple');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [isLoadingArchived, setIsLoadingArchived] = useState(false);
@@ -158,7 +156,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   const [pendingProjectNavigation, setPendingProjectNavigation] = useState<string | null>(null);
   const [parsedDateTime, setParsedDateTime] = useState<{ date: string; time: string } | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<boolean>(false);
-  const [uploadStep, setUploadStep] = useState<'select' | 'options'>('select');
+  const [uploadStep, setUploadStep] = useState<'file' | 'settings'>('file');
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -1067,7 +1065,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       setUploadFile(null);
       setParsedDateTime(null);
       setDuplicateWarning(false);
-      setUploadStep('select');
+      setUploadStep('file');
       setIsParsingFile(false);
       return;
     }
@@ -1077,7 +1075,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     setIsParsingFile(true);
     setParsedDateTime(null);
     setDuplicateWarning(false);
-    setUploadStep('select'); // Still on select step while parsing
+    setUploadStep('file'); // Still on file step while parsing
 
     // Parse date/time from the file
     try {
@@ -1107,16 +1105,13 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
         );
         setDuplicateWarning(isDuplicate);
 
-        // Move to options step
-        setUploadStep('options');
+        // Stay on file step - user will click Next to go to settings
       } else {
-        // If parsing fails, still allow upload
-        setUploadStep('options');
+        // If parsing fails, still allow upload - stay on file step
       }
     } catch (error) {
       console.error('Error parsing date/time:', error);
-      // Still allow upload even if parsing fails
-      setUploadStep('options');
+      // Still allow upload even if parsing fails - stay on file step
     } finally {
       setIsParsingFile(false);
     }
@@ -1135,7 +1130,8 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       const formData = new FormData();
       formData.append('transcript', uploadFile);
       formData.append('projectId', selectedProject.id);
-      formData.append('cleanTranscript', cleanTranscript.toString());
+      formData.append('cleanTranscript', (cleanType === 'simple' || cleanType === 'detailed').toString());
+      formData.append('cleanType', cleanType);
       if (parsedModerator) formData.append('moderatorName', parsedModerator);
       if (parsedRespondent) formData.append('respondentName', parsedRespondent);
 
@@ -1147,8 +1143,10 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
 
       if (response.ok) {
         const uploadedTranscript = await response.json();
+        
         // Transcript uploaded - it will appear in the un-assigned section
         // User must manually add it to a CA if desired
+        // User can download the cleaned transcript by clicking the download button
 
         const normalized = await loadTranscripts();
         await loadSavedAnalyses(normalized || undefined);
@@ -1156,7 +1154,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
 
         setShowUploadModal(false);
         setUploadFile(null);
-        setCleanTranscript(true);
+        setCleanType('simple');
         setParsedModerator('');
         setParsedRespondent('');
         setProcessingStage(null);
@@ -1751,7 +1749,18 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                 Search
               </button>
               <button
-                onClick={() => setShowUploadModal(true)}
+                onClick={() => {
+                  setShowUploadModal(true);
+                  // Reset all modal state when opening
+                  setUploadStep('file');
+                  setUploadFile(null);
+                  setCleanType('simple');
+                  setParsedDateTime(null);
+                  setDuplicateWarning(false);
+                  setParsedModerator('');
+                  setParsedRespondent('');
+                  setIsParsingFile(false);
+                }}
                 disabled={addingTranscriptIds.size > 0 || isResettingRespnos}
                 className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ backgroundColor: BRAND_ORANGE }}
@@ -2330,14 +2339,14 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                         <h3 className="text-lg font-semibold text-gray-900">
                           {processingStage === 'adding'
                             ? 'Adding to Content Analysis'
-                            : cleanTranscript ? 'Cleaning Transcript' : 'Uploading Transcript'}
+                            : (cleanType === 'simple' || cleanType === 'detailed') ? 'Cleaning Transcript' : 'Uploading Transcript'}
                         </h3>
                         <p className="mt-1 text-sm text-gray-500">
                           This may take a moment...
                         </p>
                       </div>
                     </div>
-                  ) : (
+                  ) : uploadStep === 'file' ? (
                     <div className="space-y-5">
                       <div>
                         <label className="mb-2 block text-sm font-medium text-gray-700">
@@ -2368,44 +2377,14 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                         </div>
                       )}
 
-                      {uploadStep === 'options' && uploadFile && !isParsingFile && (
-                        <>
+                      {uploadFile && !isParsingFile && (
+                        <div className="space-y-3">
                           {parsedDateTime && (
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                               <h4 className="text-sm font-medium text-blue-900 mb-2">Detected Interview Information:</h4>
                               <div className="text-sm text-blue-800">
                                 <p><strong>Date:</strong> {parsedDateTime.date}</p>
                                 <p><strong>Time:</strong> {parsedDateTime.time}</p>
-                              </div>
-                            </div>
-                          )}
-
-                          {(parsedModerator || parsedRespondent) && (
-                            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                              <h4 className="text-sm font-medium text-green-900 mb-2">Detected Speaker Names:</h4>
-                              <div className="space-y-2 text-sm text-green-800">
-                                <div className="flex items-center gap-2">
-                                  <span><strong>Moderator:</strong> {parsedModerator || 'Not detected'}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span><strong>Respondent:</strong> {parsedRespondent || 'Not detected'}</span>
-                                </div>
-                                {parsedModerator && parsedRespondent && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const temp = parsedModerator;
-                                      setParsedModerator(parsedRespondent);
-                                      setParsedRespondent(temp);
-                                    }}
-                                    className="mt-2 inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 transition-colors"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                                    </svg>
-                                    Swap Moderator ↔ Respondent
-                                  </button>
-                                )}
                               </div>
                             </div>
                           )}
@@ -2423,18 +2402,88 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                               </div>
                             </div>
                           )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-5">
+                      {isParsingFile && uploadFile && (
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300"
+                              style={{ borderTopColor: BRAND_ORANGE }}
+                            ></div>
+                            <p className="text-sm text-gray-600">Parsing interview date and time...</p>
+                          </div>
+                        </div>
+                      )}
 
-                          <div>
-                            <label className="flex items-center gap-2 text-sm text-gray-700">
-                              <input
-                                type="checkbox"
-                                checked={cleanTranscript}
-                                onChange={e => setCleanTranscript(e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300"
-                                style={{ accentColor: BRAND_ORANGE }}
-                              />
-                              Clean this transcript (remove timestamps, tidy formatting)
-                            </label>
+                      {!isParsingFile && (
+                        <>
+                          {(parsedModerator || parsedRespondent) && (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-900 mb-2">Detected Speaker Names:</h4>
+                              <div className="space-y-2 text-sm text-gray-800">
+                                <div className="flex items-center gap-2">
+                                  <span><strong>Moderator:</strong> {parsedModerator || 'Not detected'}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span><strong>Respondent:</strong> {parsedRespondent || 'Not detected'}</span>
+                                </div>
+                                {parsedModerator && parsedRespondent && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const temp = parsedModerator;
+                                      setParsedModerator(parsedRespondent);
+                                      setParsedRespondent(temp);
+                                    }}
+                                    className="mt-2 inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                                    </svg>
+                                    Swap Moderator ↔ Respondent
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div
+                              onClick={() => setCleanType('simple')}
+                              className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                cleanType === 'simple'
+                                  ? 'border-orange-500'
+                                  : 'border-gray-300 bg-white hover:border-gray-400'
+                              }`}
+                              style={cleanType === 'simple' ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
+                            >
+                              <h4 className={`text-sm font-bold mb-2 ${cleanType === 'simple' ? 'text-white' : 'text-gray-900'}`}>
+                                Simple Clean
+                              </h4>
+                              <p className={`text-xs ${cleanType === 'simple' ? 'text-white' : 'text-gray-600'}`}>
+                                Automatize speaker notes, remove timestamps, normalize speaker labels, and format with proper line breaks between speaker turns.
+                              </p>
+                            </div>
+                            <div
+                              onClick={() => setCleanType('detailed')}
+                              className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                cleanType === 'detailed'
+                                  ? 'border-orange-500'
+                                  : 'border-gray-300 bg-white hover:border-gray-400'
+                              }`}
+                              style={cleanType === 'detailed' ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
+                            >
+                              <h4 className={`text-sm font-bold mb-2 ${cleanType === 'detailed' ? 'text-white' : 'text-gray-900'}`}>
+                                Detailed Clean (AI)
+                              </h4>
+                              <p className={`text-xs ${cleanType === 'detailed' ? 'text-white' : 'text-gray-600'}`}>
+                                Includes all simple clean features plus removing filler words (um, oh, mhm, etc.) and cleaning up when respondents talk over each other.
+                              </p>
+                            </div>
                           </div>
                         </>
                       )}
@@ -2444,30 +2493,50 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
 
                 {!isProcessing && (
                   <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
-                    <div></div>
+                    {uploadStep === 'settings' && (
+                      <button
+                        onClick={() => setUploadStep('file')}
+                        className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                      >
+                        Back
+                      </button>
+                    )}
+                    {uploadStep === 'file' && <div></div>}
                     <div className="flex gap-3">
                       <button
                         onClick={() => {
                           setShowUploadModal(false);
                           setUploadFile(null);
                           setCleanTranscript(true);
+                          setCleanFillerWords(false);
                           setParsedDateTime(null);
                           setDuplicateWarning(false);
-                          setUploadStep('select');
+                          setUploadStep('file');
                           setIsParsingFile(false);
                         }}
                         className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                       >
                         Cancel
                       </button>
-                      <button
-                        onClick={handleUploadTranscript}
-                        disabled={!uploadFile}
-                        className="rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                        style={{ backgroundColor: BRAND_ORANGE }}
-                      >
-                        Upload
-                      </button>
+                      {uploadStep === 'file' ? (
+                        <button
+                          onClick={() => setUploadStep('settings')}
+                          disabled={!uploadFile || isParsingFile}
+                          className="rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                          style={{ backgroundColor: BRAND_ORANGE }}
+                        >
+                          Next
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleUploadTranscript}
+                          disabled={!uploadFile}
+                          className="rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                          style={{ backgroundColor: BRAND_ORANGE }}
+                        >
+                          Upload
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -2584,131 +2653,17 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
 
   // Home view - show list of projects
   return (
-    <main
-      className="flex-1 overflow-y-auto"
-      style={{ backgroundColor: BRAND_BG, height: 'calc(100vh - 80px)', marginTop: '80px' }}
-    >
-      <div className="flex-1 p-6 space-y-6 max-w-full">
-        {/* Tabs */}
-        <div className="border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <nav className="-mb-px flex space-x-8 items-center">
-              <button
-                onClick={() => setActiveTab('active')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'active'
-                    ? 'text-white'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-                style={activeTab === 'active' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
-              >
-                Active Projects ({filteredActiveProjects.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('archived')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'archived'
-                    ? 'text-white'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-                style={activeTab === 'archived' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
-              >
-                Archived Projects ({filteredArchivedProjects.length})
-              </button>
-            </nav>
-            <div className="flex items-center gap-3">
-              {user?.role !== 'oversight' && (
-                <button
-                  onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
-                  className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
-                    showMyProjectsOnly
-                      ? 'bg-white border border-gray-300 hover:bg-gray-50'
-                      : 'text-white hover:opacity-90'
-                  }`}
-                  style={showMyProjectsOnly ? {} : { backgroundColor: BRAND_ORANGE }}
-                >
-                  {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Projects Table */}
-        <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
-          {isLoadingCurrentTab ? (
-            <div className="p-12 text-center">
-              <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-[#D14A2D]"></div>
-              <p className="text-sm text-gray-500">Loading projects...</p>
-            </div>
-          ) : displayProjects.length === 0 ? (
-            <div className="p-12 text-center">
-              <DocumentTextIcon className="mx-auto mb-4 h-16 w-16 text-gray-300" />
-              <h3 className="text-lg font-semibold text-gray-900">
-                {activeTab === 'archived'
-                  ? 'No archived qualitative projects'
-                  : 'No active qualitative projects'}
-              </h3>
-              <p className="mt-2 text-gray-500">
-                {activeTab === 'archived'
-                  ? 'Archived qualitative projects will appear here.'
-                  : 'Create a qualitative project to start managing transcripts.'}
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="pl-6 pr-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-0 whitespace-nowrap">
-                      Project
-                    </th>
-                    <th className="pl-2 pr-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
-                      Client
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                      Transcripts
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {displayProjects.map(project => {
-                    // Count total transcripts for this project (includes un-assigned and all CA transcripts)
-                    const projectTranscripts = transcripts[project.id] || [];
-                    const totalUploads = projectTranscripts.length;
-                    return (
-                      <tr
-                        key={project.id}
-                        className="hover:bg-gray-50 cursor-pointer transition-colors"
-                        onClick={() => {
-                          setSelectedProject(project);
-                          setViewMode('project');
-                          setSelectedContentAnalysis(null);
-                          console.log('🔄 Project clicked, refreshing saved analyses for:', project.id);
-                          loadSavedAnalyses();
-                        }}
-                      >
-                        <td className="pl-6 pr-2 py-4 whitespace-nowrap w-0">
-                          <div className="inline-block text-sm font-medium text-gray-900">{project.name}</div>
-                        </td>
-                        <td className="pl-2 pr-6 py-4 whitespace-nowrap w-32">
-                          <div className="text-sm text-gray-900 truncate">{project.client || '-'}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center w-20">
-                          <div className="flex items-center justify-center gap-1 text-sm text-gray-900">
-                            <IconScript className="h-4 w-4 text-gray-400" />
-                            {totalUploads}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    </main>
+    <TranscriptsHome
+      transcripts={transcripts}
+      onProjectSelect={(project) => {
+        setSelectedProject(project);
+        setViewMode('project');
+        setSelectedContentAnalysis(null);
+        console.log('🔄 Project clicked, refreshing saved analyses for:', project.id);
+        loadSavedAnalyses();
+      }}
+      onRefreshAnalyses={loadSavedAnalyses}
+      user={user}
+    />
   );
 }

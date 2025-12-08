@@ -1,0 +1,690 @@
+{
+  "projectId": "P-1761242973652",
+  "rules": [
+    {
+      "id": "S3_open_end_1765156074061",
+      "questionId": "S3",
+      "questionNumber": "S3",
+      "questionText": "Which state(s) are you currently licensed to practice in?",
+      "questionType": "Open End",
+      "checkTypeId": "open_end",
+      "settings": {
+        "minLengthForFlag": 2,
+        "maxGibberishScore": 0.7,
+        "maxSimilarityAcrossOEs": 0.8
+      },
+      "enabled": true
+    },
+    {
+      "id": "S4_straightlining_1765156074061",
+      "questionId": "S4",
+      "questionNumber": "S4",
+      "questionText": "Providing your best estimate, how many patients have you personally treated or managed (not those treated or managed by your entire practice or network) with the following conditions in the last 12 months? Please do not include patients you have referred out and you are no longer actively managing.",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "S5_straightlining_1765156074061",
+      "questionId": "S5",
+      "questionNumber": "S5",
+      "questionText": "Of your [INSERT S4r5] SMA patients that you have personally treated or managed in the last 12 months, how many fall into the following age groups?",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "S11_straightlining_1765156074061",
+      "questionId": "S11",
+      "questionNumber": "S11",
+      "questionText": "Of your [INSERT S4r5] SMA patients that you have personally treated or managed in the last 12 months, how many fall into the following categories?",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "S12_open_end_1765156074062",
+      "questionId": "S12",
+      "questionNumber": "S12",
+      "questionText": "Which medicines are you aware of that treat spinal muscular atrophy (SMA)?",
+      "questionType": "Open End",
+      "checkTypeId": "open_end",
+      "settings": {
+        "minLengthForFlag": 2,
+        "maxGibberishScore": 0.7,
+        "maxSimilarityAcrossOEs": 0.8
+      },
+      "enabled": true
+    },
+    {
+      "id": "S13_straightlining_1765156074062",
+      "questionId": "S13",
+      "questionNumber": "S13",
+      "questionText": "What best describes your level of familiarity with the following treatments for spinal muscular atrophy (SMA)?",
+      "questionType": "Single Select Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "S14_straightlining_1765156074062",
+      "questionId": "S14",
+      "questionNumber": "S14",
+      "questionText": "Please indicate how many of your [INSERT S11r3c1] SMA patients that are currently treated fall into the following treatment approaches for each age group.",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "S14B_straightlining_1765156074062",
+      "questionId": "S14B",
+      "questionNumber": "S14B",
+      "questionText": "Please indicate the treatment status of your [INSERT S14r9c1 + S14r10c1] current Evrysdi Tablet patients prior to beginning treatment with the Evrysdi Tablet.",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "A1_straightlining_1765156074062",
+      "questionId": "A1",
+      "questionNumber": "A1",
+      "questionText": "What percent of your spinal muscular atrophy (SMA) patients fall into the following categories?",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "A2_straightlining_1765156074062",
+      "questionId": "A2",
+      "questionNumber": "A2",
+      "questionText": "What percent of your spinal muscular atrophy (SMA) patients fall into the following categories?",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "A3_straightlining_1765156074062",
+      "questionId": "A3",
+      "questionNumber": "A3",
+      "questionText": "What percent of your spinal muscular atrophy (SMA) patients fall into the following SMA Type categories?",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "A4_straightlining_1765156074062",
+      "questionId": "A4",
+      "questionNumber": "A4",
+      "questionText": "For each spinal muscular atrophy (SMA) patient type, what percent fall into the following treatments?",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "A5_straightlining_1765156074062",
+      "questionId": "A5",
+      "questionNumber": "A5",
+      "questionText": "What percent of your spinal muscular atrophy (SMA) patients fall into the following insurance categories?",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "A6_straightlining_1765156074062",
+      "questionId": "A6",
+      "questionNumber": "A6",
+      "questionText": "What is your primary treatment goal for each of the spinal muscular atrophy (SMA) age groups?",
+      "questionType": "Single Select Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "B1_straightlining_1765156074062",
+      "questionId": "B1",
+      "questionNumber": "B1",
+      "questionText": "Of your [INSERT S11r2c1] spinal muscular atrophy (SMA) patients that are not currently treated on a disease-modifying therapy but were previously treated, please indicate how many patients were previously on each of the following treatment regimens.",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "B2_straightlining_1765156074062",
+      "questionId": "B2",
+      "questionNumber": "B2",
+      "questionText": "Of your SMA patients that were previously treated but not currently on disease-modifying therapies (DMT), what are the top 3 reasons for discontinuation of the following medicine(s) for the treatment of spinal muscular atrophy (SMA)? Please select three per column.",
+      "questionType": "Multi-Select Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "B3_straightlining_1765156074062",
+      "questionId": "B3",
+      "questionNumber": "B3",
+      "questionText": "Do you currently have any SMA patients that have the following treatment experience?",
+      "questionType": "Single Select Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "B4_open_end_1765156074062",
+      "questionId": "B4",
+      "questionNumber": "B4",
+      "questionText": "Why did your patient(s) decide to discontinue Spinraza (nusinersen) and restart Evrysdi (risdiplam)? Please be detailed in your response.",
+      "questionType": "Open End",
+      "checkTypeId": "open_end",
+      "settings": {
+        "minLengthForFlag": 2,
+        "maxGibberishScore": 0.7,
+        "maxSimilarityAcrossOEs": 0.8
+      },
+      "enabled": true
+    },
+    {
+      "id": "B5_open_end_1765156074062",
+      "questionId": "B5",
+      "questionNumber": "B5",
+      "questionText": "Why are some of your patients who started on Evrysdi and switched to Spinraza now thinking about returning to Evrysdi? Please be detailed in your response.",
+      "questionType": "Open End",
+      "checkTypeId": "open_end",
+      "settings": {
+        "minLengthForFlag": 2,
+        "maxGibberishScore": 0.7,
+        "maxSimilarityAcrossOEs": 0.8
+      },
+      "enabled": true
+    },
+    {
+      "id": "B6_open_end_1765156074062",
+      "questionId": "B6",
+      "questionNumber": "B6",
+      "questionText": "Why did your patient(s) decide to restart Evrysdi after taking a break from SMA treatment? Please be detailed in your response.",
+      "questionType": "Open End",
+      "checkTypeId": "open_end",
+      "settings": {
+        "minLengthForFlag": 2,
+        "maxGibberishScore": 0.7,
+        "maxSimilarityAcrossOEs": 0.8
+      },
+      "enabled": true
+    },
+    {
+      "id": "C1_straightlining_1765156074062",
+      "questionId": "C1",
+      "questionNumber": "C1",
+      "questionText": "What is your overall impression of the following spinal muscular atrophy (SMA) treatments?",
+      "questionType": "Single Select Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "C2_straightlining_1765156074062",
+      "questionId": "C2",
+      "questionNumber": "C2",
+      "questionText": "Using a 7-point scale, where 1=Not At All Satisfied and 7=Extremely Satisfied, what is your level of satisfaction with Evrysdi (risdiplam) original liquid formulation for the treatment of spinal muscular atrophy (SMA)?",
+      "questionType": "Single Select Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "C2A_straightlining_1765156074062",
+      "questionId": "C2A",
+      "questionNumber": "C2A",
+      "questionText": "Using a 7-point scale, where 1=Not At All Satisfied and 7=Extremely Satisfied, what is your level of satisfaction with Evrysdi (risdiplam) Tablet for the treatment of spinal muscular atrophy (SMA)?",
+      "questionType": "Single Select Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "C3_straightlining_1765156074062",
+      "questionId": "C3",
+      "questionNumber": "C3",
+      "questionText": "Using a 7-point scale, where 1=Not At All Satisfied and 7=Extremely Satisfied, what is your level of satisfaction with Spinraza (nusinersen) for the treatment of spinal muscular atrophy (SMA)?",
+      "questionType": "Single Select Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "C4_straightlining_1765156074062",
+      "questionId": "C4",
+      "questionNumber": "C4",
+      "questionText": "Using a 7-point scale, where 1=Not At All Satisfied and 7=Extremely Satisfied, what is your level of satisfaction with Zolgensma (onasemnogene abeparvovec-xioi) for the treatment of spinal muscular atrophy (SMA)?",
+      "questionType": "Single Select Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "C5_straightlining_1765156074062",
+      "questionId": "C5",
+      "questionNumber": "C5",
+      "questionText": "Using a 7-point scale, where 1=Not At All Important and 7=Extremely Important, how important are each of the following when making a treatment choice for patients with spinal muscular atrophy (SMA)?",
+      "questionType": "Single Select Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "C6_straightlining_1765156074062",
+      "questionId": "C6",
+      "questionNumber": "C6",
+      "questionText": "Using a 7-point scale, where 1=Not At All Associated and 7=Highly Associated, to what extent do you associate each of the following with [INSERT “Evrysdi (risdiplam) original liquid formulation” OR “Evrysdi (risdiplam) Tablet” OR “Spinraza (nusinersen)”] for spinal muscular atrophy (SMA)?",
+      "questionType": "Single Select Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "C6B_open_end_1765156074062",
+      "questionId": "C6B",
+      "questionNumber": "C6B",
+      "questionText": "Of your [S14Br5 + S14Br6] patients who went from being untreated to starting on the Evrysdi Tablet, what were the primary reasons for starting on the Tablet? Please be detailed in your response.",
+      "questionType": "Open End",
+      "checkTypeId": "open_end",
+      "settings": {
+        "minLengthForFlag": 2,
+        "maxGibberishScore": 0.7,
+        "maxSimilarityAcrossOEs": 0.8
+      },
+      "enabled": true
+    },
+    {
+      "id": "C7_straightlining_1765156074062",
+      "questionId": "C7",
+      "questionNumber": "C7",
+      "questionText": "Using a 10-point scale, where 1=Not At All Likely and 7=Extremely Likely, how likely would you be to recommend the following spinal muscular atrophy (SMA) treatments to a patient?",
+      "questionType": "Single Select Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "C8_straightlining_1765156074062",
+      "questionId": "C8",
+      "questionNumber": "C8",
+      "questionText": "What are the key factors that prohibit you from treating your spinal muscular atrophy (SMA) patients with [INSERT “Evrysdi (risdiplam)” OR “Evrysdi (risdiplam) Tablet” OR “Spinraza (nusinersen)”] for each age group? For each column, please select all that apply.",
+      "questionType": "Multi-Select Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "D1_straightlining_1765156074062",
+      "questionId": "D1",
+      "questionNumber": "D1",
+      "questionText": "Consider the treatment status of your current patients. In the chart below, please indicate how you anticipate the treatment approach of your current patients will change, if at all, in the next 12 months for each age group. Please note that we have included your original treatment allocation by age group as a reference. If your treatment approach will stay the same, please insert the patient counts used in your original allocation.",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "D2_straightlining_1765156074062",
+      "questionId": "D2",
+      "questionNumber": "D2",
+      "questionText": "Using a 7-point scale, where 1=Not At All Familiar and 7=Extremely Familiar, what is your level of familiarity with the following?",
+      "questionType": "Single Select Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "D4_open_end_1765156074062",
+      "questionId": "D4",
+      "questionNumber": "D4",
+      "questionText": "What have you heard about High Dose Spinraza (nusinersen)?",
+      "questionType": "Open End",
+      "checkTypeId": "open_end",
+      "settings": {
+        "minLengthForFlag": 2,
+        "maxGibberishScore": 0.7,
+        "maxSimilarityAcrossOEs": 0.8
+      },
+      "enabled": true
+    },
+    {
+      "id": "D5_open_end_1765156074062",
+      "questionId": "D5",
+      "questionNumber": "D5",
+      "questionText": "What have you heard about Zolgensma indicated for patients ages 2-17 years old?",
+      "questionType": "Open End",
+      "checkTypeId": "open_end",
+      "settings": {
+        "minLengthForFlag": 2,
+        "maxGibberishScore": 0.7,
+        "maxSimilarityAcrossOEs": 0.8
+      },
+      "enabled": true
+    },
+    {
+      "id": "D5x2_open_end_1765156074062",
+      "questionId": "D5x2",
+      "questionNumber": "D5x2",
+      "questionText": "What have you heard about taldefgrobep alfa (myostatin inhibitor)?",
+      "questionType": "Open End",
+      "checkTypeId": "open_end",
+      "settings": {
+        "minLengthForFlag": 2,
+        "maxGibberishScore": 0.7,
+        "maxSimilarityAcrossOEs": 0.8
+      },
+      "enabled": true
+    },
+    {
+      "id": "D6_straightlining_1765156074062",
+      "questionId": "D6",
+      "questionNumber": "D6",
+      "questionText": "Using a 7-point scale, where 1=Not At All Excited and 7=Extremely Excited, how excited are you about the following new formulation, dosing, or indication options?",
+      "questionType": "Single Select Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "D8_straightlining_1765156074062",
+      "questionId": "D8",
+      "questionNumber": "D8",
+      "questionText": "Using a 7-point scale where 1=No Impact At All and 7=High Impact, how much of an impact do you feel the availability of High Dose Spinraza would have on…?",
+      "questionType": "Single Select Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "D9_straightlining_1765156074062",
+      "questionId": "D9",
+      "questionNumber": "D9",
+      "questionText": "Consider your current spinal muscular atrophy (SMA) patients. If High Dose Spinraza and Zolgensma indicated for patients ages 2-17 become available in the future, please indicate how your treatment for SMA would change, if at all, by distributing the proportion of patients across the list of products. Please assume that High Dose Spinraza and Zolgensma indicated for patients ages 2-17 years old will be available without restrictions and with reasonable out-of-pocket costs. Please note that we have included your original treatment allocation by age group as a reference. If your treatment approach would stay the same, please insert the patient counts used in your original allocation.",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "E1_straightlining_1765156074063",
+      "questionId": "E1",
+      "questionNumber": "E1",
+      "questionText": "What percent of your SMA patients that you prescribed the following treatment eventually received the treatment you prescribed? Please provide your best estimate.",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "E2_open_end_1765156074063",
+      "questionId": "E2",
+      "questionNumber": "E2",
+      "questionText": "To the best of your knowledge, what was the primary reason that some of your SMA patients did not receive the following treatments that you prescribed them?",
+      "questionType": "Open End List",
+      "checkTypeId": "open_end",
+      "settings": {
+        "minLengthForFlag": 2,
+        "maxGibberishScore": 0.7,
+        "maxSimilarityAcrossOEs": 0.8
+      },
+      "enabled": true
+    },
+    {
+      "id": "E3_straightlining_1765156074063",
+      "questionId": "E3",
+      "questionNumber": "E3",
+      "questionText": "Considering your SMA patients that you have prescribed the following treatments, what percent of those patients experienced an insurance denial for that treatment? Please provide your best estimate.",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "E4_open_end_1765156074063",
+      "questionId": "E4",
+      "questionNumber": "E4",
+      "questionText": "To the best of your knowledge, what was the primary reason that your SMA patients were denied insurance for the following treatments?",
+      "questionType": "Open End List",
+      "checkTypeId": "open_end",
+      "settings": {
+        "minLengthForFlag": 2,
+        "maxGibberishScore": 0.7,
+        "maxSimilarityAcrossOEs": 0.8
+      },
+      "enabled": true
+    },
+    {
+      "id": "E5_straightlining_1765156074063",
+      "questionId": "E5",
+      "questionNumber": "E5",
+      "questionText": "Considering your SMA patients that received an insurance denial for the following treatments, what percent had the following occur?",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "E6_open_end_1765156074063",
+      "questionId": "E6",
+      "questionNumber": "E6",
+      "questionText": "For the SMA Patients that you did NOT appeal the denial for the following treatments, why did you not contact the insurance company and request they reconsider the denial?",
+      "questionType": "Open End List",
+      "checkTypeId": "open_end",
+      "settings": {
+        "minLengthForFlag": 2,
+        "maxGibberishScore": 0.7,
+        "maxSimilarityAcrossOEs": 0.8
+      },
+      "enabled": true
+    },
+    {
+      "id": "E8_open_end_1765156074063",
+      "questionId": "E8",
+      "questionNumber": "E8",
+      "questionText": "What have you noticed as an improvement in the coverage/policy restrictions within the past 12 months for each treatment? Please be as detailed as possible.",
+      "questionType": "Open End List",
+      "checkTypeId": "open_end",
+      "settings": {
+        "minLengthForFlag": 2,
+        "maxGibberishScore": 0.7,
+        "maxSimilarityAcrossOEs": 0.8
+      },
+      "enabled": true
+    },
+    {
+      "id": "E9_straightlining_1765156074063",
+      "questionId": "E9",
+      "questionNumber": "E9",
+      "questionText": "Using a 7-point scale, where 1=Not At All Impactful and 7=Extremely Impactful, how impactful has the improvement in coverage/policy restrictions been on your likelihood to prescribe each treatment?",
+      "questionType": "Single Select Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "F1_straightlining_1765156074063",
+      "questionId": "F1",
+      "questionNumber": "F1",
+      "questionText": "To what extent do you feel each of these products is a Scientific Leader in spinal muscular atrophy (SMA). Please allocate 100 points across the products below. The more points you allocate, the stronger your perception of that product as a scientific leader.",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "F2_straightlining_1765156074063",
+      "questionId": "F2",
+      "questionNumber": "F2",
+      "questionText": "To what extent do you feel each of these products has HCP Partnership in spinal muscular atrophy. Please allocate 100 points across the products below. The more points you allocate, the stronger your perception of that product’s HCP Partnership.",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "F3_straightlining_1765156074063",
+      "questionId": "F3",
+      "questionNumber": "F3",
+      "questionText": "To what extent do you feel each of these products is Committed to Access/Affordability in spinal muscular atrophy. Please allocate 100 points across the products below. The more points you allocate, the stronger your perception of that product’s Commitment to Access/Affordability.",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "F4_straightlining_1765156074063",
+      "questionId": "F4",
+      "questionNumber": "F4",
+      "questionText": "To what extent do you feel each of these products is Patient Centric in spinal muscular atrophy. Please allocate 100 points across the products below. The more points you allocate, the stronger your perception of that product’s Patient Centricity.",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "F5_straightlining_1765156074063",
+      "questionId": "F5",
+      "questionNumber": "F5",
+      "questionText": "Please allocate 100 points across the criteria below based on the impact these criteria have on your perception of products in spinal muscular atrophy. The more points you allocate, the greater the influence on the perception of the product.",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    }
+  ],
+  "globalAggressiveness": {
+    "openEndAggressiveness": 50,
+    "straightliningAggressiveness": 50,
+    "speedingAggressiveness": 50,
+    "logicAggressiveness": 50
+  },
+  "createdAt": "2025-12-08T01:07:54.065Z",
+  "updatedAt": "2025-12-08T01:07:54.070Z",
+  "lastGeneratedFromQuestionnaireAt": "2025-12-08T01:07:54.065Z"
+}

@@ -1807,6 +1807,22 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
       };
     }
   }, [settingsOpenRef]);
+
+  // Auto-trigger AI configuration when a newly imported group is opened
+  useEffect(() => {
+    if (editingGroup && (editingGroup as any)._isNewlyImported && !aiConfiguring && questionnaireId) {
+      // Small delay to ensure component is fully rendered
+      const timer = setTimeout(() => {
+        handleConfigureAllWithAI();
+        // Remove the flag after triggering
+        if (editingGroup) {
+          delete (editingGroup as any)._isNewlyImported;
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingGroup?.id, aiConfiguring, questionnaireId]);
   const codeButtonRefs = useRef<Record<string, React.RefObject<HTMLButtonElement>>>({});
   const variableButtonRefs = useRef<Record<string, React.RefObject<HTMLButtonElement>>>({});
 
@@ -1870,9 +1886,15 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
   }, [variables]);
 
   // Build selectable variables from EXPECTED HEADERS ONLY
+  // Merge with selectableVariables to get full variable info (codes, descriptions, etc.)
   const combinedSelectableVariables = React.useMemo(() => {
     const headers = Array.isArray(expectedHeaders) ? expectedHeaders : [];
-    if (headers.length === 0) return [];
+    
+    // If no expected headers, use selectableVariables directly
+    if (headers.length === 0) {
+      return selectableVariables;
+    }
+    
     // Group by base (strip leading Q, remove r/c parts for base key)
     const baseInfo = new Map<string, { items: string[]; hasSub: boolean }>();
     const isSubPart = (h: string) => /(^|[^A-Za-z])r\d+/i.test(h) || /(^|[^A-Za-z])c\d+/i.test(h) || /_r\d+/i.test(h) || /_c\d+/i.test(h) || /-r\d+/i.test(h) || /-c\d+/i.test(h);
@@ -1900,10 +1922,55 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
       if (hasSubs && isBaseOnly) return false;
       return true;
     });
-    // Deduplicate and map to objects
+    // Deduplicate
     const dedup = Array.from(new Set(filtered));
-    return dedup.map(name => ({ name }));
-  }, [expectedHeaders]);
+    
+    // Map to full variable objects by matching with selectableVariables
+    // This ensures we have codes, descriptions, etc.
+    const result: any[] = [];
+    const matchedHeaders = new Set<string>();
+    
+    dedup.forEach(headerName => {
+      // Try to find matching variable in selectableVariables
+      const matched = selectableVariables.find(sv => {
+        // Exact match
+        if (sv.name === headerName) return true;
+        // Try with/without Q prefix
+        const svNoQ = sv.name.replace(/^Q/i, '');
+        const hNoQ = headerName.replace(/^Q/i, '');
+        if (svNoQ === hNoQ) return true;
+        // For grid cells, check if header matches the synthetic name
+        if (sv._isGridCell && sv.name === headerName) return true;
+        return false;
+      });
+      
+      if (matched) {
+        result.push(matched);
+        matchedHeaders.add(headerName);
+      } else {
+        // If no match found, try to resolve from categoricalVariables for codes
+        const resolved = resolveCategoricalVariableForName(headerName, categoricalVariables);
+        if (resolved) {
+          result.push(resolved);
+          matchedHeaders.add(headerName);
+        }
+      }
+    });
+    
+    // If we have expected headers but didn't match many, include all selectableVariables as fallback
+    // This ensures variables are always available for selection
+    if (result.length === 0 || result.length < selectableVariables.length * 0.5) {
+      // Add all selectableVariables that weren't already matched
+      selectableVariables.forEach(sv => {
+        const alreadyIncluded = result.some(r => r.name === sv.name);
+        if (!alreadyIncluded) {
+          result.push(sv);
+        }
+      });
+    }
+    
+    return result;
+  }, [expectedHeaders, selectableVariables, categoricalVariables]);
 
   // Check if a variable is numeric (no codes, type includes numeric)
   const isNumericVariable = (varName: string): boolean => {
@@ -2693,62 +2760,76 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
                       </td>
                       {/* Banner Definition */}
                       <td className="px-4 py-2 align-top text-gray-700">
-                        {(() => {
-                          // Prefer imported definition text
-                          if ((cut as any).definitionText) {
-                            return <span className="whitespace-pre-wrap">{(cut as any).definitionText}</span>;
-                          }
-                          // Fallback to a computed summary of current conditions
-                          const c: any = cut as any;
-                          if (c.sumCondition && c.sumCondition.variables && c.sumCondition.variables.length > 0) {
-                            return `SUM(${c.sumCondition.variables.join(', ')}) ${c.sumCondition.condition || ''}`;
-                          }
-                          if (c.conditionGroups && Array.isArray(c.conditionGroups) && c.conditionGroups.length > 0) {
-                            const group = c.conditionGroups[0];
-                            const op = group.operator || 'OR';
-                            const conds = (group.conditions || []).map((cond: any) => {
-                              const codes = Array.isArray(cond.codes) ? cond.codes.join(', ') : '';
-                              return `${cond.variableName}${codes ? '=' + codes : ''}`;
-                            }).join(` ${op} `);
-                            return conds || '';
-                          }
-                          if (c.variableName) {
-                            const codes = Array.isArray(c.codes) ? c.codes.join(', ') : '';
-                            return `${c.variableName}${codes ? '=' + codes : ''}`;
-                          }
-                          return '';
-                        })()}
+                        {aiConfiguring ? (
+                          <div className="flex items-center gap-2">
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-[#D14A2D]"></div>
+                            <span className="text-xs text-gray-500">Configuring...</span>
+                          </div>
+                        ) : (
+                          (() => {
+                            // Prefer imported definition text
+                            if ((cut as any).definitionText) {
+                              return <span className="whitespace-pre-wrap">{(cut as any).definitionText}</span>;
+                            }
+                            // Fallback to a computed summary of current conditions
+                            const c: any = cut as any;
+                            if (c.sumCondition && c.sumCondition.variables && c.sumCondition.variables.length > 0) {
+                              return `SUM(${c.sumCondition.variables.join(', ')}) ${c.sumCondition.condition || ''}`;
+                            }
+                            if (c.conditionGroups && Array.isArray(c.conditionGroups) && c.conditionGroups.length > 0) {
+                              const group = c.conditionGroups[0];
+                              const op = group.operator || 'OR';
+                              const conds = (group.conditions || []).map((cond: any) => {
+                                const codes = Array.isArray(cond.codes) ? cond.codes.join(', ') : '';
+                                return `${cond.variableName}${codes ? '=' + codes : ''}`;
+                              }).join(` ${op} `);
+                              return conds || '';
+                            }
+                            if (c.variableName) {
+                              const codes = Array.isArray(c.codes) ? c.codes.join(', ') : '';
+                              return `${c.variableName}${codes ? '=' + codes : ''}`;
+                            }
+                            return '';
+                          })()
+                        )}
                       </td>
                       {/* Configure */}
                       <td className="px-4 py-2 align-top">
-                        <div className="flex items-start gap-2">
-                          <CutConditionsEditor
-                            cut={cut}
-                            subGroupId={subGroup.id}
-                            selectableVariables={combinedSelectableVariables}
-                            categoricalVariables={categoricalVariables}
-                            isNumericVariable={isNumericVariable}
-                            updateCut={updateCut}
-                            openVariableSelector={openVariableSelector}
-                            setOpenVariableSelector={setOpenVariableSelector}
-                            openCodeSelector={openCodeSelector}
-                            setOpenCodeSelector={setOpenCodeSelector}
-                            getButtonRef={getButtonRef}
-                            codeButtonRefs={codeButtonRefs}
-                            variableButtonRefs={variableButtonRefs}
-                            rawData={rawData}
-                            columnMapping={columnMapping}
-                          />
-                          {subGroups.length > 1 && (
-                            <button
-                              onClick={() => removeSubGroup(subGroup.id)}
-                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                              title="Remove banner heading"
-                            >
-                              <TrashIcon className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
+                        {aiConfiguring ? (
+                          <div className="flex items-center gap-2">
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-[#D14A2D]"></div>
+                            <span className="text-xs text-gray-500">Configuring...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-start gap-2">
+                            <CutConditionsEditor
+                              cut={cut}
+                              subGroupId={subGroup.id}
+                              selectableVariables={combinedSelectableVariables}
+                              categoricalVariables={categoricalVariables}
+                              isNumericVariable={isNumericVariable}
+                              updateCut={updateCut}
+                              openVariableSelector={openVariableSelector}
+                              setOpenVariableSelector={setOpenVariableSelector}
+                              openCodeSelector={openCodeSelector}
+                              setOpenCodeSelector={setOpenCodeSelector}
+                              getButtonRef={getButtonRef}
+                              codeButtonRefs={codeButtonRefs}
+                              variableButtonRefs={variableButtonRefs}
+                              rawData={rawData}
+                              columnMapping={columnMapping}
+                            />
+                            {subGroups.length > 1 && (
+                              <button
+                                onClick={() => removeSubGroup(subGroup.id)}
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                title="Remove banner heading"
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );

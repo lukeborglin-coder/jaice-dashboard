@@ -193,6 +193,358 @@ function normalizeTimeString(timeStr) {
   return timezone ? `${formatted} ${timezone}` : formatted;
 }
 
+/**
+ * AI-powered detailed transcript cleaning function
+ * Uses OpenAI gpt-4o-mini model for advanced cleaning
+ * Removes filler words, handles talk-overs, improves flow
+ */
+async function cleanTranscriptWithAI(simpleCleanedText) {
+  const hasValidKey = process.env.OPENAI_API_KEY &&
+                      process.env.OPENAI_API_KEY !== 'your_openai_api_key_here' &&
+                      process.env.OPENAI_API_KEY.startsWith('sk-');
+
+  if (!hasValidKey) {
+    console.warn('⚠️ OpenAI API key not configured, skipping AI detailed cleaning');
+    return simpleCleanedText; // Return simple cleaned version if no API key
+  }
+
+  try {
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    const systemPrompt = `You are an expert transcript editor specializing in cleaning interview transcripts for qualitative research. Your task is to perform detailed cleaning while preserving the exact meaning and context of the conversation.
+
+CRITICAL RULES - NEVER VIOLATE:
+1. PRESERVE MEANING: Never change the meaning, intent, or substance of what speakers say
+2. PRESERVE SPEAKER ATTRIBUTION: Always maintain "Moderator:" and "Respondent:" labels exactly as they appear
+3. PRESERVE QUOTES: Keep respondent quotes verbatim - do not paraphrase or rewrite
+4. PRESERVE CONTEXT: Maintain important context and details that researchers need
+
+DETAILED CLEANING TASKS:
+
+1. FILLER WORD REMOVAL
+Remove common filler words and hesitation sounds, including but not limited to:
+- Verbal fillers: um, uh, er, ah, oh, hmm, huh, mm, mhm, mm-hmm, yeah, yep, yup, yah
+- Discourse markers: like, you know, I mean, sort of, kind of, actually, basically, literally, really, just, well, so, right, okay, alright, anyway, anyways
+- Hesitation sounds: er, erm, ah, uh-huh, uh-uh
+- Confirmation fillers: right, okay, alright (when used as filler, not as actual responses)
+- Remove these ONLY when they are clearly fillers, NOT when they are meaningful parts of the response
+
+2. TALK-OVER AND INTERRUPTION CLEANUP
+- Identify overlapping dialogue and interruptions
+- When speakers talk over each other, reconstruct the conversation logically
+- Preserve the main speaker's complete thought
+- Remove short interjections that interrupt mid-sentence (e.g., "uh-huh" from moderator while respondent is speaking)
+- Merge fragmented speech that was interrupted
+- Maintain chronological flow of the conversation
+
+3. CHOPPY FRAGMENT MERGING (CRITICAL)
+- Identify when the same speaker has multiple very short fragments that are actually one complete thought
+- Merge consecutive short fragments from the same speaker into complete sentences
+- Example: "Moderator: This. Respondent: Ohio. Moderator: A liberal. Respondent: State. Moderator: A liberal arts school?" 
+  Should become: "Moderator: A liberal arts school?"
+- Look for patterns where one speaker's thought is broken into 2-4 word fragments across multiple turns
+- Reconstruct the complete thought by combining fragments from the same speaker
+- Only merge when fragments are clearly part of one interrupted thought, not separate ideas
+- Preserve the natural flow and meaning of the complete sentence
+
+4. SENTENCE FLOW IMPROVEMENTS
+- Combine fragmented sentences that are clearly continuations
+- Fix broken sentences caused by interruptions
+- Improve natural flow while preserving original meaning
+- Connect related thoughts that were split across multiple lines
+
+5. REPETITION REMOVAL
+- Remove redundant words and phrases (e.g., "I, I think" → "I think")
+- Remove echo fragments (same word/phrase repeated on consecutive lines)
+- Remove unnecessary repetition of the same idea within a speaker turn
+- Keep intentional emphasis or repetition that adds meaning
+
+6. FALSE START CLEANUP
+- Remove incomplete sentences that were abandoned mid-thought
+- Remove false starts (e.g., "I was going to— I mean, I think..." → "I think...")
+- Clean up sentences that were restarted
+- Preserve the final, complete thought
+
+7. SPEAKER NOTES HANDLING
+- Preserve important speaker notes: (laughter), (pause), (crying), (sighs), (clears throat)
+- Remove unnecessary or redundant notes
+- Keep notes that provide context about delivery or emotion
+
+8. FORMATTING REQUIREMENTS
+- Maintain "Moderator:" and "Respondent:" labels at the start of each speaker turn
+- Add ONE blank line between each speaker change
+- NO blank lines between consecutive lines from the same speaker
+- Ensure proper capitalization and punctuation
+- Remove any remaining timestamps or metadata
+
+OUTPUT FORMAT:
+- Each speaker line must begin with "Moderator:" or "Respondent:"
+- ONE blank line between every speaker change
+- Clean, readable text with natural flow
+- No filler words or unnecessary repetition
+- Preserved meaning and context
+
+EXAMPLE TRANSFORMATIONS:
+
+Example 1 - Filler Words:
+BEFORE:
+Respondent: Um, I think, you know, I was going to say that, um, the product was, like, really good. Yeah. I mean, it was, um, it was helpful.
+
+Moderator: Uh-huh, okay.
+
+Respondent: Yeah, so, um, I would, I would definitely recommend it. You know?
+
+AFTER:
+Respondent: I think the product was really good. It was helpful.
+
+Moderator: Okay.
+
+Respondent: I would definitely recommend it.
+
+Example 2 - Choppy Fragments (CRITICAL):
+BEFORE:
+Respondent: Yes. I am.
+
+Moderator: I'm seeing you're a Buckeyes fan. Do you live in Columbus, or did you go to school there or have a kid who went to school there?
+
+Respondent: We used to live in Ohio. We moved to Georgia about sixteen years ago. I went to Ohio University.
+
+Moderator: This.
+
+Respondent: Ohio.
+
+Moderator: A liberal.
+
+Respondent: State.
+
+Moderator: A liberal arts school?
+
+Respondent: Yeah.
+
+Moderator: Interesting.
+
+AFTER:
+Respondent: Yes. I am.
+
+Moderator: I'm seeing you're a Buckeyes fan. Do you live in Columbus, or did you go to school there or have a kid who went to school there?
+
+Respondent: We used to live in Ohio. We moved to Georgia about sixteen years ago. I went to Ohio University.
+
+Moderator: A liberal arts school?
+
+Respondent: Yeah.
+
+Moderator: Interesting.
+
+OUTPUT ONLY THE CLEANED TRANSCRIPT - NO explanations, NO preamble, NO meta-commentary.`;
+
+    const userPrompt = `Please perform detailed cleaning on this transcript. Remove filler words, handle talk-overs, improve sentence flow, remove repetitions and false starts, while preserving all meaning and context.
+
+Transcript to clean:
+${simpleCleanedText}`;
+
+    console.log('🤖 Starting AI detailed cleaning with gpt-4o-mini...');
+    console.log('📄 Input length:', simpleCleanedText.length);
+
+    const response = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+        { role: 'assistant', content: 'I will follow ALL rules exactly and output ONLY the cleaned transcript with proper formatting. I will preserve existing speaker labels if present and will not change respondent wording.' },
+        { role: 'user', content: 'Please proceed with cleaning. Preserve existing Moderator/Respondent labels and do not reassign speakers.' }
+      ],
+      temperature: 0.1, // Very low temperature for strict rule following
+      max_tokens: 16384, // Maximum supported by gpt-4o-mini
+      seed: Date.now() // Add seed to prevent caching
+    });
+
+    const detailedCleanedText = response.choices[0].message.content.trim();
+    console.log('✅ AI detailed cleaning completed');
+    console.log('📄 Output length:', detailedCleanedText.length);
+    console.log('📊 Length difference:', simpleCleanedText.length - detailedCleanedText.length);
+
+    // Track costs
+    try {
+      const inputTokens = response.usage?.prompt_tokens || 0;
+      const outputTokens = response.usage?.completion_tokens || 0;
+      if (inputTokens > 0 && outputTokens > 0) {
+        await logCost(
+          'detailed-transcript-cleaning',
+          COST_CATEGORIES.TRANSCRIPT_CLEANING,
+          'gpt-4o-mini',
+          inputTokens,
+          outputTokens,
+          'Detailed transcript cleaning with AI'
+        );
+      }
+    } catch (costError) {
+      console.warn('Failed to log AI cleaning cost:', costError.message);
+    }
+
+    return detailedCleanedText;
+  } catch (error) {
+    console.error('❌ Error during AI detailed cleaning:', error);
+    console.error('Error details:', error.message);
+    // Return simple cleaned version as fallback
+    console.warn('⚠️ Falling back to simple cleaned version');
+    return simpleCleanedText;
+  }
+}
+
+/**
+ * Hard-coded transcript cleaning function
+ * Uses parsed speaker names to replace them with standardized labels
+ * Removes date/time metadata and formats the transcript
+ */
+function hardCodeCleanTranscript(transcriptText, moderatorName, respondentName, interviewDate, interviewTime) {
+  if (!transcriptText) return '';
+  
+  let cleaned = transcriptText;
+  
+  // Remove date/time metadata lines
+  const dateTimePatterns = [
+    /^.*(?:Date|Interview Date|Session Date|Time|Interview Time|Session Time).*$/gmi,
+    /^.*\d{1,2}\/\d{1,2}\/\d{4}.*$/gm, // Lines with dates
+    /^.*\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm).*$/gm, // Lines with times
+  ];
+  
+  dateTimePatterns.forEach(pattern => {
+    cleaned = cleaned.replace(pattern, '');
+  });
+  
+  // Remove lines that are only date/time
+  if (interviewDate) {
+    const dateVariations = interviewDate.replace(/[^\w\s]/g, '');
+    cleaned = cleaned.replace(new RegExp(`^.*${dateVariations}.*$`, 'gmi'), '');
+  }
+  if (interviewTime) {
+    const timeVariations = interviewTime.replace(/[^\w\s:]/g, '');
+    cleaned = cleaned.replace(new RegExp(`^.*${timeVariations}.*$`, 'gmi'), '');
+  }
+  
+  // Split into lines for processing
+  const lines = cleaned.split(/\r?\n/);
+  const cleanedLines = [];
+  let foundFirstSpeaker = false; // Track when we've found the first speaker tag
+  
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].trim();
+    if (!line) continue;
+    
+    // Skip empty lines and metadata lines
+    if (line.length < 3) continue;
+    if (/^(Date|Time|Interview|Session|Transcript)/i.test(line)) continue;
+    
+    // Check if this line starts with a speaker tag (before processing)
+    const hasModeratorTag = moderatorName && new RegExp(`^${moderatorName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`, 'gi').test(line);
+    const hasRespondentTag = respondentName && new RegExp(`^${respondentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`, 'gi').test(line);
+    const hasStandardTag = /^(Moderator|Respondent)\s*:\s*/i.test(line);
+    const isSpeakerLine = hasModeratorTag || hasRespondentTag || hasStandardTag;
+    
+    // Skip all lines until we find the first speaker tag
+    if (!foundFirstSpeaker && !isSpeakerLine) {
+      continue;
+    }
+    
+    // Mark that we've found the first speaker
+    if (isSpeakerLine) {
+      foundFirstSpeaker = true;
+    }
+    
+    // Replace moderator name with "Moderator:"
+    if (moderatorName) {
+      // Case-insensitive replacement of moderator name at start of line or after colon
+      const modPattern = new RegExp(`^(${moderatorName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}):\\s*`, 'gi');
+      if (modPattern.test(line)) {
+        line = line.replace(modPattern, 'Moderator: ');
+      } else if (line.startsWith(moderatorName + ':') || line.startsWith(moderatorName + ':')) {
+        line = 'Moderator: ' + line.substring(moderatorName.length + 1).trim();
+      } else {
+        // Check if line starts with moderator name (case-insensitive)
+        const modStartPattern = new RegExp(`^${moderatorName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`, 'gi');
+        if (modStartPattern.test(line)) {
+          line = line.replace(modStartPattern, 'Moderator:');
+        }
+      }
+    }
+    
+    // Replace respondent name with "Respondent:"
+    if (respondentName) {
+      // Case-insensitive replacement of respondent name at start of line or after colon
+      const respPattern = new RegExp(`^(${respondentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}):\\s*`, 'gi');
+      if (respPattern.test(line)) {
+        line = line.replace(respPattern, 'Respondent: ');
+      } else if (line.startsWith(respondentName + ':') || line.startsWith(respondentName + ':')) {
+        line = 'Respondent: ' + line.substring(respondentName.length + 1).trim();
+      } else {
+        // Check if line starts with respondent name (case-insensitive)
+        const respStartPattern = new RegExp(`^${respondentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`, 'gi');
+        if (respStartPattern.test(line)) {
+          line = line.replace(respStartPattern, 'Respondent:');
+        }
+      }
+    }
+    
+    // Normalize existing Moderator/Respondent labels
+    line = line.replace(/^Moderator\s*:\s*/i, 'Moderator: ');
+    line = line.replace(/^Respondent\s*:\s*/i, 'Respondent: ');
+    
+    // Remove timestamps like (00:00:01 - 00:00:11) but preserve speaker notes like (laughter), (pause)
+    // Only remove if it matches the timestamp pattern (contains colons and dashes with numbers)
+    line = line.replace(/\(\d{1,2}:\d{2}(?::\d{2})?\s*-\s*\d{1,2}:\d{2}(?::\d{2})?\)/g, '');
+    
+    // Clean up extra whitespace (but preserve single spaces)
+    line = line.replace(/\s{2,}/g, ' ').trim();
+    
+    // Only include lines that start with a speaker tag, or continuation lines after we've found the first speaker
+    if (line) {
+      const isSpeakerTagLine = /^(Moderator|Respondent)\s*:\s*/i.test(line);
+      if (isSpeakerTagLine || foundFirstSpeaker) {
+        cleanedLines.push(line);
+      }
+    }
+  }
+  
+  // Join lines with proper formatting:
+  // - One line break between different speaker turns
+  // - Preserve line breaks for multi-line speaker content
+  let result = '';
+  let lastSpeaker = null;
+  let lastWasSpeaker = false;
+  
+  for (let i = 0; i < cleanedLines.length; i++) {
+    const line = cleanedLines[i];
+    const isModerator = /^Moderator:\s*/i.test(line);
+    const isRespondent = /^Respondent:\s*/i.test(line);
+    const currentSpeaker = isModerator ? 'moderator' : (isRespondent ? 'respondent' : null);
+    const isSpeakerLine = !!currentSpeaker;
+    
+    // Add blank line between different speakers
+    if (isSpeakerLine && lastWasSpeaker && lastSpeaker && currentSpeaker !== lastSpeaker) {
+      result += '\n';
+    }
+    
+    // Add the line
+    result += line;
+    
+    // Add line break after each line (for proper formatting)
+    if (i < cleanedLines.length - 1) {
+      result += '\n';
+    }
+    
+    if (isSpeakerLine) {
+      lastWasSpeaker = true;
+      lastSpeaker = currentSpeaker;
+    } else if (lastWasSpeaker) {
+      // Continuation line (same speaker, no label) - keep as is
+      lastWasSpeaker = true; // Still part of the same speaker turn
+    }
+  }
+  
+  return result.trim();
+}
+
 // Helper function to parse date and time from transcript
 function parseDateTimeFromTranscript(transcriptText) {
   if (!transcriptText) {
@@ -553,7 +905,7 @@ router.post('/upload', authenticateToken, upload.single('transcript'), async (re
       return res.status(400).json({ error: 'No transcript file uploaded' });
     }
 
-    const { projectId, cleanTranscript } = req.body;
+    const { projectId, cleanTranscript, cleanType } = req.body;
 
     if (!projectId) {
       return res.status(400).json({ error: 'projectId is required' });
@@ -604,151 +956,93 @@ router.post('/upload', authenticateToken, upload.single('transcript'), async (re
     let cleanedFilename = null;
     let cleanedSize = null;
     let cleanedText = null;
+    let hardCodedCleanedJsonFilename = null;
 
-    // Clean the transcript if requested
+    // Get speaker names from request (parsed via AI in parse-datetime endpoint)
+    const providedModerator = req.body?.moderatorName || null;
+    const providedRespondent = req.body?.respondentName || null;
+    
+    // CODE-ONLY cleaning (no AI) - uses speaker names identified by AI in parse-datetime
     if (cleanTranscript === 'true') {
+      console.log('🔧 Starting code-based transcript cleaning...');
+      console.log('👤 Moderator name:', providedModerator || 'not provided');
+      console.log('👤 Respondent name:', providedRespondent || 'not provided');
+      
       try {
-        console.log('🧹 Starting transcript cleaning process...');
-        console.log('📄 Original transcript length:', transcriptText.length);
-        
-        if (!process.env.OPENAI_API_KEY) {
-          console.error('❌ OpenAI API key not configured');
-          throw new Error('OpenAI API key not configured');
-        }
-
-        const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-        const providedModerator = req.body?.moderatorName || null;
-        const providedRespondent = req.body?.respondentName || null;
-        
-        // Build speaker replacement instructions
-        let speakerReplacementInstructions = '';
-        if (providedModerator && providedRespondent) {
-          speakerReplacementInstructions = `
-CRITICAL - SPEAKER NAME ANONYMIZATION:
-- REPLACE ALL occurrences of "${providedModerator}" (or any variation/case) with "Moderator:"
-- REPLACE ALL occurrences of "${providedRespondent}" (or any variation/case) with "Respondent:"
-- This is for anonymity - the actual names should NEVER appear in the cleaned transcript
-- If you see lines like "${providedModerator}: How are you?" they should become "Moderator: How are you?"
-- If you see lines like "${providedRespondent}: I'm good." they should become "Respondent: I'm good."
-- The ONLY speaker labels allowed in the output are "Moderator:" and "Respondent:"`;
-        }
-        
-        const systemPrompt = `You are a professional transcript editor specializing in qualitative research interviews. Clean this transcript by following these rules:
-
-CRITICAL INSTRUCTIONS:
-1. REMOVE ALL DATE/TIME METADATA FROM THE TRANSCRIPT BODY:
-   - The date and time are already extracted and will be displayed in the document header/title, so they should NOT appear in the transcript body
-   - DO NOT attempt to parse or extract date/time information - it has already been extracted and is provided separately
-   - Remove ALL instances of: Interview Date, Date, Interview Time, Time, Session Date, Session Time, or any other date/time metadata
-   - Remove any lines that contain only date or time information
-   - The transcript should start directly with speaker dialogue (Moderator: or Respondent:)
-   - NO date/time information should appear anywhere in the cleaned transcript body
-
-${speakerReplacementInstructions}
-
-2. IDENTIFY SPEAKERS CORRECTLY:
-   - The MODERATOR asks questions, probes, facilitates the interview (e.g., "Can you tell me...", "How do you feel...", "That's interesting...")
-   - The RESPONDENT answers questions, shares experiences, provides opinions (e.g., "I think...", "In my experience...", "I was...")
-   - DO NOT simply copy existing speaker labels - they may be WRONG or MISSING
-   - READ THE CONTENT to determine who is actually speaking
-   ${providedModerator ? `- Use the provided moderator name "${providedModerator}" to identify moderator speech and replace it with "Moderator:"` : ''}
-   ${providedRespondent ? `- Use the provided respondent name "${providedRespondent}" to identify respondent speech and replace it with "Respondent:"` : ''}
-
-3. CLEAN UP THE TEXT:
-   - Remove timestamps (e.g., (00:00:01 - 00:00:11))
-   - Remove filler words (um, uh, like as filler, you know when used as filler)
-   - Fix incomplete sentences and sentence fragments
-   - Remove cross-talk and overlapping speech markers
-   - Merge sentence fragments that belong together
-   - Remove single-word fragments that don't add meaning (e.g., "This.", "Yeah." as standalone)
-   - PRESERVE speaker notes like (laughter), (pause), (sighs) - these should remain in parentheses
-
-4. FORMATTING:
-   - Use ONLY "Moderator:" and "Respondent:" as speaker labels
-   - Put ONE blank line between each speaker turn (single line break)
-   - Keep each speaker's full turn together (don't split mid-thought)
-   - Maintain natural paragraph breaks within long turns
-   - Speaker notes in parentheses (e.g., (laughter), (pause)) should remain as-is but will be formatted separately
-
-5. PRESERVE CONTENT:
-   - NEVER change meaning or remove substantive content
-   - Keep all medical terms, drug names, dates (except interview date/time), and specific details
-   - Preserve the respondent's actual words and phrasing
-   - Keep emotional context and tone
-   - Keep speaker notes like (laughter), (pause), (sighs), etc.
-
-Output ONLY the cleaned transcript. No explanations or notes. Start directly with speaker dialogue.`;
-
-        console.log('🤖 Calling OpenAI API for transcript cleaning...');
-        const response = await client.chat.completions.create({
-          model: 'gpt-4o',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: `Clean this transcript:\n\n${transcriptText}` }
-          ],
-          temperature: 0.1,
-          max_tokens: 16384, // Maximum output tokens for gpt-4o to prevent truncation
-        });
-
-        if (!response.choices || !response.choices[0] || !response.choices[0].message || !response.choices[0].message.content) {
-          throw new Error('OpenAI API returned invalid response');
-        }
-
-        // Check if response was truncated due to token limit
-        const finishReason = response.choices[0].finish_reason;
-        if (finishReason === 'length') {
-          console.error('⚠️ WARNING: Transcript cleaning response was truncated due to token limit!');
-          console.error('⚠️ The cleaned transcript may be incomplete. Consider using a longer max_tokens value or chunking the transcript.');
-          throw new Error('Transcript cleaning was truncated - the transcript is too long. The response exceeded the maximum token limit.');
-        }
-
-        cleanedText = response.choices[0].message.content.trim();
-        
-        console.log('✅ Received cleaned transcript from OpenAI');
+        // Perform code-based cleaning using parsed speaker names (from AI identification)
+        cleanedText = hardCodeCleanTranscript(transcriptText, providedModerator, providedRespondent, interviewDate, interviewTime);
+        console.log('✅ Code-based cleaning completed');
         console.log('📄 Cleaned transcript length:', cleanedText.length);
         console.log('📊 Original vs Cleaned length difference:', transcriptText.length - cleanedText.length);
-        
-        // Verify the cleaned text is actually different
-        if (cleanedText === transcriptText.trim()) {
-          console.warn('⚠️ WARNING: Cleaned transcript is identical to original! OpenAI may not have cleaned it properly.');
-        }
         
         if (cleanedText.length === 0) {
           throw new Error('Cleaned transcript is empty');
         }
 
-        // Log AI cost for transcript cleaning (exact tokens when available)
-        try {
-          const inputTokens = response.usage?.prompt_tokens || 0;
-          const outputTokens = response.usage?.completion_tokens || 0;
-          if (inputTokens > 0 && outputTokens > 0) {
-            await logCost(
-              projectId,
-              COST_CATEGORIES.TRANSCRIPT_CLEANING,
-              'gpt-4o',
-              inputTokens,
-              outputTokens,
-              'Transcript cleaning during upload'
-            );
+        // Save cleaned version as JSON
+        hardCodedCleanedJsonFilename = `cleaned_hardcoded_${transcriptId}_${req.file.originalname.replace(/\.(txt|docx)$/i, '.json')}`;
+        const cleanedJsonPath = path.join(DATA_DIR, 'uploads', hardCodedCleanedJsonFilename);
+        
+        // Ensure uploads directory exists
+        const uploadsDir = path.join(DATA_DIR, 'uploads');
+        await fs.mkdir(uploadsDir, { recursive: true });
+        
+        const cleanedJsonData = {
+          originalFilename: req.file.originalname,
+          projectId,
+          transcriptId,
+          interviewDate,
+          interviewTime,
+          moderatorName: providedModerator,
+          respondentName: providedRespondent,
+          cleanedText: cleanedText,
+          cleanedAt: new Date().toISOString(),
+          cleaningMethod: 'code-based'
+        };
+        
+        await fs.writeFile(cleanedJsonPath, JSON.stringify(cleanedJsonData, null, 2));
+        console.log('💾 Code-based cleaned transcript saved as JSON:', cleanedJsonPath);
+        
+        // If detailed cleaning is requested, apply AI cleaning to the simple-cleaned result
+        if (cleanType === 'detailed' && cleanedText) {
+          console.log('🤖 Starting AI detailed cleaning...');
+          try {
+            const aiCleanedText = await cleanTranscriptWithAI(cleanedText);
+            cleanedText = aiCleanedText;
+            
+            // Update JSON metadata to reflect AI cleaning
+            const detailedCleanedJsonData = {
+              ...cleanedJsonData,
+              cleanedText: aiCleanedText,
+              cleanedAt: new Date().toISOString(),
+              cleaningMethod: 'ai-detailed'
+            };
+            
+            await fs.writeFile(cleanedJsonPath, JSON.stringify(detailedCleanedJsonData, null, 2));
+            console.log('💾 AI detailed cleaned transcript saved as JSON');
+            console.log('📊 Simple vs Detailed length difference:', cleanedJsonData.cleanedText.length - aiCleanedText.length);
+          } catch (aiCleaningError) {
+            console.error('❌ Error during AI detailed cleaning:', aiCleaningError);
+            console.error('Error details:', aiCleaningError.message);
+            // Continue with simple cleaned version - don't fail the upload
+            console.warn('⚠️ Continuing with simple cleaned version due to AI cleaning error');
           }
-        } catch (e) {
-          console.warn('Failed to log cleaning cost:', e.message);
         }
-
-        // Save cleaned filename and path (no respno in filename)
+        
+        // Set cleaned filename and path for Word doc generation
         cleanedFilename = `cleaned_${Date.now()}_${req.file.originalname.replace(/\.(txt|docx)$/i, '.docx')}`;
         cleanedPath = path.join(DATA_DIR, 'uploads', cleanedFilename);
         
         console.log('✅ Transcript cleaning completed successfully');
       } catch (cleaningError) {
-        console.error('❌ Error during transcript cleaning:', cleaningError);
+        console.error('❌ Error during code-based transcript cleaning:', cleaningError);
         console.error('Error details:', cleaningError.message);
         console.error('Stack trace:', cleaningError.stack);
         // Don't fail the upload if cleaning fails - just mark it as not cleaned
         cleanedText = null;
         cleanedFilename = null;
         cleanedPath = null;
+        hardCodedCleanedJsonFilename = null;
         console.warn('⚠️ Continuing with upload without cleaning due to error');
       }
     }
@@ -915,10 +1209,46 @@ Output ONLY the cleaned transcript. No explanations or notes. Start directly wit
       // Don't fail the transcript upload if CA update fails
     }
 
-    res.json(transcriptRecord);
+    // Include code-based cleaned JSON download info in response if available
+    const responseData = {
+      ...transcriptRecord,
+      hardCodedCleanedJsonFilename: hardCodedCleanedJsonFilename || null,
+      hasHardCodedCleaned: !!cleanedText && !!hardCodedCleanedJsonFilename
+    };
+    
+    res.json(responseData);
   } catch (error) {
     console.error('Error uploading transcript:', error);
     res.status(500).json({ error: 'Failed to upload transcript' });
+  }
+});
+
+// GET download hard-coded cleaned JSON
+router.get('/download-cleaned-json/:filename', authenticateToken, async (req, res) => {
+  try {
+    const { filename } = req.params;
+    const jsonPath = path.join(DATA_DIR, 'uploads', filename);
+    
+    // Security check: ensure filename doesn't contain path traversal
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+    
+    // Check if file exists
+    try {
+      await fs.access(jsonPath);
+    } catch {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    
+    // Read and send the JSON file
+    const jsonData = await fs.readFile(jsonPath, 'utf8');
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(jsonData);
+  } catch (error) {
+    console.error('Error downloading cleaned JSON:', error);
+    res.status(500).json({ error: 'Failed to download cleaned JSON' });
   }
 });
 

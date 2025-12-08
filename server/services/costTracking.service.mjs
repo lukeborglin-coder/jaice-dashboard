@@ -23,6 +23,14 @@ const PRICING = {
   'gpt-3.5-turbo': {
     input: 0.50 / 1_000_000,   // $0.50 per 1M input tokens
     output: 1.50 / 1_000_000   // $1.50 per 1M output tokens
+  },
+  'o1-preview': {
+    input: 15.00 / 1_000_000,  // $15.00 per 1M input tokens
+    output: 60.00 / 1_000_000  // $60.00 per 1M output tokens
+  },
+  'o1-mini': {
+    input: 3.00 / 1_000_000,   // $3.00 per 1M input tokens
+    output: 12.00 / 1_000_000  // $12.00 per 1M output tokens
   }
 };
 

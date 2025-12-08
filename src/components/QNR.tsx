@@ -389,17 +389,22 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
   // Load archived projects
   useEffect(() => {
     const loadArchived = async () => {
+      if (!user?.id) return;
       try {
-        const response = await fetch(`${API_BASE_URL}/api/projects`, {
+        const response = await fetch(`${API_BASE_URL}/api/projects/archived?userId=${user.id}`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
         });
         if (response.ok) {
-          const allProjects = await response.json();
-          const archived = allProjects[`${user?.id}_archived`] || [];
+          const data = await response.json();
+          const archived = Array.isArray(data?.projects) ? data.projects : [];
           setArchivedProjects(archived);
+        } else {
+          console.error('Failed to load archived projects');
+          setArchivedProjects([]);
         }
       } catch (error) {
         console.error('Error loading archived projects:', error);
+        setArchivedProjects([]);
       }
     };
     loadArchived();
@@ -2143,9 +2148,6 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                       >
                         <td className="px-6 py-4">
                           <div className="text-sm font-medium text-gray-900">{project.name}</div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {project.methodologyType || 'Quantitative'}
-                          </div>
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-sm text-gray-900">{project.client || '-'}</div>

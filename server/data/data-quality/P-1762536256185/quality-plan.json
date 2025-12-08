@@ -1,0 +1,54 @@
+{
+  "projectId": "P-1762536256185",
+  "rules": [
+    {
+      "id": "S1_straightlining_1765226985366",
+      "questionId": "S1",
+      "questionNumber": "S1",
+      "questionText": "Approximately what percentage of your company’s door installations are commercial vs. residential? Please type in a percentage.",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "S4_straightlining_1765226985366",
+      "questionId": "S4",
+      "questionNumber": "S4",
+      "questionText": "Approximately what percentage of your commercial door installations are new construction vs. a retrofit? Please type in a percentage.",
+      "questionType": "Numeric Grid",
+      "checkTypeId": "straightlining",
+      "settings": {
+        "minGridItems": 3,
+        "straightlineThresholdPercent": 80
+      },
+      "enabled": true
+    },
+    {
+      "id": "S10_open_end_1765226985366",
+      "questionId": "S10",
+      "questionNumber": "S10",
+      "questionText": "To help Cognitive Consulting schedule your interview, please provide the following details:\n\nYour first and last name\n\nPhone number\n(Will only be used to schedule the interview)\n\nEmail address\n(Will only be used to send you a link to participant in the virtual interview)\n\nMailing address\n(Will only be used to mail you the incentive check)",
+      "questionType": "Open End List",
+      "checkTypeId": "open_end",
+      "settings": {
+        "minLengthForFlag": 2,
+        "maxGibberishScore": 0.7,
+        "maxSimilarityAcrossOEs": 0.8
+      },
+      "enabled": true
+    }
+  ],
+  "globalAggressiveness": {
+    "openEndAggressiveness": 50,
+    "straightliningAggressiveness": 50,
+    "speedingAggressiveness": 50,
+    "logicAggressiveness": 50
+  },
+  "createdAt": "2025-12-08T20:49:45.367Z",
+  "updatedAt": "2025-12-08T20:49:45.369Z",
+  "lastGeneratedFromQuestionnaireAt": "2025-12-08T20:49:45.367Z"
+}

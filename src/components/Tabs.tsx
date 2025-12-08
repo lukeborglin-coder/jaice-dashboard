@@ -744,6 +744,30 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     }
   }, [viewMode, selectedProject, selectedQuestionnaire, onHeaderChange]);
 
+  // Load archived projects
+  useEffect(() => {
+    const loadArchivedProjects = async () => {
+      if (!user?.id) return;
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/projects/archived?userId=${user.id}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const archived = Array.isArray(data?.projects) ? data.projects : [];
+          setArchivedProjects(archived);
+        } else {
+          console.error('Failed to load archived projects');
+          setArchivedProjects([]);
+        }
+      } catch (error) {
+        console.error('Error loading archived projects:', error);
+        setArchivedProjects([]);
+      }
+    };
+    loadArchivedProjects();
+  }, [user?.id]);
+
   // Check for project navigation from Project Hub
   useEffect(() => {
     try {

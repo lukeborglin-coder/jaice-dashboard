@@ -107,7 +107,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   >
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-gray-900">{project.name}</div>
-                      <div className="text-xs text-gray-500 mt-1">{project.methodologyType || 'Quantitative'}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">{project.client || '-'}</div>

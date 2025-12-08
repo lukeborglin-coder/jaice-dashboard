@@ -4736,6 +4736,243 @@ Return ONLY valid JSON. Do not include any explanatory text, markdown code block
   }
 });
 
+// POST /api/questionnaire/auto-map-columns - Auto-map QNR variables to data file columns
+router.post('/auto-map-columns', async (req, res) => {
+  try {
+    const { questionnaireId, columnHeaders, variables, forceRemap } = req.body;
+    
+    if (!questionnaireId || !columnHeaders || !Array.isArray(columnHeaders) || !variables || !Array.isArray(variables)) {
+      return res.status(400).json({ error: 'questionnaireId, columnHeaders (array), and variables (array) are required' });
+    }
+    
+    // Extract variable names from variables array
+    const variableNames = variables.map(v => v.name).filter(Boolean);
+    
+    if (variableNames.length === 0) {
+      return res.status(400).json({ error: 'No valid variable names found' });
+    }
+    
+    // Get existing mapping if not forcing remap
+    let existingMapping = {};
+    if (!forceRemap && questionnaireId) {
+      try {
+        const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
+        const metadataPath = path.join(qnrDataDir, 'metadata.json');
+        const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+        existingMapping = metadata.columnMapping || {};
+      } catch (e) {
+        // No existing mapping, that's fine
+        existingMapping = {};
+      }
+    }
+    
+    // Get datamap headers if available
+    let dataMapHeaders = [];
+    if (questionnaireId) {
+      try {
+        const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
+        const metadataPath = path.join(qnrDataDir, 'metadata.json');
+        const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+        if (metadata.dataFileName) {
+          const filePath = path.join(qnrDataDir, metadata.dataFileName);
+          const workbook = XLSX.readFile(filePath);
+          if (workbook.SheetNames.length >= 2) {
+            const datamapSheetName = workbook.SheetNames.find(name => 
+              name.toLowerCase().includes('datamap') || 
+              name.toLowerCase().includes('data map') ||
+              name.toLowerCase().includes('data_map')
+            ) || workbook.SheetNames[1];
+            const datamapWorksheet = workbook.Sheets[datamapSheetName];
+            if (datamapWorksheet) {
+              const rawData = XLSX.utils.sheet_to_json(datamapWorksheet, { header: 1, defval: '' });
+              if (rawData.length > 0) {
+                // Extract column headers from first row
+                dataMapHeaders = rawData[0].filter(h => h && String(h).trim().length > 0);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // Datamap not available, that's fine
+        console.warn('Could not load datamap headers:', e);
+      }
+    }
+    
+    // Call the map-columns endpoint logic internally
+    // We'll reuse the same AI mapping logic
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    
+    // Create a map of variable name to type for easy lookup
+    const variableTypeMap = {};
+    variables.forEach(v => {
+      variableTypeMap[v.name] = v.type || 'Unknown';
+    });
+    
+    const systemPrompt = `You are an expert at matching survey variable names with data file column headers. Your task is to match variable names with the corresponding column headers from a data file.
+
+VARIABLE NAMING CONVENTIONS:
+1. Simple variables: S1, S2, Q1, A1, etc. (question number only)
+2. Numeric grid cell variables: S11r1c1, S11r2c1, S14r1c3 (format: {question}r{row}c{column})
+   - Example: S11r1c1 = question S11, row 1, column 1
+   - Also may appear as: S11_r1_c1, S11r1_c1, S11_r1c1, S11c1r1 (column-first format)
+3. Numeric grid column variables: S11_c1, S11_c2 (format: {question}_{column})
+4. Grid row variables: C1_r1, C1_r2 (format: {question}_r{row})
+5. Multi-select response variables: B8r1, B8r2, D1Ar1 (format: {question}r{option})
+   - Example: B8r1 = question B8, response option 1
+6. Open End variables: Freeform text responses - these should ALWAYS be mapped if a matching column exists
+   - Open ends may have column headers like "Q1", "QS1 - Question text", or just the question number
+   - These contain full text responses and should be mapped to show frequency tables
+7. Summary table variables: S11_c1_Mean Summary (these are COMPUTED - skip them, do not map)
+
+COLUMN HEADER FORMATS IN DATA FILES:
+- Exact match: "S1" matches variable "S1"
+- With Q prefix: "QS1" or "QA7" matches "S1" or "A7"
+- With question text: "QS1 - Which of the following..." matches "S1" or "QS1"
+- With underscores/dashes: "S1_r1", "S1-r1", "S1r1" all match "S1_r1"
+- Numeric grid cells: "S11r1c1", "S11_r1_c1", "S11c1r1" all match "S11r1c1"
+- Multi-select: "B8r1", "B8_r1", "B8-1" all match "B8r1"
+
+CRITICAL MATCHING RULES (BE AGGRESSIVE - MATCH WHENEVER POSSIBLE):
+1. For simple variables (S1, A7, etc.):
+   - Match to columns starting with the variable name OR with "Q" + variable name
+   - Example: "A7" matches "QA7", "QA7 - Question text", "A7", "A7 - Question text"
+   - Extract the FULL column header text, not just the prefix
+
+2. For numeric grid cell variables (S11r1c1):
+   - Match to columns with the same pattern: "S11r1c1", "S11_r1_c1", "S11c1r1", "S11_c1_r1"
+   - Handle both row-first (r1c1) and column-first (c1r1) formats
+   - Match flexibly: underscores, dashes, or no separators
+
+3. For numeric grid column variables (S11_c1):
+   - Match to columns like "QS11 - Column 1 text" or "S11_c1" or "S11c1"
+   - These represent aggregated columns for a specific response option
+
+4. For multi-select response variables (B8r1, B8r2):
+   - Match to columns like "B8r1", "B8_r1", "B8-1", "QB8r1", "QB8 - Option 1"
+   - These are binary (0/1) variables for each response option
+
+5. SKIP these variables (do not map):
+   - Variables ending with "_Mean Summary" or "Summary" (computed variables)
+   - Variables that are clearly derived/computed
+
+6. MATCHING STRATEGY:
+   - Be FLEXIBLE with separators (underscores, dashes, no separator)
+   - Be FLEXIBLE with case (case-insensitive matching)
+   - Handle Q prefix variations (QS1 = S1, QA7 = A7)
+   - For partial matches, prefer the most specific match
+   - If multiple columns match, choose the one that's most specific to the variable
+
+7. ALWAYS return the COMPLETE column header text exactly as it appears in the data headers list
+
+Your goal is to maximize matches - be aggressive and match whenever there's a reasonable connection between the variable name and column header.`;
+
+    const userPrompt = `Please match the following variable names with the column headers from the data file.
+
+VARIABLES TO MAP:
+${variableNames.map((name, idx) => {
+  const varInfo = variables.find(v => v.name === name);
+  const type = varInfo?.type || variableTypeMap[name] || 'Unknown';
+  return `${idx + 1}. Variable: "${name}" (Type: ${type})`;
+}).join('\n')}
+
+DATA FILE COLUMN HEADERS:
+${columnHeaders.map((h, idx) => `${idx + 1}. "${h}"`).join('\n')}
+
+${dataMapHeaders.length > 0 ? `\nDATA MAP COLUMN HEADERS (for reference):\n${dataMapHeaders.map((h, idx) => `${idx + 1}. "${h}"`).join('\n')}` : ''}
+
+${Object.keys(existingMapping).length > 0 && !forceRemap ? `\nEXISTING MAPPINGS (preserve these unless you find a better match):\n${Object.entries(existingMapping).map(([varName, colHeader]) => `  "${varName}" → "${colHeader}"`).join('\n')}` : ''}
+
+Return a JSON object with this structure:
+{
+  "mapping": {
+    "variableName1": "matchedColumnHeader1",
+    "variableName2": "matchedColumnHeader2",
+    ...
+  }
+}
+
+For each variable:
+- Match it to the most likely column header from the data headers
+- If no clear match exists, use an empty string ""
+- Be flexible with naming conventions (underscores, dashes, case differences)
+- Prioritize exact matches, then partial matches
+
+CRITICAL: Return ONLY valid JSON. Do not include any explanatory text, markdown code blocks, or formatting outside the JSON object.`;
+
+    const response = await client.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.1,
+      response_format: { type: 'json_object' },
+      max_tokens: 8192
+    });
+
+    // Check for truncation
+    const finishReason = response.choices[0].finish_reason;
+    if (finishReason === 'length') {
+      console.error('⚠️ Column mapping response was truncated due to token limit');
+      return res.status(500).json({ error: 'Mapping response was too large. Please try with fewer variables or increase the token limit.' });
+    }
+
+    // Get and validate response content
+    const content = response.choices[0].message.content;
+    if (!content || content.trim().length === 0) {
+      console.error('⚠️ Empty response from AI for column mapping');
+      return res.status(500).json({ error: 'Empty response from AI' });
+    }
+
+    // Try to parse JSON
+    let result;
+    try {
+      result = JSON.parse(content);
+    } catch (parseError) {
+      console.error('⚠️ Failed to parse AI response as JSON:', parseError);
+      console.error('Response content:', content.substring(0, 500));
+      return res.status(500).json({ error: 'Invalid JSON response from AI' });
+    }
+
+    const aiMapping = result.mapping || {};
+    
+    // Merge with existing mapping if not forcing remap
+    const finalMapping = !forceRemap && Object.keys(existingMapping).length > 0
+      ? { ...existingMapping, ...aiMapping }
+      : aiMapping;
+    
+    // Save mapping to metadata
+    if (questionnaireId) {
+      try {
+        const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
+        await fs.mkdir(qnrDataDir, { recursive: true });
+        const metadataPath = path.join(qnrDataDir, 'metadata.json');
+        
+        let metadata = {};
+        try {
+          const existingMetadata = await fs.readFile(metadataPath, 'utf-8');
+          metadata = JSON.parse(existingMetadata);
+        } catch (e) {
+          // File doesn't exist yet, that's fine
+        }
+        
+        metadata.columnMapping = finalMapping;
+        metadata.mappingCreatedAt = new Date().toISOString();
+        await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+      } catch (saveError) {
+        console.warn('Could not save column mapping to metadata:', saveError);
+        // Continue anyway - mapping is still returned
+      }
+    }
+    
+    // Return the mapping in the format expected by frontend
+    res.json({ columnMapping: finalMapping });
+  } catch (error) {
+    console.error('Error auto-mapping columns:', error);
+    res.status(500).json({ error: 'Failed to auto-map columns: ' + (error.message || 'Unknown error') });
+  }
+});
+
 // POST /api/questionnaire/upload-data-file - Upload and save data file for a questionnaire
 router.post('/upload-data-file', uploadDataFile.single('file'), async (req, res) => {
   try {
