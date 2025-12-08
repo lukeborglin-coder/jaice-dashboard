@@ -64,6 +64,7 @@ import QNR from "./components/QNR";
 import Tabs from "./components/Tabs";
 import AuthWrapper from "./components/AuthWrapper";
 import TopBar from "./components/TopBar";
+import DataQualityPage from "./pages/DataQualityPage";
 import Feedback from "./components/Feedback";
 import { checkModeratorAvailability, formatConflicts } from "./services/moderatorAvailability";
 import ProjectSetupWizard from "./components/ProjectSetupWizard";
@@ -5199,17 +5200,26 @@ export default function App() {
     'Admin Center': '/admin-center',
     'Feedback': '/feedback',
     'QNR': '/qnr',
+    'Data Quality': '/data-quality', // Will need projectId - handled in component
   };
 
+  // Helper to get route from pathname
+  const getRouteFromPath = useCallback((pathname: string) => {
+    if (pathname.startsWith('/data-quality')) {
+      return 'Data Quality';
+    }
+    return pathToRoute[pathname] || 'Home';
+  }, []);
+
   // Sync route state with URL
-  const currentRouteFromPath = pathToRoute[location.pathname] || 'Home';
+  const currentRouteFromPath = getRouteFromPath(location.pathname);
   const [route, setRoute] = useState(currentRouteFromPath);
 
   // Update route when URL changes (back/forward button)
   useEffect(() => {
-    const newRoute = pathToRoute[location.pathname] || 'Home';
+    const newRoute = getRouteFromPath(location.pathname);
     setRoute(newRoute);
-  }, [location.pathname]);
+  }, [location.pathname, getRouteFromPath]);
 
   // Navigation function that updates both state and URL
   const navigateToRoute = useCallback((routeName: string) => {
@@ -6055,18 +6065,23 @@ export default function App() {
 
   const quantitativeTools = useMemo(
     () => {
-      const tools = [
+      let tools = [
         { name: "QNR", icon: IconCheckbox },
         { name: "Tabs", icon: IconChartDonut2 },
         { name: "Utilities", icon: IconChartLine },
         { name: "Stat Testing", icon: IconChartBar },
         { name: "Open-End Coding", icon: IconCode },
-        { name: "Data QA (Coming Soon)", icon: IconDatabaseExclamation, disabled: true },
+        { name: "Data Quality", icon: IconDatabaseExclamation },
       ];
 
       // Only show Conjoint Simulator to admins
       if (user?.role === 'admin') {
         tools.splice(3, 0, { name: "Conjoint Simulator", icon: IconChartDots });
+      }
+
+      // Only show Data Quality to admins
+      if (user?.role !== 'admin') {
+        tools = tools.filter(item => item.name !== "Data Quality");
       }
 
       return tools;
@@ -6190,9 +6205,14 @@ export default function App() {
                 <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Admin Center</h1>
               </div>
             )}
+            {route === "Data Quality" && (
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Data Quality</h1>
+              </div>
+            )}
             
             {/* Spacer for non-Home pages to push icon to the right */}
-            {route !== "Home" && route !== "Project Hub" && route !== "Vendor Library" && route !== "Transcripts" && route !== "Content Analysis" && route !== "Storytelling" && route !== "Stat Testing" && route !== "Tabs" && route !== "Admin Center" && <div className="flex-grow"></div>}
+            {route !== "Home" && route !== "Project Hub" && route !== "Vendor Library" && route !== "Transcripts" && route !== "Content Analysis" && route !== "Storytelling" && route !== "Stat Testing" && route !== "Tabs" && route !== "Admin Center" && route !== "Data Quality" && <div className="flex-grow"></div>}
             
             {/* Right side elements grouped together */}
             <div className="flex items-center gap-2">
@@ -6466,6 +6486,17 @@ export default function App() {
             <div className="text-center p-8">
               <h2 className="text-2xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
               <p className="text-gray-600">The Tabs page is only available to administrators.</p>
+            </div>
+          </div>
+        )
+      ) : route === "Data Quality" ? (
+        user?.role === 'admin' ? (
+          <DataQualityPage projects={projects} onNavigateToProject={handleProjectView} />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center p-8">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
+              <p className="text-gray-600">The Data Quality page is only available to administrators.</p>
             </div>
           </div>
         )
