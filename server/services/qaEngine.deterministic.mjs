@@ -148,3 +148,4 @@ export function checkBasicLogic(respondentData, rule, settings) {
   return null;
 }
 
+

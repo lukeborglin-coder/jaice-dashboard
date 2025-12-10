@@ -6079,9 +6079,9 @@ export default function App() {
         tools.splice(3, 0, { name: "Conjoint Simulator", icon: IconChartDots });
       }
 
-      // Only show Data Quality to admins
+      // Only show certain tools to admins
       if (user?.role !== 'admin') {
-        tools = tools.filter(item => item.name !== "Data Quality");
+        tools = tools.filter(item => !["Data Quality", "Stat Testing", "Utilities"].includes(item.name));
       }
 
       return tools;

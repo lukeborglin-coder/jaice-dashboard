@@ -20,3 +20,4 @@ export const MappingModal: React.FC<MappingModalProps> = ({
   return <div>MappingModal - To be implemented</div>;
 };
 
+
