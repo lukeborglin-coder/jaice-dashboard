@@ -1,8 +1,12 @@
 import React from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import App from './App'
+import { useAuth } from './contexts/AuthContext'
 
 export default function AppRouter() {
+	const { user } = useAuth()
+	const isAdmin = user?.role === 'admin'
+
 	return (
 		<Routes>
 			<Route path="/" element={<App />} />
@@ -20,7 +24,8 @@ export default function AppRouter() {
 			<Route path="/admin-center/*" element={<App />} />
 			<Route path="/feedback/*" element={<App />} />
 			<Route path="/qnr/*" element={<App />} />
-			<Route path="/data-quality/*" element={<App />} />
+			<Route path="/data-quality/*" element={isAdmin ? <App /> : <Navigate to="/home" replace />} />
+			<Route path="/data-quality-v2/*" element={isAdmin ? <App /> : <Navigate to="/home" replace />} />
 		</Routes>
 	)
 }

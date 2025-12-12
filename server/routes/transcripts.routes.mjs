@@ -401,12 +401,21 @@ function hardCodeCleanTranscript(transcriptText, moderatorName, respondentName, 
   if (!transcriptText) return '';
   
   let cleaned = transcriptText;
+  const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   
   // Remove date/time metadata lines
   const dateTimePatterns = [
-    /^.*(?:Date|Interview Date|Session Date|Time|Interview Time|Session Time).*$/gmi,
-    /^.*\d{1,2}\/\d{1,2}\/\d{4}.*$/gm, // Lines with dates
-    /^.*\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm).*$/gm, // Lines with times
+    // Only remove explicit metadata header lines (avoid removing normal speech containing "time"/"date")
+    /^\s*(?:interview\s+)?date\s*:\s*.*$/gmi,
+    /^\s*(?:interview\s+)?time\s*:\s*.*$/gmi,
+    /^\s*session\s+date\s*:\s*.*$/gmi,
+    /^\s*session\s+time\s*:\s*.*$/gmi,
+    /^\s*transcript\s*:\s*.*$/gmi,
+
+    // Lines that are JUST a date or JUST a time
+    /^\s*\d{1,2}\/\d{1,2}\/\d{2,4}\s*$/gm,
+    /^\s*\d{4}-\d{2}-\d{2}\s*$/gm,
+    /^\s*\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)\s*(?:[A-Z]{2,4})?\s*$/gm,
   ];
   
   dateTimePatterns.forEach(pattern => {
@@ -415,18 +424,146 @@ function hardCodeCleanTranscript(transcriptText, moderatorName, respondentName, 
   
   // Remove lines that are only date/time
   if (interviewDate) {
-    const dateVariations = interviewDate.replace(/[^\w\s]/g, '');
-    cleaned = cleaned.replace(new RegExp(`^.*${dateVariations}.*$`, 'gmi'), '');
+    // Only remove lines that are exactly the interview date (or contain only whitespace around it)
+    const dateVariations = interviewDate.replace(/[^\w\s]/g, '').trim();
+    if (dateVariations) {
+      cleaned = cleaned.replace(new RegExp(`^\\s*${escapeRegex(dateVariations)}\\s*$`, 'gmi'), '');
+    }
   }
   if (interviewTime) {
-    const timeVariations = interviewTime.replace(/[^\w\s:]/g, '');
-    cleaned = cleaned.replace(new RegExp(`^.*${timeVariations}.*$`, 'gmi'), '');
+    // Only remove lines that are exactly the interview time (or contain only whitespace around it)
+    const timeVariations = interviewTime.replace(/[^\w\s:]/g, '').trim();
+    if (timeVariations) {
+      cleaned = cleaned.replace(new RegExp(`^\\s*${escapeRegex(timeVariations)}\\s*$`, 'gmi'), '');
+    }
   }
   
   // Split into lines for processing
   const lines = cleaned.split(/\r?\n/);
   const cleanedLines = [];
-  let foundFirstSpeaker = false; // Track when we've found the first speaker tag
+  // Allow common speaker label formats like "Erica:", "Erica (Moderator):", "John O'Neil:"
+  // Also allow leading bullet/icon characters (e.g., "★ Erica:")
+  const speakerLineRegex = /^[^\wA-Za-z]{0,6}\s*([A-Za-z][A-Za-z .'\-()]{0,60})\s*:\s*(.*)$/;
+  const moderatorNameRegex = moderatorName ? new RegExp(`^${escapeRegex(moderatorName)}$`, 'i') : null;
+  const respondentNameRegex = respondentName ? new RegExp(`^${escapeRegex(respondentName)}$`, 'i') : null;
+
+  // If moderator/respondent names weren't detected, infer them from first two speaker labels
+  let inferredModeratorLabel = null;
+  let inferredRespondentLabel = null;
+
+  const inferRoleFromSpeakerLabel = (speakerLabel) => {
+    if (!speakerLabel) return null;
+    let s = String(speakerLabel).trim();
+    if (!s) return null;
+
+    // Handle explicit role hints in speaker label: "Name (Moderator)" / "Name (Respondent)"
+    const roleHintMatch = s.match(/^(.*?)\s*\((Moderator|Respondent)\)\s*$/i);
+    if (roleHintMatch) {
+      s = roleHintMatch[1].trim();
+      return roleHintMatch[2].toLowerCase() === 'moderator' ? 'Moderator' : 'Respondent';
+    }
+
+    if (/^Moderator$/i.test(s)) return 'Moderator';
+    if (/^Respondent$/i.test(s)) return 'Respondent';
+
+    if (moderatorNameRegex && moderatorNameRegex.test(s)) return 'Moderator';
+    if (respondentNameRegex && respondentNameRegex.test(s)) return 'Respondent';
+
+    // If names aren't available, infer from first two unique speaker labels
+    if (!moderatorName || !respondentName) {
+      const lower = s.toLowerCase();
+      if (!inferredModeratorLabel) {
+        inferredModeratorLabel = s;
+        return 'Moderator';
+      }
+      if (inferredModeratorLabel && inferredModeratorLabel.toLowerCase() === lower) {
+        return 'Moderator';
+      }
+      if (!inferredRespondentLabel) {
+        inferredRespondentLabel = s;
+        return 'Respondent';
+      }
+      if (inferredRespondentLabel && inferredRespondentLabel.toLowerCase() === lower) {
+        return 'Respondent';
+      }
+    }
+
+    return null;
+  };
+
+  const buildNormalizedTurnLine = (role, text) => {
+    if (!role) return null;
+    const rawText = String(text || '').trim();
+    if (!rawText) return null;
+
+    let normalizedLine = `${role}: ${rawText}`.trim();
+
+    // Remove timestamps like (00:00:01 - 00:00:11) but preserve speaker notes like (laughter), (pause)
+    normalizedLine = normalizedLine.replace(/\(\d{1,2}:\d{2}(?::\d{2})?\s*-\s*\d{1,2}:\d{2}(?::\d{2})?\)/g, '');
+
+    // Clean up extra whitespace (but preserve single spaces)
+    normalizedLine = normalizedLine.replace(/\s{2,}/g, ' ').trim();
+
+    // Ignore empty utterances like "Moderator:" with no text
+    if (/^(Moderator|Respondent):\s*$/i.test(normalizedLine)) return null;
+
+    return normalizedLine;
+  };
+
+  // If the original transcript loses line breaks, multiple speaker turns can appear on ONE line.
+  // This splits those inline "Name:" occurrences into separate turns.
+  const splitInlineSpeakerTurns = (fullLine) => {
+    const line = String(fullLine || '').trim();
+    if (!line) return [];
+
+    const labels = [
+      'Moderator',
+      'Respondent',
+      moderatorName,
+      respondentName,
+      inferredModeratorLabel,
+      inferredRespondentLabel
+    ]
+      .filter(Boolean)
+      .map(v => String(v).trim())
+      .filter(Boolean);
+
+    // No known labels → fall back to treating as a single turn (already matched by speakerLineRegex)
+    if (labels.length === 0) return [];
+
+    const labelAlternation = labels
+      .map(escapeRegex)
+      .sort((a, b) => b.length - a.length) // longer first
+      .join('|');
+
+    // Start or whitespace/punctuation, optional icons, then Label:
+    const re = new RegExp(`(^|[\\s\\u2014\\u2013\\-\\u2022\\u00B7•\\t])[^\\wA-Za-z]{0,6}\\s*(${labelAlternation})\\s*:\\s*`, 'gi');
+
+    const matches = [];
+    let m;
+    while ((m = re.exec(line)) !== null) {
+      matches.push({
+        idx: m.index + (m[1] ? m[1].length : 0), // position of label start
+        label: m[2],
+        textStart: re.lastIndex
+      });
+      // Avoid infinite loops on zero-length matches
+      if (re.lastIndex === m.index) re.lastIndex++;
+    }
+
+    if (matches.length <= 1) return [];
+
+    const turns = [];
+    for (let i = 0; i < matches.length; i++) {
+      const cur = matches[i];
+      const next = matches[i + 1];
+      const end = next ? next.idx : line.length;
+      const text = line.slice(cur.textStart, end).trim();
+      turns.push({ speaker: cur.label, text });
+    }
+
+    return turns.filter(t => t.text && t.text.trim());
+  };
   
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i].trim();
@@ -434,115 +571,40 @@ function hardCodeCleanTranscript(transcriptText, moderatorName, respondentName, 
     
     // Skip empty lines and metadata lines
     if (line.length < 3) continue;
-    if (/^(Date|Time|Interview|Session|Transcript)/i.test(line)) continue;
-    
-    // Check if this line starts with a speaker tag (before processing)
-    const hasModeratorTag = moderatorName && new RegExp(`^${moderatorName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`, 'gi').test(line);
-    const hasRespondentTag = respondentName && new RegExp(`^${respondentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`, 'gi').test(line);
-    const hasStandardTag = /^(Moderator|Respondent)\s*:\s*/i.test(line);
-    const isSpeakerLine = hasModeratorTag || hasRespondentTag || hasStandardTag;
-    
-    // Skip all lines until we find the first speaker tag
-    if (!foundFirstSpeaker && !isSpeakerLine) {
+    // Only skip explicit header-like metadata lines (avoid skipping normal sentences)
+    if (/^(?:interview\s+)?(?:date|time)\b/i.test(line)) continue;
+    if (/^session\s+(?:date|time)\b/i.test(line)) continue;
+    if (/^transcript\b/i.test(line)) continue;
+
+    // Only keep explicit speaker lines (anything else between speakers is ignored)
+    const speakerMatch = line.match(speakerLineRegex);
+    if (!speakerMatch) continue;
+
+    let rawSpeaker = speakerMatch[1].trim();
+    const rawText = (speakerMatch[2] || '').trim();
+    if (!rawSpeaker) continue;
+
+    // Try to split inline speaker turns (fallback for jumbled originals)
+    const inlineTurns = splitInlineSpeakerTurns(line);
+    if (inlineTurns.length > 0) {
+      for (const t of inlineTurns) {
+        const role = inferRoleFromSpeakerLabel(t.speaker);
+        const normalized = buildNormalizedTurnLine(role, t.text);
+        if (normalized) cleanedLines.push(normalized);
+      }
       continue;
     }
-    
-    // Mark that we've found the first speaker
-    if (isSpeakerLine) {
-      foundFirstSpeaker = true;
-    }
-    
-    // Replace moderator name with "Moderator:"
-    if (moderatorName) {
-      // Case-insensitive replacement of moderator name at start of line or after colon
-      const modPattern = new RegExp(`^(${moderatorName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}):\\s*`, 'gi');
-      if (modPattern.test(line)) {
-        line = line.replace(modPattern, 'Moderator: ');
-      } else if (line.startsWith(moderatorName + ':') || line.startsWith(moderatorName + ':')) {
-        line = 'Moderator: ' + line.substring(moderatorName.length + 1).trim();
-      } else {
-        // Check if line starts with moderator name (case-insensitive)
-        const modStartPattern = new RegExp(`^${moderatorName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`, 'gi');
-        if (modStartPattern.test(line)) {
-          line = line.replace(modStartPattern, 'Moderator:');
-        }
-      }
-    }
-    
-    // Replace respondent name with "Respondent:"
-    if (respondentName) {
-      // Case-insensitive replacement of respondent name at start of line or after colon
-      const respPattern = new RegExp(`^(${respondentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}):\\s*`, 'gi');
-      if (respPattern.test(line)) {
-        line = line.replace(respPattern, 'Respondent: ');
-      } else if (line.startsWith(respondentName + ':') || line.startsWith(respondentName + ':')) {
-        line = 'Respondent: ' + line.substring(respondentName.length + 1).trim();
-      } else {
-        // Check if line starts with respondent name (case-insensitive)
-        const respStartPattern = new RegExp(`^${respondentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`, 'gi');
-        if (respStartPattern.test(line)) {
-          line = line.replace(respStartPattern, 'Respondent:');
-        }
-      }
-    }
-    
-    // Normalize existing Moderator/Respondent labels
-    line = line.replace(/^Moderator\s*:\s*/i, 'Moderator: ');
-    line = line.replace(/^Respondent\s*:\s*/i, 'Respondent: ');
-    
-    // Remove timestamps like (00:00:01 - 00:00:11) but preserve speaker notes like (laughter), (pause)
-    // Only remove if it matches the timestamp pattern (contains colons and dashes with numbers)
-    line = line.replace(/\(\d{1,2}:\d{2}(?::\d{2})?\s*-\s*\d{1,2}:\d{2}(?::\d{2})?\)/g, '');
-    
-    // Clean up extra whitespace (but preserve single spaces)
-    line = line.replace(/\s{2,}/g, ' ').trim();
-    
-    // Only include lines that start with a speaker tag, or continuation lines after we've found the first speaker
-    if (line) {
-      const isSpeakerTagLine = /^(Moderator|Respondent)\s*:\s*/i.test(line);
-      if (isSpeakerTagLine || foundFirstSpeaker) {
-        cleanedLines.push(line);
-      }
-    }
+
+    const role = inferRoleFromSpeakerLabel(rawSpeaker);
+    if (!role) continue;
+
+    const normalized = buildNormalizedTurnLine(role, rawText);
+    if (normalized) cleanedLines.push(normalized);
   }
   
-  // Join lines with proper formatting:
-  // - One line break between different speaker turns
-  // - Preserve line breaks for multi-line speaker content
-  let result = '';
-  let lastSpeaker = null;
-  let lastWasSpeaker = false;
-  
-  for (let i = 0; i < cleanedLines.length; i++) {
-    const line = cleanedLines[i];
-    const isModerator = /^Moderator:\s*/i.test(line);
-    const isRespondent = /^Respondent:\s*/i.test(line);
-    const currentSpeaker = isModerator ? 'moderator' : (isRespondent ? 'respondent' : null);
-    const isSpeakerLine = !!currentSpeaker;
-    
-    // Add blank line between different speakers
-    if (isSpeakerLine && lastWasSpeaker && lastSpeaker && currentSpeaker !== lastSpeaker) {
-      result += '\n';
-    }
-    
-    // Add the line
-    result += line;
-    
-    // Add line break after each line (for proper formatting)
-    if (i < cleanedLines.length - 1) {
-      result += '\n';
-    }
-    
-    if (isSpeakerLine) {
-      lastWasSpeaker = true;
-      lastSpeaker = currentSpeaker;
-    } else if (lastWasSpeaker) {
-      // Continuation line (same speaker, no label) - keep as is
-      lastWasSpeaker = true; // Still part of the same speaker turn
-    }
-  }
-  
-  return result.trim();
+  // Output normalized speaker turns with a blank line between EVERY turn
+  // (even when the same speaker has multiple consecutive turns).
+  return cleanedLines.join('\n\n').trim();
 }
 
 // Helper function to parse date and time from transcript
@@ -750,7 +812,7 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
         text = ' ' + text;
       }
 
-      // Add ONE blank line before speaker if previous line was also a speaker (different speaker turn)
+      // Add ONE blank line between EVERY speaker turn (even if same speaker twice)
       if (previousWasSpeaker) {
         paragraphs.push(new Paragraph({ text: '' }));
       }
