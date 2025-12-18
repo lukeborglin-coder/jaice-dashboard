@@ -52,17 +52,32 @@ export const qualityPlanApi = {
       { headers: getAuthHeaders() }
     );
     return response.data;
+  },
+
+  addRule: async (projectId: string, ruleData: any) => {
+    const response = await axios.post(
+      `${API_BASE_URL}/api/data-quality/${projectId}/plan/rules`,
+      ruleData,
+      { headers: getAuthHeaders() }
+    );
+    return response.data;
+  },
+
+  updateSettings: async (projectId: string, settings: any) => {
+    const response = await axios.put(
+      `${API_BASE_URL}/api/data-quality/${projectId}/plan/settings`,
+      settings,
+      { headers: getAuthHeaders() }
+    );
+    return response.data;
   }
 };
 
 // QA Data APIs
 export const qaDataApi = {
-  upload: async (projectId: string, file: File, questionnaireId?: string) => {
+  upload: async (projectId: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    if (questionnaireId) {
-      formData.append('questionnaireId', questionnaireId);
-    }
 
     const token = localStorage.getItem('cognitive_dash_token');
     const response = await axios.post(
@@ -74,6 +89,30 @@ export const qaDataApi = {
           'Content-Type': 'multipart/form-data'
         }
       }
+    );
+    return response.data;
+  },
+
+  getUploads: async (projectId: string) => {
+    const response = await axios.get(
+      `${API_BASE_URL}/api/data-quality/${projectId}/data/uploads`,
+      { headers: getAuthHeaders() }
+    );
+    return response.data;
+  },
+
+  deleteUpload: async (projectId: string, uploadId: string) => {
+    const response = await axios.delete(
+      `${API_BASE_URL}/api/data-quality/${projectId}/data/uploads/${uploadId}`,
+      { headers: getAuthHeaders() }
+    );
+    return response.data;
+  },
+
+  getUploadPreview: async (projectId: string, uploadId: string) => {
+    const response = await axios.get(
+      `${API_BASE_URL}/api/data-quality/${projectId}/data/uploads/${uploadId}/preview`,
+      { headers: getAuthHeaders() }
     );
     return response.data;
   },
@@ -95,7 +134,11 @@ export const qaResultsApi = {
     const response = await axios.post(
       `${API_BASE_URL}/api/data-quality/${projectId}/qa/run`,
       { respondentIds, force, questionnaireId },
-      { headers: getAuthHeaders() }
+      {
+        headers: getAuthHeaders(),
+        // Prevent UI from hanging forever if the server stalls
+        timeout: 60000
+      }
     );
     return response.data;
   },
@@ -119,5 +162,7 @@ export const qaResultsApi = {
     return response.data;
   }
 };
+
+
 
 

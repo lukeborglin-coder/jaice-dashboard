@@ -1,6 +1,6 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Variable } from '../utils/tabs/types';
-import { getBaseQuestionNumber } from '../utils/tabs/questionHelpers';
+import { getBaseQuestionNumber, isOeTaggedName } from '../utils/tabs/questionHelpers';
 
 interface UseVariablesProps {
   questionnaireQuestions?: any[];
@@ -18,6 +18,12 @@ export const useVariables = (props?: UseVariablesProps) => {
   const [questionTypeFilter, setQuestionTypeFilter] = useState<string | null>(null);
   const [showQuestionTypeFilter, setShowQuestionTypeFilter] = useState(false);
   const [customNetsMode, setCustomNetsMode] = useState<Record<string, boolean>>({});
+  const variableDataCacheRef = useRef<Map<string, any>>(new Map());
+
+  // Clear cached variable data whenever the raw data or column mapping changes
+  useEffect(() => {
+    variableDataCacheRef.current.clear();
+  }, [fullRawData, columnMapping]);
 
   // Helper function to convert hidden variable names to expected header format
   // Converts "hid_SPECIALTY" to "hSPECIALTY"
@@ -199,6 +205,12 @@ export const useVariables = (props?: UseVariablesProps) => {
     if (!matchedColumnHeader) {
       return undefined;
     }
+
+    const cacheKey = `${matchedColumnHeader}::${fullRawData.rows?.length || 0}`;
+    const cached = variableDataCacheRef.current.get(cacheKey);
+    if (cached !== undefined) {
+      return cached;
+    }
     
     // Extract values from fullRawData rows
     const values: any[] = [];
@@ -292,7 +304,7 @@ export const useVariables = (props?: UseVariablesProps) => {
       }
     }
 
-    return {
+    const result = {
       values: values,
       numericValues: numericValues,
       count: values.length,
@@ -308,6 +320,9 @@ export const useVariables = (props?: UseVariablesProps) => {
       meanNoOutliers: meanNoOutliers,
       sumNoOutliers: sumNoOutliers
     };
+
+    variableDataCacheRef.current.set(cacheKey, result);
+    return result;
   }, [fullRawData, columnMapping, questionnaireQuestions, convertHiddenVariableToExpectedHeader]);
 
   // Helper function to get variable data using expected header format
@@ -351,19 +366,27 @@ export const useVariables = (props?: UseVariablesProps) => {
     
     // Process questions in QNR order - only create variables for questions that have data
     questions.forEach(question => {
-      const questionNumber = question.number || question.id;
-      const questionNumberStr = String(questionNumber);
+    const questionNumber = question.number || question.id;
+    const questionNumberStr = String(questionNumber);
+    const rawQuestionType = question.type || '';
+    const isNumericGridQuestion = rawQuestionType.toLowerCase().includes('numeric grid');
+    const baseQuestionNumber = getBaseQuestionNumber(questionNumberStr);
+
+    // Hide OE-tagged variables entirely
+    if (isOeTaggedName(questionNumberStr)) {
+      return;
+    }
+    
+    // Skip if already processed
+    if (processedQuestionNumbers.has(questionNumberStr)) {
+      return;
+    }
       
-      // Skip if already processed
-      if (processedQuestionNumbers.has(questionNumberStr)) {
-        return;
-      }
-      
-      let questionType = question.type || '';
+      let questionType = rawQuestionType || '';
       
       // Check if this question has data in the column headers
-      const questionNumNormalized = questionNumberStr.toLowerCase().replace(/^q/, '');
-      let hasData = baseNumbersInData.has(questionNumNormalized);
+    const questionNumNormalized = baseQuestionNumber.toLowerCase().replace(/^q/, '');
+    let hasData = baseNumbersInData.has(questionNumNormalized);
       
       // For hidden variables (hid_ prefix), also check the converted format (h prefix)
       if (!hasData && questionNumNormalized.startsWith('hid_')) {
@@ -376,8 +399,9 @@ export const useVariables = (props?: UseVariablesProps) => {
         const tempQuestionType = question.type || '';
         const isSingleSelectGrid = tempQuestionType.toLowerCase().includes('single select grid');
         const isMultiSelectGrid = tempQuestionType.toLowerCase().includes('multi-select grid');
+        const isNumericGridTemp = tempQuestionType.toLowerCase().includes('numeric grid');
         
-        if (isSingleSelectGrid || isMultiSelectGrid) {
+        if (isSingleSelectGrid || isMultiSelectGrid || isNumericGridTemp) {
           // Check if any statement variables exist in the data
           hasData = question.statementOptions.some((stmt: any) => {
             const stmtCode = typeof stmt === 'string' 
@@ -424,6 +448,86 @@ export const useVariables = (props?: UseVariablesProps) => {
         questionType = 'Open End List';
       }
 
+      // Check if this is a multi-select with a column suffix (e.g., B1c1, B1c2)
+      // If so, we should group them into a multi-select grid
+      const isMultiSelectBase = questionType.toLowerCase().includes('multi-select') &&
+                                !questionType.toLowerCase().includes('grid');
+
+      // Check if question number ends with a column pattern like c1, c2, etc.
+      const columnMatch = questionNumberStr.match(/^(.+?)(c\d+)$/i);
+      if (isMultiSelectBase && columnMatch) {
+        const baseNum = columnMatch[1];
+        console.log('[Multi-select grid detection]', {
+          questionNumber: questionNumberStr,
+          baseNum,
+          questionType,
+          allQuestions: questions.map(q => ({ num: q.number || q.id, type: q.type }))
+        });
+
+        // Check if there are other questions with the same base but different columns
+        // IMPORTANT: Search in 'questions' parameter, not 'questionnaireQuestions'
+        const relatedQuestions = questions.filter((q: any) => {
+          const qNum = String(q.number || q.id || '');
+          const qMatch = qNum.match(/^(.+?)(c\d+)$/i);
+          const matches = qMatch && qMatch[1] === baseNum && q.type?.toLowerCase().includes('multi-select');
+          if (qMatch && qMatch[1] === baseNum) {
+            console.log('[Multi-select grid filter]', { qNum, matches, qType: q.type });
+          }
+          return matches;
+        });
+
+        console.log('[Multi-select grid related]', {
+          baseNum,
+          relatedCount: relatedQuestions.length,
+          related: relatedQuestions.map(r => r.number || r.id)
+        });
+
+        if (relatedQuestions.length > 1) {
+          // This is part of a multi-select grid
+          questionType = 'Multi-select grid';
+
+          // Only process the grid once (for the first column)
+          const sortedRelated = relatedQuestions.sort((a: any, b: any) => {
+            const aNum = String(a.number || a.id || '');
+            const bNum = String(b.number || b.id || '');
+            return aNum.localeCompare(bNum);
+          });
+
+          const firstColumnNum = String(sortedRelated[0].number || sortedRelated[0].id);
+
+          // Mark all related questions as processed BEFORE checking if we should skip
+          relatedQuestions.forEach((rq: any) => {
+            const rqNum = String(rq.number || rq.id || '');
+            processedQuestionNumbers.add(rqNum);
+          });
+
+          if (firstColumnNum !== questionNumberStr) {
+            // Skip this one, it will be processed as part of the first column's grid
+            console.log('[Multi-select grid skipping]', {
+              questionNumber: questionNumberStr,
+              reason: 'Not first column',
+              firstColumn: firstColumnNum
+            });
+            return;
+          }
+
+          console.log('[Multi-select grid processing]', {
+            questionNumber: questionNumberStr,
+            reason: 'First column - creating grid'
+          });
+        }
+      }
+
+      // Convert Multi-select with multiple responseOptions AND statementOptions to Multi-select grid
+      const hasMultipleResponseOptions = question.responseOptions &&
+                                         Array.isArray(question.responseOptions) &&
+                                         question.responseOptions.length > 1;
+      // Only convert to grid if it has BOTH multiple columns (responseOptions) AND rows (statementOptions)
+      // Reuse hasStatementOptions variable from above
+      if (isMultiSelectBase && hasMultipleResponseOptions && hasStatementOptions) {
+        questionType = 'Multi-select grid';
+      }
+
       const isNumericGrid = questionType.toLowerCase().includes('numeric grid');
       const isSingleSelectGrid = questionType.toLowerCase().includes('single select grid');
       const isMultiSelectGrid = questionType.toLowerCase().includes('multi-select grid');
@@ -432,10 +536,140 @@ export const useVariables = (props?: UseVariablesProps) => {
       const hasScaleTag = question.tags && Array.isArray(question.tags) && question.tags.includes('Scale');
       const hasNumberTag = question.tags && Array.isArray(question.tags) && question.tags.includes('Number');
       const hasPercentTag = question.tags && Array.isArray(question.tags) && question.tags.includes('%');
-      
+
       // Convert statementOptions to statements object
       let statements: Record<string, string> | undefined = undefined;
       let codes: Record<string, string> | undefined = undefined;
+
+      // Initialize variable name - may be overridden for multi-select grids
+      let variableName = questionNumberStr;
+      let baseQuestionNumberOverride = baseQuestionNumber;
+      let overrideDescription: string | null = null; // For multi-select grids with custom descriptions
+
+      // For multi-select grids created from column-suffixed questions (B1c1, B1c2)
+      // Create codes from the column suffixes and statements from responseOptions
+      if (isMultiSelectGrid && columnMatch) {
+        const baseNum = columnMatch[1];
+        // IMPORTANT: Search in 'questions' parameter
+        const relatedQuestions = questions.filter((q: any) => {
+          const qNum = String(q.number || q.id || '');
+          const qMatch = qNum.match(/^(.+?)(c\d+)$/i);
+          return qMatch && qMatch[1] === baseNum && q.type?.toLowerCase().includes('multi-select');
+        });
+
+        if (relatedQuestions.length > 1) {
+          console.log('[Multi-select grid combining]', {
+            baseNum,
+            relatedQuestions: relatedQuestions.map(rq => ({
+              num: rq.number || rq.id,
+              desc: rq.description,
+              notes: rq.notes
+            }))
+          });
+
+          // Extract column codes and labels
+          // For descriptions like "Evrysdi (risdiplam) - Of your SMA patients...",
+          // we want the column label to be "Evrysdi (risdiplam)" (before the dash)
+          // and the question text to be "Of your SMA patients..." (after the dash)
+          codes = {};
+          let commonQuestionText = '';
+
+          relatedQuestions.forEach((rq: any) => {
+            const rqNum = String(rq.number || rq.id || '');
+            const rqMatch = rqNum.match(/^(.+?)(c\d+)$/i);
+            if (rqMatch) {
+              const colCode = rqMatch[2]; // e.g., "c1", "c2"
+              const fullDescription = rq.description || rq.text || colCode;
+
+              // Split by " - " to separate column label from question text
+              const dashMatch = fullDescription.match(/^(.+?)\s*-\s*(.+)$/);
+              if (dashMatch) {
+                const colLabel = dashMatch[1].trim(); // "Evrysdi (risdiplam)"
+                const questionPart = dashMatch[2].trim(); // "Of your SMA patients..."
+                codes![colCode] = colLabel;
+
+                // Use the question part as the common text (same for all columns)
+                if (!commonQuestionText) {
+                  commonQuestionText = questionPart;
+                }
+              } else {
+                // No dash found, use full description
+                codes![colCode] = fullDescription;
+              }
+            }
+          });
+
+          // Get statements (rows) from notes field of any of the related questions
+          // Notes contain the bracketed column headers like [QB2r1c1], [QB2r2c1], etc.
+          const allNotes: string[] = [];
+          relatedQuestions.forEach((rq: any) => {
+            if (rq.notes && Array.isArray(rq.notes)) {
+              allNotes.push(...rq.notes);
+            }
+          });
+
+          console.log('[Multi-select grid notes]', {
+            baseNum,
+            allNotesCount: allNotes.length,
+            sampleNotes: allNotes.slice(0, 3)
+          });
+
+          if (allNotes.length > 0) {
+            statements = {};
+            // Extract row codes from the bracketed references like [QB2r1c1]
+            const rowCodesMap = new Map<string, string>();
+
+            allNotes.forEach(note => {
+              const noteStr = String(note || '');
+              // Match pattern like [QB2r1c1] followed by description text
+              const match = noteStr.match(/\[([^\]]+)\]\s*(.+)/);
+              if (match) {
+                const fullCode = match[1]; // e.g., "QB2r1c1"
+                const description = match[2];
+
+                // Extract the row code (e.g., "r1" from "QB2r1c1")
+                const rowMatch = fullCode.match(/(r\d+)/i);
+                if (rowMatch) {
+                  const rowCode = rowMatch[1];
+                  // Only add if we haven't seen this row code yet
+                  if (!rowCodesMap.has(rowCode)) {
+                    rowCodesMap.set(rowCode, description);
+                  }
+                }
+              }
+            });
+
+            // Convert map to statements object
+            rowCodesMap.forEach((desc, code) => {
+              statements![code] = desc;
+            });
+
+            console.log('[Multi-select grid statements]', {
+              baseNum,
+              statementsCount: Object.keys(statements).length,
+              sampleStatements: Object.entries(statements).slice(0, 3)
+            });
+          }
+
+          // Use base question number as variable name
+          variableName = baseNum;
+          baseQuestionNumberOverride = baseNum;
+
+          // Use the common question text (after the dash) as the description
+          if (commonQuestionText) {
+            overrideDescription = commonQuestionText;
+          }
+
+          console.log('[Multi-select grid created]', {
+            variableName,
+            codesCount: codes ? Object.keys(codes).length : 0,
+            statementsCount: statements ? Object.keys(statements).length : 0,
+            description: overrideDescription,
+            codes,
+            statements: statements ? Object.fromEntries(Object.entries(statements).slice(0, 3)) : {}
+          });
+        }
+      }
       
       if (question.statementOptions && Array.isArray(question.statementOptions)) {
         const allStatements = question.statementOptions;
@@ -532,12 +766,13 @@ export const useVariables = (props?: UseVariablesProps) => {
         const columnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
         codes['c1'] = columnLabel;
       }
-      
-      // Create variable name - use the base question number
-      const variableName = questionNumberStr;
-      
-      // Create variable description from question text
-      const description = question.text || question.question || question.description || questionNumberStr;
+
+      // Variable name was already initialized above, possibly overridden for multi-select grids
+      // Use baseQuestionNumberOverride if it was set
+      const finalBaseQuestionNumber = baseQuestionNumberOverride;
+
+      // Create variable description from question text (or use override for multi-select grids)
+      const description = overrideDescription || question.text || question.question || question.description || questionNumberStr;
       
       // Create the variable
       const variable: Variable = {
@@ -548,9 +783,25 @@ export const useVariables = (props?: UseVariablesProps) => {
         statements: statements,
         tags: question.tags || []
       };
-      
+
+      // Debug logging for single select grids
+      if (isSingleSelectGrid) {
+        console.log('[DEBUG] Single select grid variable created:', {
+          name: variableName,
+          type: questionType,
+          hasStatementOptions: !!question.statementOptions,
+          statementOptionsCount: question.statementOptions?.length || 0,
+          hasStatements: !!statements,
+          statementsCount: statements ? Object.keys(statements).length : 0,
+          statements: statements,
+          hasCodes: !!codes,
+          codesCount: codes ? Object.keys(codes).length : 0,
+          codes: codes
+        });
+      }
+
       vars.push(variable);
-      processedQuestionNumbers.add(questionNumberStr);
+    processedQuestionNumbers.add(questionNumberStr);
     });
     
     setVariables(vars);
@@ -595,4 +846,3 @@ export const useVariables = (props?: UseVariablesProps) => {
     setCustomNetsMode,
   };
 };
-

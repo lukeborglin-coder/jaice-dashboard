@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, CONJOINT_BACKEND_ENABLED } from '../config';
 
 const API_BASE = `${API_BASE_URL}/api/conjoint`;
 
@@ -90,6 +90,7 @@ export default function ConjointSimulator({
 
   async function onEstimate() {
     if (!file) return alert("Upload an Excel (.xlsx) file first.");
+    if (!CONJOINT_BACKEND_ENABLED) return alert("Conjoint backend is disabled (UI-only mode).");
     setBusy(true);
     try {
       const fd = new FormData();
@@ -156,6 +157,7 @@ export default function ConjointSimulator({
   async function runSimulation() {
     if (!model) return alert("Estimate first.");
     if (!validateScenarios()) return alert("Every scenario must have a value for every attribute (no blanks).");
+    if (!CONJOINT_BACKEND_ENABLED) return alert("Conjoint backend is disabled (UI-only mode).");
     setBusy(true);
     try {
       const payload = {
@@ -225,6 +227,14 @@ export default function ConjointSimulator({
 
   return (
     <div className={outerClassName}>
+      {!CONJOINT_BACKEND_ENABLED && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">UI-only mode</p>
+          <p className="mt-1 text-amber-800">
+            Estimation and simulation are disabled because the Conjoint backend has been removed.
+          </p>
+        </div>
+      )}
       <div className={innerWrapperClassName}>
         <div className={contentWrapperClassName}>
           {enableFileUpload && (

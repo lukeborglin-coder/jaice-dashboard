@@ -1,5 +1,5 @@
 import React from 'react';
-import { TableCellsIcon, Cog6ToothIcon, ArrowDownTrayIcon, PlusCircleIcon, CheckCircleIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { TableCellsIcon, Cog6ToothIcon, ArrowDownTrayIcon, PlusCircleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import ExcelJS from 'exceljs';
 import BannerBuilder from '../BannerBuilder';
 import { BannerBuilderUI } from './BannerBuilderUI';
@@ -21,6 +21,7 @@ interface TabSpecsViewProps {
   questionnaireQuestions: any[];
   variables: Variable[];
   variableTableSelections: Record<string, Set<string>>;
+  showIncludedQuestions: boolean;
   onQuestionClick: (question: any, displayVariable: Variable | null) => void;
   onShowSettingsPopup: () => void;
   // Banner-related props
@@ -38,10 +39,13 @@ interface TabSpecsViewProps {
   onHandleClickImportBannerSpecs: () => void;
   onBannerEdit: (group: any) => void;
   onBannerDelete: (groupId: string) => void;
+  onBannerExport?: (groupId: string) => Promise<void>;
+  exportingBannerId?: string | null;
   onBannerChange: (group: any) => void;
   onBannerSave: () => void;
   onBannerCancel: () => void;
   onBannerFilterConditionsChange: (conditions: any) => void;
+  onBackToTabPlans?: () => void;
 }
 
 export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
@@ -55,6 +59,7 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
   questionnaireQuestions,
   variables,
   variableTableSelections,
+  showIncludedQuestions,
   onQuestionClick,
   onShowSettingsPopup,
   showBannerBuilder,
@@ -71,40 +76,74 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
   onHandleClickImportBannerSpecs,
   onBannerEdit,
   onBannerDelete,
+  onBannerExport,
+  exportingBannerId,
   onBannerChange,
   onBannerSave,
   onBannerCancel,
   onBannerFilterConditionsChange,
+  onBackToTabPlans,
 }) => {
+  const [showLoadingShimmer, setShowLoadingShimmer] = React.useState(false);
+  const [showLoadingOverlay, setShowLoadingOverlay] = React.useState(false);
+  const overlayTimerRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    if (selectedQuestionnaire && questionnaireQuestions.length === 0) {
+      setShowLoadingShimmer(true);
+      const t = window.setTimeout(() => setShowLoadingShimmer(false), 3000);
+      return () => window.clearTimeout(t);
+    } else {
+      setShowLoadingShimmer(false);
+    }
+  }, [questionnaireQuestions.length, selectedQuestionnaire]);
+
+  React.useEffect(() => {
+    if (overlayTimerRef.current) {
+      window.clearTimeout(overlayTimerRef.current);
+      overlayTimerRef.current = null;
+    }
+    if (selectedQuestionnaire) {
+      setShowLoadingOverlay(true);
+      overlayTimerRef.current = window.setTimeout(() => {
+        setShowLoadingOverlay(false);
+      }, 3000);
+    } else {
+      setShowLoadingOverlay(false);
+    }
+    return () => {
+      if (overlayTimerRef.current) {
+        window.clearTimeout(overlayTimerRef.current);
+      }
+    };
+  }, [selectedQuestionnaire]);
+
   return (
     <div className="p-6">
       <div className="mb-4 flex items-start justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">Table Specifications</h2>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onTabSpecsSubViewChange('tables')}
-              className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md border transition-colors ${
-                tabSpecsSubView === 'tables'
-                  ? 'text-white'
-                  : 'text-gray-900 bg-white border-gray-300 hover:bg-gray-50'
-              }`}
-              style={tabSpecsSubView === 'tables' ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
-            >
-              Tables
-            </button>
-            <button
-              onClick={() => onTabSpecsSubViewChange('banners')}
-              className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md border transition-colors ${
-                tabSpecsSubView === 'banners'
-                  ? 'text-white'
-                  : 'text-gray-900 bg-white border-gray-300 hover:bg-gray-50'
-              }`}
-              style={tabSpecsSubView === 'banners' ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
-            >
-              Banners
-            </button>
-          </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onTabSpecsSubViewChange('tables')}
+            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md border transition-colors ${
+              tabSpecsSubView === 'tables'
+                ? 'text-white'
+                : 'text-gray-900 bg-white border-gray-300 hover:bg-gray-50'
+            }`}
+            style={tabSpecsSubView === 'tables' ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
+          >
+            Table Specs
+          </button>
+          <button
+            onClick={() => onTabSpecsSubViewChange('banners')}
+            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md border transition-colors ${
+              tabSpecsSubView === 'banners'
+                ? 'text-white'
+                : 'text-gray-900 bg-white border-gray-300 hover:bg-gray-50'
+            }`}
+            style={tabSpecsSubView === 'banners' ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
+          >
+            Banner Specs
+          </button>
         </div>
         {tabSpecsSubView === 'tables' && questionnaireQuestions.length > 0 && (
           <div className="flex items-center gap-2">
@@ -132,69 +171,6 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
             </button>
           </div>
         )}
-        {tabSpecsSubView === 'banners' && !showBannerBuilder && !selectedNewBannerGroupId && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={async () => {
-                // Generate and download banner spec template using ExcelJS for styling
-                const workbook = new ExcelJS.Workbook();
-                const worksheet = workbook.addWorksheet('Banner Specs');
-                
-                // Set column widths
-                worksheet.getColumn(1).width = 30; // Banner Heading
-                worksheet.getColumn(2).width = 30; // Banner Point
-                worksheet.getColumn(3).width = 50; // Banner Definition
-                
-                // Add header row with brand orange background and white text
-                const headerRow = worksheet.addRow(['Banner Heading (e.g. Gender)', 'Banner Point (e.g. Male)', 'Banner Definition']);
-                headerRow.font = { color: { argb: 'FFFFFFFF' }, bold: true };
-                headerRow.fill = {
-                  type: 'pattern',
-                  pattern: 'solid',
-                  fgColor: { argb: 'FFD14A2D' } // Brand orange
-                };
-                headerRow.alignment = { horizontal: 'left', vertical: 'middle' };
-                
-                // Add Total row as first data row
-                worksheet.addRow(['Total', '', '']);
-                
-                // Generate buffer and download
-                const buffer = await workbook.xlsx.writeBuffer();
-                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                const url = window.URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = 'Banner_Spec_Template.xlsx';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                window.URL.revokeObjectURL(url);
-              }}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm text-white rounded-lg hover:opacity-90"
-              style={{ backgroundColor: BRAND_ORANGE }}
-              title="Download banner spec template"
-            >
-              <ArrowDownTrayIcon className="h-5 w-5" />
-              Download Banner Spec Template
-            </button>
-            <input
-              ref={bannerSpecsFileInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={onBannerSpecsFileChange}
-            />
-            <button
-              onClick={onHandleClickImportBannerSpecs}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm text-white rounded-lg hover:opacity-90"
-              style={{ backgroundColor: BRAND_ORANGE }}
-              title="Create banner group using banner specs (AI)"
-            >
-              <PlusCircleIcon className="h-5 w-5" />
-              Add
-            </button>
-          </div>
-        )}
       </div>
       {tabSpecsSubView === 'tables' ? (
         <>
@@ -203,13 +179,8 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
               <TableCellsIcon className="mx-auto h-12 w-12 text-gray-300 mb-4" />
               <p className="text-gray-500">Please select a questionnaire to view table specifications</p>
             </div>
-          ) : questionnaireQuestions.length === 0 ? (
-            <div className="text-center py-12">
-              <TableCellsIcon className="mx-auto h-12 w-12 text-gray-300 mb-4" />
-              <p className="text-gray-500">No questions found in this questionnaire.</p>
-            </div>
           ) : (
-            <div className="overflow-x-auto max-h-[600px] relative">
+            <div className="relative min-h-[400px] overflow-x-auto max-h-[600px]">
               <table key={specsResetKey} className="min-w-full text-sm border-collapse">
                 <thead className="sticky top-0 z-10">
                   <tr className="border-b-2 border-gray-300">
@@ -221,28 +192,55 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {questionnaireQuestions
-                    .filter(question => {
-                      if (tabSpecsTypeFilter === 'all') return true;
-                      const qType = question.type || 'Unknown';
-                      return qType === tabSpecsTypeFilter;
+                  {variables
+                    .filter(variable => {
+                      // Type filter
+                      if (tabSpecsTypeFilter !== 'all') {
+                        const vType = variable.type || 'Unknown';
+                        if (vType !== tabSpecsTypeFilter) return false;
+                      }
+
+                      // Hide questions without numeric digits in Q# by default
+                      if (!showIncludedQuestions) {
+                        const qNum = variable.name;
+                        // Check if question number contains any numeric digit
+                        if (!/\d/.test(qNum)) {
+                          return false; // Hide questions without numeric digits
+                        }
+                      }
+
+                      // Show/hide questions without included tables
+                      // By default (showIncludedQuestions = false): Show ONLY questions WITH tables
+                      // When showIncludedQuestions = true: Show ALL questions
+                      if (!showIncludedQuestions) {
+                        // Check if this variable has any tables included
+                        const selections = variableTableSelections[variable.name];
+                        if (!selections || selections.size === 0) {
+                          return false; // Hide questions without included tables
+                        }
+                      }
+
+                      return true;
                     })
-                    .map(question => {
-                      const qNum = question.number || question.id;
-                      const qNumStr = String(qNum);
-                      const tags = question.tags || [];
-                      const questionText = question.text || question.question || question.description || qNumStr;
-                      const questionType = question.type || 'Unknown';
+                    .map((variable, idx) => {
+                      const qNumStr = variable.name;
+                      const tags = (variable as any).tags || [];
+                      const questionText = variable.description || qNumStr;
+                      const questionType = variable.type || 'Unknown';
                       const typeLower = questionType.toLowerCase();
                       const isNumericGrid = typeLower.includes('numeric grid') || typeLower.includes('numeric list');
-                      
-                      // Find matching variable if it exists (for when data is uploaded)
-                      const matchingVariable = variables.find(v => {
-                        const vBase = getBaseQuestionNumber(v.name);
-                        return vBase === qNumStr || vBase === qNumStr.replace(/^Q/, '') || vBase.replace(/^Q/, '') === qNumStr;
-                      });
-                      // Use variable if available, otherwise use question
-                      const displayVariable = matchingVariable || null;
+
+                      // Use the variable directly as displayVariable
+                      const displayVariable = variable;
+
+                      // For backwards compatibility, create a question-like object
+                      const question = {
+                        number: variable.name,
+                        id: variable.name,
+                        type: variable.type,
+                        text: variable.description,
+                        tags: tags,
+                      };
                       
                       // For numeric grids, show grid structure info with more detail
                       let gridInfo = null;
@@ -291,21 +289,23 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
                           }
                         }
                       }
-                      
+
+                      // Since we're iterating over variables directly, matchingVariables is just the current variable
+                      const matchingVariables = [variable];
+
                       // Check if any tables are selected for this question
                       const isIncluded = (() => {
-                        // Check if we have a matching variable with selected tables
-                        if (displayVariable) {
-                          const varName = displayVariable.name;
-                          const selections = variableTableSelections[varName];
+                        const qNumForMatching = qNumStr.replace(/^Q/, '');
+
+                        // Check matching variables for selected tables
+                        for (const matchVar of matchingVariables) {
+                          const selections = variableTableSelections[matchVar.name];
                           if (selections && selections.size > 0) {
                             return true;
                           }
                         }
-                        
+                      
                         // Also check by question number (for questions without variables yet)
-                        // Table selections might be stored with the question number as the key
-                        const qNumForMatching = qNumStr.replace(/^Q/, '');
                         const selectionsByQNum = variableTableSelections[qNumStr] || variableTableSelections[qNumForMatching];
                         if (selectionsByQNum && selectionsByQNum.size > 0) {
                           return true;
@@ -356,7 +356,7 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
                       
                       return (
                         <tr
-                          key={qNumStr}
+                          key={`${qNumStr}-${idx}`}
                           className="hover:bg-gray-50 cursor-pointer transition-colors"
                           onClick={() => onQuestionClick(question, displayVariable)}
                         >
@@ -400,14 +400,7 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
                           </td>
                           <td className="px-4 py-3 text-center border-r border-gray-100">
                             {isIncluded ? (
-                              hasDataFile && isFullyUnmapped ? (
-                                <InformationCircleIcon 
-                                  className="h-5 w-5 text-yellow-500 mx-auto cursor-help" 
-                                  title="Marked to include but not mapped to any variables from the data file"
-                                />
-                              ) : (
-                                <CheckCircleIcon className="h-5 w-5 text-green-500 mx-auto" />
-                              )
+                              <CheckCircleIcon className="h-5 w-5 text-green-500 mx-auto" />
                             ) : (
                               <span className="text-gray-400">-</span>
                             )}
@@ -461,6 +454,8 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
                 bannerGroups={newBannerGroups}
                 onEdit={onBannerEdit}
                 onDelete={onBannerDelete}
+                onExport={onBannerExport}
+                exportingBannerId={exportingBannerId}
                 variables={variables}
               />
               {bannerFilterConditions && (

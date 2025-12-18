@@ -1,6 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, CONJOINT_BACKEND_ENABLED } from '../config';
 
 const API_BASE = `${API_BASE_URL}/api/conjoint`;
 
@@ -68,6 +68,10 @@ export default function ConjointAIWorkflow({ projectId, onWorkflowCreated }: Con
   const [tempWorkflowId, setTempWorkflowId] = useState<string | null>(null);
 
   async function handleAnalyzeStep1() {
+    if (!CONJOINT_BACKEND_ENABLED) {
+      setError('Conjoint backend is disabled (UI-only mode).');
+      return;
+    }
     if (!questionnaireFile) {
       setError("Please upload a questionnaire file");
       return;
@@ -103,6 +107,10 @@ export default function ConjointAIWorkflow({ projectId, onWorkflowCreated }: Con
   }
 
   async function handleAnalyzeStep2() {
+    if (!CONJOINT_BACKEND_ENABLED) {
+      setError('Conjoint backend is disabled (UI-only mode).');
+      return;
+    }
     if (!attributeListFile) {
       setError("Please upload an attribute list file");
       return;
@@ -138,6 +146,10 @@ export default function ConjointAIWorkflow({ projectId, onWorkflowCreated }: Con
   }
 
   async function handleAnalyzeStep3() {
+    if (!CONJOINT_BACKEND_ENABLED) {
+      setError('Conjoint backend is disabled (UI-only mode).');
+      return;
+    }
     if (!designFile) {
       setError("Please upload a design file");
       return;
@@ -176,6 +188,10 @@ export default function ConjointAIWorkflow({ projectId, onWorkflowCreated }: Con
   }
 
   async function handleFinalize() {
+    if (!CONJOINT_BACKEND_ENABLED) {
+      setError('Conjoint backend is disabled (UI-only mode).');
+      return;
+    }
     if (!tempWorkflowId) {
       setError("No workflow to finalize");
       return;
@@ -238,6 +254,14 @@ export default function ConjointAIWorkflow({ projectId, onWorkflowCreated }: Con
 
   return (
     <div className="space-y-6">
+      {!CONJOINT_BACKEND_ENABLED && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">UI-only mode</p>
+          <p className="mt-1 text-amber-800">
+            The Conjoint backend has been removed, so AI workflow processing is disabled.
+          </p>
+        </div>
+      )}
       <div className="bg-white rounded-2xl p-6 shadow">
         <div className="mb-6">
           <h2 className="text-xl font-semibold text-gray-900">AI-Powered Conjoint Workflow</h2>

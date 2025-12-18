@@ -35,6 +35,13 @@ export function getQAResultsPath(projectId) {
 }
 
 /**
+ * Get the path to uploads.json
+ */
+export function getUploadsPath(projectId) {
+  return path.join(getProjectDataQualityDir(projectId), 'uploads.json');
+}
+
+/**
  * Ensure data quality directory exists for a project
  */
 async function ensureProjectDir(projectId) {
@@ -226,5 +233,84 @@ export async function getQADataByRespno(projectId, respno) {
   const data = await loadQAData(projectId);
   return data[respno] || null;
 }
+
+/**
+ * Load uploads for a project
+ */
+export async function loadUploads(projectId) {
+  try {
+    const uploadsPath = getUploadsPath(projectId);
+    const content = await fs.readFile(uploadsPath, 'utf-8');
+    return JSON.parse(content) || [];
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return []; // File doesn't exist yet
+    }
+    throw error;
+  }
+}
+
+/**
+ * Save uploads for a project
+ */
+export async function saveUploads(projectId, uploads) {
+  await ensureProjectDir(projectId);
+  const uploadsPath = getUploadsPath(projectId);
+  await fs.writeFile(uploadsPath, JSON.stringify(uploads, null, 2), 'utf-8');
+  return uploads;
+}
+
+/**
+ * Add an upload record
+ */
+export async function addUpload(projectId, uploadData) {
+  const uploads = await loadUploads(projectId);
+  const newUpload = {
+    id: `upload-${Date.now()}`,
+    projectId,
+    ...uploadData,
+    uploadedAt: new Date().toISOString()
+  };
+  uploads.unshift(newUpload); // Add to beginning (most recent first)
+  await saveUploads(projectId, uploads);
+  return newUpload;
+}
+
+/**
+ * Delete an upload and its associated data
+ */
+export async function deleteUpload(projectId, uploadId) {
+  const uploads = await loadUploads(projectId);
+  const uploadIndex = uploads.findIndex(u => u.id === uploadId);
+  
+  if (uploadIndex === -1) {
+    return null;
+  }
+  
+  const [deletedUpload] = uploads.splice(uploadIndex, 1);
+  await saveUploads(projectId, uploads);
+  
+  // Also remove the respondent data associated with this upload
+  if (deletedUpload.respnos && deletedUpload.respnos.length > 0) {
+    const qaData = await loadQAData(projectId);
+    deletedUpload.respnos.forEach(respno => {
+      delete qaData[respno];
+    });
+    const dataPath = getQADataPath(projectId);
+    await fs.writeFile(dataPath, JSON.stringify(qaData, null, 2), 'utf-8');
+    
+    // Also remove QA results for these respondents
+    const qaResults = await loadQAResults(projectId);
+    deletedUpload.respnos.forEach(respno => {
+      delete qaResults[respno];
+    });
+    const resultsPath = getQAResultsPath(projectId);
+    await fs.writeFile(resultsPath, JSON.stringify(qaResults, null, 2), 'utf-8');
+  }
+  
+  return deletedUpload;
+}
+
+
 
 

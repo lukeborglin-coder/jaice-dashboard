@@ -76,46 +76,67 @@ export function checkStraightlining(respondentData, rule, settings) {
 
 /**
  * Check if respondent completed too quickly (speeding)
+ * Uses 'qtime' column from data (seconds) and compares against expected LOI from questionnaire
  * @param {Object} respondentData - Respondent's data
- * @param {number} medianLOI - Median length of interview in seconds
+ * @param {number} expectedLOI - Expected Length of Interview in minutes (from questionnaire)
  * @param {Object} rule - Quality rule
  * @param {Object} settings - Rule settings + global aggressiveness
  * @returns {Object|null} Flag object or null
  */
-export function checkSpeeding(respondentData, medianLOI, rule, settings) {
-  const { speedingThresholdPercent = 30 } = settings;
+export function checkSpeeding(respondentData, expectedLOI, rule, settings) {
+  const { speedingThresholdPercent = 50 } = settings;
   const aggressiveness = settings.speedingAggressiveness || 50;
   
-  // Higher aggressiveness = lower threshold (more sensitive)
+  // Higher aggressiveness = lower threshold (more sensitive to speeders)
+  // At 50% aggressiveness, threshold is 50% of expected LOI
+  // At 100% aggressiveness, threshold is 40% of expected LOI
+  // At 0% aggressiveness, threshold is 60% of expected LOI
   const threshold = speedingThresholdPercent - (aggressiveness - 50) * 0.2;
   
-  // Try to get LOI from data
-  let loi = null;
-  const loiColumns = ['LOI', 'loi', 'LengthOfInterview', 'length_of_interview', 'duration'];
-  for (const col of loiColumns) {
+  // Get qtime from data (in seconds)
+  let qtime = null;
+  const qtimeColumns = ['qtime', 'QTIME', 'QTime', 'Qtime'];
+  for (const col of qtimeColumns) {
     if (respondentData.columns?.[col] !== undefined && respondentData.columns[col] !== null) {
-      loi = parseFloat(respondentData.columns[col]);
-      if (!isNaN(loi)) break;
+      qtime = parseFloat(respondentData.columns[col]);
+      if (!isNaN(qtime)) break;
     }
   }
   
-  if (loi === null || medianLOI === null || medianLOI === 0) {
-    return null; // Can't check without LOI data
+  if (qtime === null) {
+    return null; // Can't check without qtime data
   }
   
-  const percentageOfMedian = (loi / medianLOI) * 100;
+  if (expectedLOI === null || expectedLOI === undefined || expectedLOI <= 0) {
+    return null; // Can't check without expected LOI from questionnaire
+  }
   
-  if (percentageOfMedian < threshold) {
+  // Convert expected LOI from minutes to seconds
+  const expectedLOISeconds = expectedLOI * 60;
+  
+  // Calculate percentage of expected LOI
+  const percentageOfExpected = (qtime / expectedLOISeconds) * 100;
+  
+  if (percentageOfExpected < threshold) {
+    // Format time nicely
+    const formatTime = (seconds) => {
+      if (seconds < 60) return `${Math.round(seconds)}s`;
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.round(seconds % 60);
+      return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+    };
+    
     return {
       ruleId: rule.id,
       checkTypeId: 'speeding',
-      severity: percentageOfMedian < 15 ? 'major' : percentageOfMedian < 25 ? 'moderate' : 'minor',
-      weight: percentageOfMedian < 15 ? 20 : percentageOfMedian < 25 ? 10 : 5,
-      message: `Speeding detected: Completed in ${loi}s (${percentageOfMedian.toFixed(1)}% of median ${medianLOI}s)`,
+      severity: percentageOfExpected < 25 ? 'major' : percentageOfExpected < 40 ? 'moderate' : 'minor',
+      weight: percentageOfExpected < 25 ? 20 : percentageOfExpected < 40 ? 10 : 5,
+      message: `Speeding detected: Completed in ${formatTime(qtime)} (${percentageOfExpected.toFixed(0)}% of expected ${expectedLOI} min)`,
       rawDataSnippet: {
-        loi,
-        medianLOI,
-        percentageOfMedian: percentageOfMedian.toFixed(1)
+        qtime,
+        expectedLOIMinutes: expectedLOI,
+        expectedLOISeconds,
+        percentageOfExpected: percentageOfExpected.toFixed(1)
       }
     };
   }
@@ -147,5 +168,7 @@ export function checkBasicLogic(respondentData, rule, settings) {
   
   return null;
 }
+
+
 
 

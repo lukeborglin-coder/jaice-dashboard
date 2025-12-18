@@ -27,6 +27,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { IconCheckbox } from '@tabler/icons-react';
 import { API_BASE_URL } from '../config';
+import { calculateLOIMinutesFromQuestions } from '../utils/calculateLOI';
 import { useAuth } from '../contexts/AuthContext';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun } from 'docx';
 
@@ -2448,80 +2449,8 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                       <div className="text-xs text-white/80 mb-1">LOI</div>
                       <div className="text-xl font-bold text-white">
                         {(() => {
-                          if (!selectedQuestionnaire?.questions || selectedQuestionnaire.questions.length === 0) {
-                            return '0 min';
-                          }
-                          
-                          // Filter out hidden variables (questions starting with 'hid_')
-                          // Note: Quotas are stored separately in the quotas array, so they're already excluded
-                          const visibleQuestions = selectedQuestionnaire.questions.filter((q: Question) => 
-                            !q.number?.startsWith('hid_')
-                          );
-                          
-                          if (visibleQuestions.length === 0) {
-                            return '0 min';
-                          }
-                          
-                          let totalMinutes = 0;
-                          
-                          visibleQuestions.forEach((question: Question) => {
-                            const typeLower = question.type?.toLowerCase() || '';
-                            
-                            // Base time per question type (in minutes)
-                            let baseTime = 0.4; // Default 24 seconds
-                            
-                            if (typeLower.includes('single select')) {
-                              baseTime = 0.25; // 15 seconds
-                              // Add time for reading options (1.5 seconds per option)
-                              const optionsCount = question.options?.length || 0;
-                              baseTime += (optionsCount * 0.025); // ~1.5 seconds per option
-                            } else if (typeLower.includes('multi-select')) {
-                              baseTime = 0.4; // 24 seconds
-                              // Add time for reading and selecting options (2.5 seconds per option)
-                              const optionsCount = question.options?.length || 0;
-                              baseTime += (optionsCount * 0.042); // ~2.5 seconds per option
-                            } else if (typeLower.includes('open end')) {
-                              if (typeLower.includes('list')) {
-                                // Open end list - multiple text boxes
-                                baseTime = 0.8; // 48 seconds base
-                                const responseOptionsCount = question.responseOptions?.length || 0;
-                                baseTime += (responseOptionsCount * 0.4); // 24 seconds per text box
-                              } else {
-                                // Single open end
-                                baseTime = 0.8; // 48 seconds for typing
-                              }
-                            } else if (typeLower.includes('numeric')) {
-                              if (typeLower.includes('grid')) {
-                                baseTime = 0.3; // 18 seconds base
-                                const statementCount = question.statementOptions?.length || 0;
-                                const responseCount = question.responseOptions?.length || 0;
-                                baseTime += (statementCount * responseCount * 0.04); // 2.4 seconds per cell
-                              } else if (typeLower.includes('list')) {
-                                baseTime = 0.25; // 15 seconds base
-                                const responseOptionsCount = question.responseOptions?.length || 0;
-                                baseTime += (responseOptionsCount * 0.08); // 5 seconds per numeric input
-                              } else {
-                                // Single numeric
-                                baseTime = 0.15; // 9 seconds
-                              }
-                            } else if (typeLower.includes('grid')) {
-                              baseTime = 0.4; // 24 seconds base
-                              const statementCount = question.statementOptions?.length || 0;
-                              const responseCount = question.responseOptions?.length || 0;
-                              // Grid questions take longer - need to read row and column
-                              baseTime += (statementCount * responseCount * 0.067); // ~4 seconds per cell
-                            } else if (typeLower.includes('scale')) {
-                              baseTime = 0.35; // 21 seconds
-                              const optionsCount = question.options?.length || 0;
-                              baseTime += (optionsCount * 0.025); // ~1.5 seconds per option
-                            }
-                            
-                            totalMinutes += baseTime;
-                          });
-                          
-                          // Round to nearest minute
-                          const roundedMinutes = Math.round(totalMinutes);
-                          return `${roundedMinutes} min`;
+                          const minutes = calculateLOIMinutesFromQuestions(selectedQuestionnaire?.questions);
+                          return `${minutes} min`;
                         })()}
                       </div>
                     </div>

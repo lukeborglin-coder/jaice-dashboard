@@ -1,0 +1,3003 @@
+{
+  "id": "5c40c59b-2297-45da-ae29-18d5186f6fe2",
+  "projectId": "P-1761242973652",
+  "name": "test",
+  "sourceType": "raw",
+  "createdAt": "2025-12-18T16:06:33.905Z",
+  "updatedAt": "2025-12-18T18:05:18.968Z",
+  "specs": {
+    "variableTableSelections": {
+      "QS1": [
+        "QS1"
+      ],
+      "QS2": [
+        "QS2"
+      ],
+      "QS3": [
+        "QS3"
+      ],
+      "Region": [
+        "Region"
+      ],
+      "QS4": [
+        "QS4_MeanSummaryTable",
+        "QS4_SumSummaryTable"
+      ],
+      "QS5": [
+        "QS5_MeanSummaryTable",
+        "QS5_SumSummaryTable"
+      ],
+      "QS6": [
+        "QS6"
+      ],
+      "QS7": [
+        "QS7"
+      ],
+      "QS8": [
+        "QS8"
+      ],
+      "QS9": [
+        "QS9"
+      ],
+      "QS10": [
+        "QS10"
+      ],
+      "QS11c1": [
+        "QS11c1_MeanSummaryTable",
+        "QS11c1_SumSummaryTable"
+      ],
+      "QS11c2": [
+        "QS11c2_MeanSummaryTable",
+        "QS11c2_SumSummaryTable"
+      ],
+      "QS11c3": [
+        "QS11c3_MeanSummaryTable",
+        "QS11c3_SumSummaryTable"
+      ],
+      "QS11c4": [
+        "QS11c4_MeanSummaryTable",
+        "QS11c4_SumSummaryTable"
+      ],
+      "QS11c5": [
+        "QS11c5_MeanSummaryTable",
+        "QS11c5_SumSummaryTable"
+      ],
+      "QS11Newc1": [
+        "QS11Newc1_MeanSummaryTable",
+        "QS11Newc1_SumSummaryTable"
+      ],
+      "QS11Newc2": [
+        "QS11Newc2_MeanSummaryTable",
+        "QS11Newc2_SumSummaryTable"
+      ],
+      "QS11Newc3": [
+        "QS11Newc3_MeanSummaryTable",
+        "QS11Newc3_SumSummaryTable"
+      ],
+      "QS12": [
+        "QS12"
+      ],
+      "noanswer": [
+        "noanswer"
+      ],
+      "QS13": [
+        "QS13_r1",
+        "QS13_r2",
+        "QS13_r3",
+        "QS13_r4",
+        "QS13_MeanSummaryTable"
+      ],
+      "QS14c1": [
+        "QS14c1_MeanSummaryTable",
+        "QS14c1_SumSummaryTable"
+      ],
+      "QS14c2": [
+        "QS14c2_MeanSummaryTable",
+        "QS14c2_SumSummaryTable"
+      ],
+      "QS14c3": [
+        "QS14c3_MeanSummaryTable",
+        "QS14c3_SumSummaryTable"
+      ],
+      "QS14c4": [
+        "QS14c4_MeanSummaryTable",
+        "QS14c4_SumSummaryTable"
+      ],
+      "QS14c5": [
+        "QS14c5_MeanSummaryTable",
+        "QS14c5_SumSummaryTable"
+      ],
+      "QS14Newc1": [
+        "QS14Newc1_MeanSummaryTable",
+        "QS14Newc1_SumSummaryTable"
+      ],
+      "QS14Newc2": [
+        "QS14Newc2_MeanSummaryTable",
+        "QS14Newc2_SumSummaryTable"
+      ],
+      "QS14Newc3": [
+        "QS14Newc3_MeanSummaryTable",
+        "QS14Newc3_SumSummaryTable"
+      ],
+      "QS14B": [
+        "QS14B_MeanSummaryTable",
+        "QS14B_SumSummaryTable"
+      ],
+      "QS15": [
+        "QS15"
+      ],
+      "QSQ1": [
+        "QSQ1"
+      ],
+      "QSQ2": [
+        "QSQ2"
+      ],
+      "QSQ3": [
+        "QSQ3"
+      ],
+      "QA1": [
+        "QA1_MeanSummaryTable"
+      ],
+      "QA2": [
+        "QA2_MeanSummaryTable"
+      ],
+      "QA3": [
+        "QA3_MeanSummaryTable"
+      ],
+      "QA4c2": [
+        "QA4c2_MeanSummaryTable"
+      ],
+      "QA4c3": [
+        "QA4c3_MeanSummaryTable"
+      ],
+      "QA4c4": [
+        "QA4c4_MeanSummaryTable"
+      ],
+      "QA4c5": [
+        "QA4c5_MeanSummaryTable"
+      ],
+      "QA4Newc2": [
+        "QA4Newc2_MeanSummaryTable"
+      ],
+      "QA4Newc3": [
+        "QA4Newc3_MeanSummaryTable"
+      ],
+      "QA4Newc4": [
+        "QA4Newc4_MeanSummaryTable"
+      ],
+      "QA4Newc5": [
+        "QA4Newc5_MeanSummaryTable"
+      ],
+      "QA5": [
+        "QA5_MeanSummaryTable"
+      ],
+      "QA6": [
+        "QA6_r1",
+        "QA6_r2",
+        "QA6_r3",
+        "QA6_r4",
+        "QA6_MeanSummaryTable"
+      ],
+      "QA6New": [
+        "QA6New_r1",
+        "QA6New_r2",
+        "QA6New_MeanSummaryTable"
+      ],
+      "QA7": [
+        "QA7",
+        "QA7_NetSummaryTable_0",
+        "QA7_NetSummaryTable_1",
+        "QA7_NetSummaryTable_2"
+      ],
+      "QB1c1": [
+        "QB1c1_MeanSummaryTable",
+        "QB1c1_SumSummaryTable"
+      ],
+      "QB1c2": [
+        "QB1c2_MeanSummaryTable",
+        "QB1c2_SumSummaryTable"
+      ],
+      "QB1c3": [
+        "QB1c3_MeanSummaryTable",
+        "QB1c3_SumSummaryTable"
+      ],
+      "QB1c4": [
+        "QB1c4_MeanSummaryTable",
+        "QB1c4_SumSummaryTable"
+      ],
+      "QB1c5": [
+        "QB1c5_MeanSummaryTable",
+        "QB1c5_SumSummaryTable"
+      ],
+      "QB1Newc1": [
+        "QB1Newc1_MeanSummaryTable",
+        "QB1Newc1_SumSummaryTable"
+      ],
+      "QB1Newc2": [
+        "QB1Newc2_MeanSummaryTable",
+        "QB1Newc2_SumSummaryTable"
+      ],
+      "QB1Newc3": [
+        "QB1Newc3_MeanSummaryTable",
+        "QB1Newc3_SumSummaryTable"
+      ],
+      "QB2": [
+        "QB2_c1_SummaryTable",
+        "QB2_c2_SummaryTable"
+      ],
+      "QB3": [
+        "QB3_r1",
+        "QB3_r2",
+        "QB3_r3",
+        "QB3_r4",
+        "QB3_r5",
+        "QB3_r6",
+        "QB3_MeanSummaryTable"
+      ],
+      "QB4": [
+        "QB4"
+      ],
+      "QB5": [
+        "QB5"
+      ],
+      "QB6": [
+        "QB6"
+      ],
+      "QB7": [
+        "QB7",
+        "QB7_NetSummaryTable_0",
+        "QB7_NetSummaryTable_1",
+        "QB7_NetSummaryTable_2"
+      ],
+      "QB7A": [
+        "QB7A",
+        "QB7A_NetSummaryTable_0",
+        "QB7A_NetSummaryTable_1",
+        "QB7A_NetSummaryTable_2"
+      ],
+      "QB8": [
+        "QB8"
+      ],
+      "QC1": [
+        "QC1_NetSummaryTable_0",
+        "QC1_NetSummaryTable_1",
+        "QC1_NetSummaryTable_2"
+      ],
+      "QC2": [
+        "QC2_NetSummaryTable_0",
+        "QC2_NetSummaryTable_1",
+        "QC2_NetSummaryTable_2"
+      ],
+      "QC2A": [
+        "QC2A_NetSummaryTable_0",
+        "QC2A_NetSummaryTable_1",
+        "QC2A_NetSummaryTable_2"
+      ],
+      "QC3": [
+        "QC3_NetSummaryTable_0",
+        "QC3_NetSummaryTable_1",
+        "QC3_NetSummaryTable_2"
+      ],
+      "QC4": [
+        "QC4",
+        "QC4_NetSummaryTable_0",
+        "QC4_NetSummaryTable_1",
+        "QC4_NetSummaryTable_2"
+      ],
+      "QC5": [
+        "QC5_NetSummaryTable_0",
+        "QC5_NetSummaryTable_1",
+        "QC5_NetSummaryTable_2"
+      ],
+      "QC6X1": [
+        "QC6X1_NetSummaryTable_0",
+        "QC6X1_NetSummaryTable_1",
+        "QC6X1_NetSummaryTable_2"
+      ],
+      "QC6X2": [
+        "QC6X2_NetSummaryTable_0",
+        "QC6X2_NetSummaryTable_1",
+        "QC6X2_NetSummaryTable_2"
+      ],
+      "QC6X3": [
+        "QC6X3_NetSummaryTable_0",
+        "QC6X3_NetSummaryTable_1",
+        "QC6X3_NetSummaryTable_2"
+      ],
+      "QC6B": [
+        "QC6B"
+      ],
+      "QC7": [
+        "QC7_r1",
+        "QC7_r2",
+        "QC7_r3",
+        "QC7_r4",
+        "QC7_MeanSummaryTable"
+      ],
+      "QC8": [
+        "QC8_c1_SummaryTable",
+        "QC8_c2_SummaryTable"
+      ],
+      "QC9": [
+        "QC9"
+      ],
+      "QD1c1": [
+        "QD1c1_MeanSummaryTable",
+        "QD1c1_SumSummaryTable"
+      ],
+      "QD1c2": [
+        "QD1c2_MeanSummaryTable",
+        "QD1c2_SumSummaryTable"
+      ],
+      "QD1c3": [
+        "QD1c3_MeanSummaryTable",
+        "QD1c3_SumSummaryTable"
+      ],
+      "QD1c4": [
+        "QD1c4_MeanSummaryTable",
+        "QD1c4_SumSummaryTable"
+      ],
+      "QD1c5": [
+        "QD1c5_MeanSummaryTable",
+        "QD1c5_SumSummaryTable"
+      ],
+      "QD1c6": [
+        "QD1c6_MeanSummaryTable",
+        "QD1c6_SumSummaryTable"
+      ],
+      "QD1c7": [
+        "QD1c7_MeanSummaryTable",
+        "QD1c7_SumSummaryTable"
+      ],
+      "QD1c8": [
+        "QD1c8_MeanSummaryTable",
+        "QD1c8_SumSummaryTable"
+      ],
+      "QD1c9": [
+        "QD1c9_MeanSummaryTable",
+        "QD1c9_SumSummaryTable"
+      ],
+      "QD1c10": [
+        "QD1c10_MeanSummaryTable",
+        "QD1c10_SumSummaryTable"
+      ],
+      "QD1Newc1": [
+        "QD1Newc1_MeanSummaryTable",
+        "QD1Newc1_SumSummaryTable"
+      ],
+      "QD1Newc2": [
+        "QD1Newc2_MeanSummaryTable",
+        "QD1Newc2_SumSummaryTable"
+      ],
+      "QD1Newc3": [
+        "QD1Newc3_MeanSummaryTable",
+        "QD1Newc3_SumSummaryTable"
+      ],
+      "QD1Newc4": [
+        "QD1Newc4_MeanSummaryTable",
+        "QD1Newc4_SumSummaryTable"
+      ],
+      "QD1Newc5": [
+        "QD1Newc5_MeanSummaryTable",
+        "QD1Newc5_SumSummaryTable"
+      ],
+      "QD1Newc6": [
+        "QD1Newc6_MeanSummaryTable",
+        "QD1Newc6_SumSummaryTable"
+      ],
+      "QD1A": [
+        "QD1A"
+      ],
+      "QD1B": [
+        "QD1B"
+      ],
+      "QD2": [
+        "QD2_NetSummaryTable_0",
+        "QD2_NetSummaryTable_1",
+        "QD2_NetSummaryTable_2"
+      ],
+      "QD3": [
+        "QD3"
+      ],
+      "QD4": [
+        "QD4"
+      ],
+      "QD5": [
+        "QD5"
+      ],
+      "QD5x2": [
+        "QD5x2"
+      ],
+      "QD6": [
+        "QD6_NetSummaryTable_0",
+        "QD6_NetSummaryTable_1",
+        "QD6_NetSummaryTable_2"
+      ],
+      "QD7": [
+        "QD7_NetSummaryTable_0",
+        "QD7_NetSummaryTable_1",
+        "QD7_NetSummaryTable_2"
+      ],
+      "QD8": [
+        "QD8_NetSummaryTable_0",
+        "QD8_NetSummaryTable_1",
+        "QD8_NetSummaryTable_2"
+      ],
+      "QD9c1": [
+        "QD9c1_MeanSummaryTable",
+        "QD9c1_SumSummaryTable"
+      ],
+      "QD9c2": [
+        "QD9c2_MeanSummaryTable",
+        "QD9c2_SumSummaryTable"
+      ],
+      "QD9c3": [
+        "QD9c3_MeanSummaryTable",
+        "QD9c3_SumSummaryTable"
+      ],
+      "QD9c4": [
+        "QD9c4_MeanSummaryTable",
+        "QD9c4_SumSummaryTable"
+      ],
+      "QD9c5": [
+        "QD9c5_MeanSummaryTable",
+        "QD9c5_SumSummaryTable"
+      ],
+      "QD9c6": [
+        "QD9c6_MeanSummaryTable",
+        "QD9c6_SumSummaryTable"
+      ],
+      "QD9c7": [
+        "QD9c7_MeanSummaryTable",
+        "QD9c7_SumSummaryTable"
+      ],
+      "QD9c8": [
+        "QD9c8_MeanSummaryTable",
+        "QD9c8_SumSummaryTable"
+      ],
+      "QD9c9": [
+        "QD9c9_MeanSummaryTable",
+        "QD9c9_SumSummaryTable"
+      ],
+      "QD9c10": [
+        "QD9c10_MeanSummaryTable",
+        "QD9c10_SumSummaryTable"
+      ],
+      "QD9Newc1": [
+        "QD9Newc1_MeanSummaryTable",
+        "QD9Newc1_SumSummaryTable"
+      ],
+      "QD9Newc2": [
+        "QD9Newc2_MeanSummaryTable",
+        "QD9Newc2_SumSummaryTable"
+      ],
+      "QD9Newc3": [
+        "QD9Newc3_MeanSummaryTable",
+        "QD9Newc3_SumSummaryTable"
+      ],
+      "QD9Newc4": [
+        "QD9Newc4_MeanSummaryTable",
+        "QD9Newc4_SumSummaryTable"
+      ],
+      "QD9Newc5": [
+        "QD9Newc5_MeanSummaryTable",
+        "QD9Newc5_SumSummaryTable"
+      ],
+      "QD9Newc6": [
+        "QD9Newc6_MeanSummaryTable",
+        "QD9Newc6_SumSummaryTable"
+      ],
+      "QD10": [
+        "QD10",
+        "QD10_NetSummaryTable_0",
+        "QD10_NetSummaryTable_1",
+        "QD10_NetSummaryTable_2"
+      ],
+      "QD11": [
+        "QD11",
+        "QD11_NetSummaryTable_0",
+        "QD11_NetSummaryTable_1",
+        "QD11_NetSummaryTable_2"
+      ],
+      "QE1": [
+        "QE1_MeanSummaryTable"
+      ],
+      "QE2": [
+        "QE2"
+      ],
+      "QE3": [
+        "QE3_MeanSummaryTable"
+      ],
+      "QE4": [
+        "QE4"
+      ],
+      "QE5": [
+        "QE5_MeanSummaryTable"
+      ],
+      "QE6": [
+        "QE6"
+      ],
+      "QE7": [
+        "QE7"
+      ],
+      "QE8": [
+        "QE8"
+      ],
+      "QE9": [
+        "QE9_NetSummaryTable_0",
+        "QE9_NetSummaryTable_1",
+        "QE9_NetSummaryTable_2"
+      ],
+      "QF1": [
+        "QF1_MeanSummaryTable"
+      ],
+      "QF2": [
+        "QF2_MeanSummaryTable"
+      ],
+      "QF3": [
+        "QF3_MeanSummaryTable"
+      ],
+      "QF4": [
+        "QF4_MeanSummaryTable"
+      ],
+      "QF5": [
+        "QF5_MeanSummaryTable"
+      ],
+      "QF6": [
+        "QF6"
+      ],
+      "QG1": [
+        "QG1"
+      ],
+      "QG2": [
+        "QG2"
+      ],
+      "QG3": [
+        "QG3"
+      ],
+      "QG4": [
+        "QG4"
+      ],
+      "QG5": [
+        "QG5"
+      ],
+      "QG6": [
+        "QG6"
+      ],
+      "QG7": [
+        "QG7"
+      ],
+      "QG8": [
+        "QG8"
+      ],
+      "QG9": [
+        "QG9"
+      ],
+      "PMAssist1": [
+        "PMAssist1"
+      ],
+      "PMAssist2": [
+        "PMAssist2"
+      ],
+      "PMAssist3": [
+        "PMAssist3"
+      ],
+      "PMAssist4": [
+        "PMAssist4"
+      ],
+      "PMAssist5": [
+        "PMAssist5"
+      ],
+      "conditions": [
+        "conditions"
+      ]
+    },
+    "variableStatsSelections": {
+      "QS4": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS5": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "hPATIENT": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS9": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS10": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "hQS11Mask": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS11c1": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS11c2": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS11c3": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS11c4": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS11c5": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "hQS11MaskNew": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS11Newc1": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS11Newc2": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS11Newc3": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS14c1": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS14c2": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS14c3": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS14c4": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS14c5": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS14Newc1": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS14Newc2": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS14Newc3": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS14B": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QA1": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QA2": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QA3": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QA4c2": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QA4c3": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QA4c4": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QA4c5": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QA4Newc2": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QA4Newc3": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QA4Newc4": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QA4Newc5": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QA5": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QB1c1": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QB1c2": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QB1c3": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QB1c4": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QB1c5": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QB1Newc1": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QB1Newc2": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QB1Newc3": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QOrder": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QC9": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QD1c1": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD1c2": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD1c3": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD1c4": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD1c5": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD1c6": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD1c7": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD1c8": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD1c9": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD1c10": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD1Newc1": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD1Newc2": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD1Newc3": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD1Newc4": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD1Newc5": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD1Newc6": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD9c1": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD9c2": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD9c3": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD9c4": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD9c5": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD9c6": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD9c7": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD9c8": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD9c9": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD9c10": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD9Newc1": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD9Newc2": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD9Newc3": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD9Newc4": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD9Newc5": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QD9Newc6": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QE1": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QE3": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QE5": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QF1": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QF2": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QF3": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "QF4": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "hQF4": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QF5": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": false,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": false
+      },
+      "hQF5": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      }
+    },
+    "summaryTableSortSelections": {},
+    "variableSortByFrequency": {
+      "QS3": true,
+      "Region": true,
+      "hQS11Age": true,
+      "hQS11AgeNew": true,
+      "noanswer": true,
+      "hQS14Age": true,
+      "hQS14AgeNew": true,
+      "hQB1Age": true,
+      "hQB1AgeNew": true,
+      "hQB2Maskr1": true,
+      "hQB2Maskr2": true,
+      "hQB2Maskr3": true,
+      "hQB2Maskr4": true,
+      "hQB2Maskr5": true,
+      "hQB2Maskr6": true,
+      "hQB2Maskr7": true,
+      "hQB2Maskr8": true,
+      "hQB2Maskr9": true,
+      "hQB2Maskr10": true,
+      "hQB2Maskr11": true,
+      "hQB2Maskr12": true,
+      "hQB2Maskr13": true,
+      "hQB2Maskr14": true,
+      "hQB2Maskr15": true,
+      "hQB2Maskr16": true,
+      "hQB2Maskr17": true,
+      "hQB2Maskr18": true,
+      "hQB2Maskr19": true,
+      "hQB2Maskr20": true,
+      "hQB2Maskr21": true,
+      "hQB2Maskr22": true,
+      "hQB2Maskr23": true,
+      "hQB2Maskr98": true,
+      "QB2": true,
+      "QB8": true,
+      "hQ": true,
+      "hQC2A": true,
+      "hC8": true,
+      "QC8": true,
+      "hQD1Age": true,
+      "QD1A": true,
+      "QD1B": true,
+      "hQD9": true,
+      "QE7": true,
+      "QF6": true,
+      "QG7": true,
+      "conditions": true
+    },
+    "variableHoldResponseCodes": {},
+    "singleSelectSort": {},
+    "newBannerGroups": [],
+    "bannerFilterConditions": null,
+    "hiddenFromBanners": [
+      "uuid",
+      "date",
+      "markers",
+      "QS12",
+      "QAllTermHid",
+      "QB4",
+      "QB5",
+      "QB6",
+      "QC6B",
+      "QD3",
+      "QD4",
+      "QD5",
+      "QD5x2",
+      "QE2",
+      "QE4",
+      "QE6",
+      "QE8",
+      "PMAssist1",
+      "PMAssist2",
+      "PMAssist3",
+      "PMAssist4",
+      "PMAssist5",
+      "start_date",
+      "source",
+      "ipAddress",
+      "decLang",
+      "list",
+      "userAgent",
+      "dcua",
+      "url",
+      "session",
+      "cnt",
+      "shghash",
+      "pcid",
+      "sesskey",
+      "qinfo",
+      "identifier",
+      "ID"
+    ],
+    "netSummaryTableSelectedCodes": {
+      "QA7": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QB7": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QB7A": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC1": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC2": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC2A": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC3": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC4": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC5": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC6X1": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC6X2": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC6X3": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QD2": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QD6": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QD7": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QD8": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QD10": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QD11": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QE9": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ]
+    },
+    "netSummaryTableRanges": {},
+    "settings": {
+      "significanceLevel": 95,
+      "percentageDecimals": 0
+    }
+  }
+}

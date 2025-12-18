@@ -987,28 +987,28 @@ export const DataTab: React.FC<DataTabProps> = ({
 
                   return (
                     <div className="overflow-auto border border-gray-200 rounded-lg" style={{ maxHeight: '600px' }}>
-                      <table className="w-full table-fixed divide-y divide-gray-200">
-                        <thead className="bg-gray-50 sticky top-0">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50 sticky top-0 z-10">
                           <tr>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '12%' }}>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
                               Question #
                             </th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '20%' }}>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                               Description
                             </th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '14%' }}>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
                               Response Type
                             </th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '12%' }}>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
                               Q Type
                             </th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '22%' }}>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                               Response Codes
                             </th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '20%' }}>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                               Column headers
                             </th>
-                            <th className="px-4 py-2 text-center text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '8%' }}>
+                            <th className="px-4 py-2 text-center text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
                               In QNR
                             </th>
                           </tr>
@@ -1071,6 +1071,7 @@ export const DataTab: React.FC<DataTabProps> = ({
                             if (questionType === 'Numeric' && question.responseCodes && question.responseCodes.length > 0) {
                               questionType = 'Numeric grid';
                             }
+                            // Keep classified questionType as-is (no override)
 
                             // Helper function to check if response codes have brackets
                             const hasBracketsInResponseCodes = (responseCodes: any[]): boolean => {
@@ -1375,4 +1376,3 @@ export const DataTab: React.FC<DataTabProps> = ({
     </div>
   );
 };
-

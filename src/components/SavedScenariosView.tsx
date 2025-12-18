@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, CONJOINT_BACKEND_ENABLED } from '../config';
 
 interface SavedScenario {
   id: string;
@@ -102,6 +102,10 @@ export default function SavedScenariosView({ workflow }: SavedScenariosViewProps
   const runScenarioAnalysis = useCallback(async (selections: Record<string, string>, returnFullAnalysis = false): Promise<any> => {
     console.log('[runScenarioAnalysis] Called with', { selections, returnFullAnalysis, hasWorkflowId: !!workflow?.id });
     
+    if (!CONJOINT_BACKEND_ENABLED) {
+      return null;
+    }
+
     if (!workflow?.id) {
       console.log('[runScenarioAnalysis] Early return: no workflow ID');
       return null;
@@ -459,6 +463,14 @@ export default function SavedScenariosView({ workflow }: SavedScenariosViewProps
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
+      {!CONJOINT_BACKEND_ENABLED && (
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 text-sm text-amber-900">
+          <p className="font-semibold">UI-only mode</p>
+          <p className="mt-1 text-amber-800">
+            Scenario analysis is disabled because the Conjoint backend has been removed.
+          </p>
+        </div>
+      )}
       <div className="px-6 py-4 bg-white border-b border-gray-200">
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -62,7 +62,8 @@
       "Bash(del \"C:\\Users\\LukeBorglin\\Desktop\\Apps\\jaice-dashboard\\src\\components\\DataTabulation.tsx\")",
       "Bash(\"src/components/Tabs.tsx.temp\")",
       "Bash(git reset:*)",
-      "Bash(del clog.txt read-excel-example.js)"
+      "Bash(del clog.txt read-excel-example.js)",
+      "Bash(del \"C:\\Users\\LukeBorglin\\Desktop\\Apps\\jaice-dashboard\\src\\pages\\DataQualityPage.tsx\")"
     ],
     "deny": [],
     "ask": []

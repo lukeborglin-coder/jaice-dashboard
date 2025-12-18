@@ -2,7 +2,8 @@ import React from 'react';
 import { Variable, VariableStatsSelection } from '../../utils/tabs/types';
 import { TableOption } from '../../utils/tabs/tableOptions';
 import { getBaseQuestionNumber } from '../../utils/tabs/questionHelpers';
-
+import { countRespondentsWithData, countCheckedForItemColumn, getMultiSelectResponseCounts } from '../../utils/tabs/chartHelpers';
+const BRAND_ORANGE = '#D14A2D';
 interface VariableTablePlaceholdersProps {
   variable: Variable | null;
   tableOptions: TableOption[];
@@ -17,8 +18,9 @@ interface VariableTablePlaceholdersProps {
   fullRawData?: any;
   columnMapping?: Record<string, string>;
   questionnaireQuestions?: any[];
+  disableMappingIndicators?: boolean;
+  columnHeaderOverrides?: Record<string, string>;
 }
-
 // Define which stats apply to which table types
 const getStatsForTableType = (tableType: 'individual' | 'summary' | 'net', variable: Variable | null): Array<{ key: keyof VariableStatsSelection; label: string }> => {
   if (!variable) return [];
@@ -67,26 +69,6 @@ const getStatsForTableType = (tableType: 'individual' | 'summary' | 'net', varia
   // Default: no stats for regular individual tables
   return [];
 };
-
-// Helper function to count respondents with data for a variable
-const countRespondentsWithData = (
-  variableName: string,
-  getVariableDataByExpectedHeader?: (expectedHeader: string) => any
-): number => {
-  if (!getVariableDataByExpectedHeader) return 0;
-  
-  const variableData = getVariableDataByExpectedHeader(variableName);
-  if (!variableData || !variableData.values) return 0;
-  
-  // Count non-null, non-empty values
-  return variableData.values.filter((v: any) => 
-    v !== null && 
-    v !== undefined && 
-    v !== '' && 
-    !(typeof v === 'string' && v.trim() === '')
-  ).length;
-};
-
 export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps> = ({
   variable,
   tableOptions,
@@ -101,15 +83,113 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
   fullRawData,
   columnMapping,
   questionnaireQuestions = [],
+  disableMappingIndicators = false,
+  columnHeaderOverrides,
 }) => {
-  if (!variable || tableOptions.length === 0) {
-    return (
-      <div className="text-center py-12 text-gray-500">
-        {variable ? 'No tables available for this variable' : 'Select a variable to view tables'}
-      </div>
-    );
-  }
-
+  const variableName = variable?.name || '';
+  const typeLower = variable?.type?.toLowerCase() || '';
+  const isSingleSelect = typeLower.includes('single select') && !typeLower.includes('grid');
+  const isSingleSelectGrid = typeLower.includes('single select grid');
+  const isMultiSelect = typeLower.includes('multi-select') && !typeLower.includes('grid');
+  const isMultiSelectGrid = typeLower.includes('multi-select grid');
+  const isNumericGrid = typeLower.includes('numeric grid');
+  const isOpenEndListType = typeLower.includes('open end list');
+  let anyTableRendered = false;
+  let anyTableHasData = false;
+  const markTableData = (hasData: boolean) => {
+    anyTableRendered = true;
+    if (hasData) anyTableHasData = true;
+  };
+  // Get nets for single select questions and single select grids
+  const netsForVariable = (isSingleSelect || isSingleSelectGrid)
+    ? (netSummaryTableSelectedCodes[variableName] || [])
+    : [];
+  const hasDataInVariable = (data: any): boolean => {
+    if (!data) return false;
+    const hasCount = typeof data.count === 'number' && data.count > 0;
+    const hasValues = Array.isArray(data.values) && data.values.some((v: any) => v !== null && v !== undefined && String(v).trim() !== '');
+    const hasFreq =
+      data.frequencies &&
+      typeof data.frequencies === 'object' &&
+      Object.values(data.frequencies).some((v: any) => typeof v === 'number' && v > 0);
+    const hasSum = data.sum !== undefined || data.mean !== undefined || data.meanNoOutliers !== undefined;
+    return hasCount || hasValues || hasFreq || hasSum;
+  };
+  // Numeric grid: bail early if every column/row is empty (bases all 0)
+  const numericGridHasData = React.useMemo(() => {
+    if (!isNumericGrid) return true;
+    if (!getVariableDataByExpectedHeader) return true;
+    const stmtCodes = Object.keys(variable?.statements || {});
+    const colCodes = Object.keys(variable?.codes || {});
+    const baseQuestionNumber = getBaseQuestionNumber(variableName);
+    const baseNormalized = baseQuestionNumber.replace(/^Q/i, '');
+    const normalizedRow = (code: string | undefined): string => {
+      if (!code) return '';
+      const trimmed = code.trim();
+      if (/^r\d+/i.test(trimmed)) return trimmed;
+      const digits = trimmed.match(/\d+/);
+      return digits ? `r${digits[0]}` : trimmed;
+    };
+    const normalizedCol = (code: string | undefined): string => {
+      if (!code) return '';
+      const trimmed = code.trim();
+      if (/^c\d+/i.test(trimmed)) return trimmed;
+      const digits = trimmed.match(/\d+/);
+      return digits ? `c${digits[0]}` : trimmed;
+    };
+    const candidates = new Set<string>();
+    const addCandidate = (name: string | undefined) => {
+      if (!name) return;
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      candidates.add(trimmed);
+      candidates.add(trimmed.replace(/^Q/i, ''));
+      if (!/^Q/i.test(trimmed)) {
+        candidates.add(`Q${trimmed}`);
+      }
+    };
+    const addRowColCombos = (prefix: string | undefined, rowCode: string, colCode: string) => {
+      if (!prefix) return;
+      const normalizedRowCode = normalizedRow(rowCode) || rowCode;
+      const normalizedColCode = normalizedCol(colCode) || colCode;
+      const combos = [
+        `${prefix}${normalizedRowCode}${normalizedColCode}`,
+        `${prefix}_${normalizedRowCode}_${normalizedColCode}`,
+        `${prefix}${normalizedRowCode}_${normalizedColCode}`,
+        `${prefix}_${normalizedRowCode}${normalizedColCode}`,
+        `${prefix}${normalizedRowCode}`,
+        `${prefix}${normalizedColCode}`,
+      ];
+      combos.forEach((combo) => addCandidate(combo));
+      if (/^Q/i.test(prefix)) {
+        combos.forEach((combo) => addCandidate(combo.replace(/^Q/i, '')));
+      } else {
+        combos.forEach((combo) => addCandidate(`Q${combo}`));
+      }
+    };
+    const addBaseVariation = () => {
+      addCandidate(variableName);
+      addCandidate(baseQuestionNumber);
+      addCandidate(baseNormalized);
+      addCandidate(`Q${baseNormalized}`);
+    };
+    if (stmtCodes.length > 0 && colCodes.length > 0) {
+      stmtCodes.forEach((rowCode) => {
+        colCodes.forEach((colCode) => {
+          addRowColCombos(variableName, rowCode, colCode);
+          addRowColCombos(baseQuestionNumber, rowCode, colCode);
+          addRowColCombos(baseNormalized, rowCode, colCode);
+        });
+      });
+    } else {
+      addBaseVariation();
+    }
+    for (const name of candidates) {
+      const data = getVariableDataByExpectedHeader(name);
+      if (hasDataInVariable(data)) return true;
+    }
+    return false;
+  }, [isNumericGrid, getVariableDataByExpectedHeader, variable?.statements, variable?.codes, variableName]);
   // Helper function to format numbers with commas (for 4+ digits)
   const formatNumber = (value: number | string): string => {
     // Parse if string, otherwise use as-is
@@ -136,13 +216,18 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       }
     }
   };
-
+  const renderNoDataBanner = (key?: string, customText?: string) => (
+    <div
+      key={key ? `${key}-no-data` : 'no-data'}
+      className="border border-red-200 bg-red-50 text-red-700 px-4 py-3 rounded mb-2"
+    >
+      {customText ||
+        'No data found for this table - bases are 0 across all rows/columns. Upload or map data for this question to see tables.'}
+    </div>
+  );
   // Group table options by type - Summary first, then Individual
   // Filter tables to only show selected ones
   // Get nets for single select questions (not shown as separate tables, but as stat pills)
-  const variableName = variable?.name || '';
-  
-  // Filter tables to only show selected ones
   const summaryTables = tableOptions.filter(opt => {
     if (opt.type !== 'summary') return false;
     // Check if this table is selected
@@ -153,18 +238,78 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     // Check if this table is selected
     return variableTableSelections[variableName]?.has(opt.id) || false;
   });
-  const typeLower = variable?.type?.toLowerCase() || '';
-  const isSingleSelect = typeLower.includes('single select') && !typeLower.includes('grid');
-  const isSingleSelectGrid = typeLower.includes('single select grid');
-  const isMultiSelect = typeLower.includes('multi-select') && !typeLower.includes('grid');
-  const isMultiSelectGrid = typeLower.includes('multi-select grid');
-  const isNumericGrid = typeLower.includes('numeric grid');
-  const isOpenEndListType = typeLower.includes('open end list');
-  // Get nets for single select questions and single select grids
-  const netsForVariable = (isSingleSelect || isSingleSelectGrid)
-    ? (netSummaryTableSelectedCodes[variableName] || [])
-    : [];
-
+  // Find matching question (used for raw-plan multi-select "notes" options)
+  const baseQuestionNumber = getBaseQuestionNumber(variableName);
+  const matchingQuestion = questionnaireQuestions.find((question: any) => {
+    const qNum = question.number || question.id;
+    if (!qNum) return false;
+    const qNumStr = String(qNum);
+    const normalizedQNum = qNumStr.replace(/^Q/i, '');
+    const normalizedBase = baseQuestionNumber.replace(/^Q/i, '');
+    return (
+      qNumStr === baseQuestionNumber ||
+      normalizedQNum === normalizedBase ||
+      `Q${normalizedQNum}` === baseQuestionNumber ||
+      `Q${normalizedBase}` === qNumStr
+    );
+  });
+  const columnCodeMatch = variableName.match(/c\d+/i);
+  const columnCode = columnCodeMatch ? columnCodeMatch[0].toLowerCase() : '';
+  const columnStatementsFromNotes = React.useMemo(() => {
+    if (!matchingQuestion || !Array.isArray(matchingQuestion.notes) || matchingQuestion.notes.length === 0) {
+      return [];
+    }
+    const baseNormalized = baseQuestionNumber.replace(/^Q/i, '').toLowerCase();
+    const statementsMap = new Map<string, { code: string; text: string }>();
+    matchingQuestion.notes.forEach((note: any) => {
+      if (!note || typeof note !== 'string') return;
+      const match = note.match(/^\[Q?([^\]]+)\]\s*(.*)$/i);
+      if (!match) return;
+      const codePart = match[1] || '';
+      const text = (match[2] || '').trim();
+      const normalizedCode = codePart.replace(/^Q/i, '');
+      const noteBase = normalizedCode.replace(/r\d+/gi, '').replace(/c\d+/gi, '').toLowerCase();
+      if (!noteBase) return;
+      if (baseNormalized && noteBase !== baseNormalized && noteBase.replace(/^q/i, '') !== baseNormalized) {
+        return;
+      }
+      const rowMatch = normalizedCode.match(/r\d+/i);
+      const rowCode = rowMatch ? rowMatch[0].toLowerCase() : '';
+      const noteColumnMatch = normalizedCode.match(/c\d+/i);
+      const noteColumn = noteColumnMatch ? noteColumnMatch[0].toLowerCase() : '';
+      if (columnCode && noteColumn && noteColumn !== columnCode) return;
+      if (!rowCode) return;
+      if (!statementsMap.has(rowCode)) {
+        statementsMap.set(rowCode, {
+          code: rowCode,
+          text: text || rowCode,
+        });
+      }
+    });
+    return Array.from(statementsMap.values()).sort((a, b) => {
+      const aNum = parseInt(a.code.replace(/[^\d]/g, ''), 10);
+      const bNum = parseInt(b.code.replace(/[^\d]/g, ''), 10);
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        return aNum - bNum;
+      }
+      return a.code.localeCompare(b.code);
+    });
+  }, [matchingQuestion, columnCode, baseQuestionNumber]);
+  if (!variable || tableOptions.length === 0) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        {variable ? 'No tables available for this variable' : 'Select a variable to view tables'}
+      </div>
+    );
+  }
+  // Show numeric grid no-data banner if bases are all 0
+  if (isNumericGrid && !numericGridHasData) {
+    return (
+      <div className="border border-red-200 bg-red-50 text-red-700 px-4 py-3 rounded">
+        No data found for this numeric grid - bases are 0 across all columns/rows. Upload or map data for this question to see tables.
+      </div>
+    );
+  }
   // Get response options for single select variable
   const getResponseOptions = (): Array<{ code: string; text: string }> => {
     if (!variable) return [];
@@ -178,21 +323,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     }
     
     // Fallback to questionnaireQuestions
-    const baseQuestionNumber = getBaseQuestionNumber(variable.name);
-    const matchingQuestion = questionnaireQuestions.find(question => {
-      const qNum = question.number || question.id;
-      if (!qNum) return false;
-      const qNumStr = String(qNum);
-      const normalizedQNum = qNumStr.replace(/^Q/i, '');
-      const normalizedBase = baseQuestionNumber.replace(/^Q/i, '');
-      return (
-        qNumStr === baseQuestionNumber ||
-        normalizedQNum === normalizedBase ||
-        `Q${normalizedQNum}` === baseQuestionNumber ||
-        `Q${normalizedBase}` === qNumStr
-      );
-    });
-    
     if (matchingQuestion && Array.isArray(matchingQuestion.responseOptions)) {
       return matchingQuestion.responseOptions.map((opt: any, idx: number) => {
         if (typeof opt === 'string') {
@@ -207,7 +337,104 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     
     return [];
   };
+  const getTotalRespondents = (): number => {
+    // Prefer raw data rows count (raw plans often have no "base" variable column)
+    const rows = fullRawData?.rows;
+    if (Array.isArray(rows) && rows.length > 0) {
+      // Filter out totally empty record rows if present
+      const valid = rows.filter((r: any) => {
+        const recordValue = r?.record ?? r?.respno ?? r?.respNo ?? r?.Record ?? r?.Respno ?? r?.RECORD ?? r?.RESPNO;
+        if (recordValue === null || recordValue === undefined) return true;
+        if (typeof recordValue === 'string') return recordValue.trim() !== '';
+        return true;
+      });
+      return valid.length || rows.length;
+    }
+    // Fallback to existing helper based on variable column
+    return countRespondentsWithData(variableName, getVariableDataByExpectedHeader);
+  };
 
+  /**
+   * Calculate base for multi-select questions by counting only respondents
+   * who have at least one 0 or 1 value across all response options
+   */
+  const getMultiSelectBase = (responseItems: Array<{ code: string; text: string }>): number => {
+    if (!getVariableDataByExpectedHeader) return 0;
+
+    // Collect all values arrays for each response option
+    const allValuesArrays: Array<any[]> = [];
+
+    for (const item of responseItems) {
+      const baseQuestionNumber = getBaseQuestionNumber(variableName);
+      const possibleHeaders = [
+        item.code,
+        `${variableName}_${item.code}`,
+        `${variableName}${item.code}`,
+        `${baseQuestionNumber}${item.code}`,
+        `${baseQuestionNumber}_${item.code}`,
+      ];
+
+      // Try to get data for this response option
+      for (const header of possibleHeaders) {
+        const data = getVariableDataByExpectedHeader(header);
+        if (data && Array.isArray(data.values) && data.values.length > 0) {
+          allValuesArrays.push(data.values);
+          break;
+        }
+      }
+    }
+
+    if (allValuesArrays.length === 0) return 0;
+
+    // Count respondents who have at least one valid value (0 or 1) across all options
+    const maxLength = Math.max(...allValuesArrays.map(arr => arr.length));
+    let validRespondents = 0;
+
+    for (let i = 0; i < maxLength; i++) {
+      let hasAnswer = false;
+
+      // Check if this respondent has a 0 or 1 for any response option
+      for (const valuesArray of allValuesArrays) {
+        if (i < valuesArray.length) {
+          const value = valuesArray[i];
+          // Check if value is 0 or 1 (answered the question)
+          if (value === 0 || value === 1 || value === '0' || value === '1' || value === false || value === true) {
+            hasAnswer = true;
+            break;
+          }
+        }
+      }
+
+      if (hasAnswer) {
+        validRespondents++;
+      }
+    }
+
+    return validRespondents;
+  };
+  const parseNotesAsMultiSelectItems = (): Array<{ code: string; text: string }> => {
+    const notes = (matchingQuestion as any)?.notes;
+    if (!Array.isArray(notes) || notes.length === 0) return [];
+    const items: Array<{ code: string; text: string }> = [];
+    notes.forEach((n: any) => {
+      const s = String(n || '').trim();
+      if (!s) return;
+      const m = s.match(/^\[([^\]]+)\]\s*(.*)$/);
+      if (!m) return;
+      const id = String(m[1] || '').trim();
+      const label = String(m[2] || '').trim();
+      if (!id) return;
+      items.push({ code: id, text: label || id });
+    });
+    // De-dupe by code
+    const seen = new Set<string>();
+    return items.filter((it) => {
+      const key = it.code.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
   // Count responses for each code
   const getResponseCounts = (responseOptions: Array<{ code: string; text: string }>): Record<string, number> => {
     if (!getVariableDataByExpectedHeader) return {};
@@ -285,7 +512,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     
     return counts;
   };
-
   // Get code value for mean calculation (extract numeric part from code)
   const getCodeValueForMean = (code: string): number | null => {
     // Extract numeric part from code (e.g., "c1" -> 1, "r2" -> 2, "1" -> 1)
@@ -300,7 +526,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     }
     return null;
   };
-
   // Calculate mean for single select
   const calculateMean = (responseOptions: Array<{ code: string; text: string }>, responseCounts: Record<string, number>): number => {
     let totalSum = 0;
@@ -317,7 +542,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     
     return totalCount > 0 ? totalSum / totalCount : 0;
   };
-
   // Count respondents matching a net (any of the codes in the net)
   const countNetRespondents = (netCodes: string[], responseOptions: Array<{ code: string; text: string }>, responseCounts: Record<string, number>): number => {
     // Build a set of all codes that match the net codes
@@ -357,158 +581,12 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     
     return total;
   };
-
   // Count responses for multi-select (each value can appear multiple times)
-  const getMultiSelectResponseCounts = (responseOptions: Array<{ code: string; text: string }>): Record<string, number> => {
-    if (!getVariableDataByExpectedHeader) return {};
-    
-    const variableData = getVariableDataByExpectedHeader(variableName);
-    if (!variableData || !variableData.values) return {};
-    
-    const counts: Record<string, number> = {};
-    responseOptions.forEach(opt => {
-      counts[opt.code] = 0;
-    });
-    
-    // Build a map of all possible value representations to codes
-    const valueToCodeMap: Record<string, string> = {};
-    responseOptions.forEach(opt => {
-      const code = opt.code;
-      valueToCodeMap[code] = code;
-      valueToCodeMap[code.toLowerCase()] = code;
-      valueToCodeMap[code.toUpperCase()] = code;
-      
-      const numericMatch = code.match(/(\d+)$/);
-      if (numericMatch) {
-        const numericPart = numericMatch[1];
-        valueToCodeMap[numericPart] = code;
-        valueToCodeMap[String(parseInt(numericPart))] = code;
-      }
-      
-      const codeIndex = responseOptions.findIndex(opt => opt.code === code) + 1;
-      valueToCodeMap[String(codeIndex)] = code;
-    });
-    
-    // For multi-select, count all occurrences (values can be arrays or comma-separated)
-    variableData.values.forEach((value: any) => {
-      if (value === null || value === undefined || value === '') return;
-      
-      // Handle array values
-      if (Array.isArray(value)) {
-        value.forEach((item: any) => {
-          if (item === null || item === undefined || item === '') return;
-          const valueStr = String(item).trim();
-          if (valueStr === '') return;
-          
-          if (valueToCodeMap.hasOwnProperty(valueStr)) {
-            const matchedCode = valueToCodeMap[valueStr];
-            if (counts.hasOwnProperty(matchedCode)) {
-              counts[matchedCode]++;
-            }
-            return;
-          }
-          
-          const lowerValue = valueStr.toLowerCase();
-          if (valueToCodeMap.hasOwnProperty(lowerValue)) {
-            const matchedCode = valueToCodeMap[lowerValue];
-            if (counts.hasOwnProperty(matchedCode)) {
-              counts[matchedCode]++;
-            }
-            return;
-          }
-          
-          const numericValue = parseFloat(valueStr);
-          if (!isNaN(numericValue)) {
-            const numericStr = String(Math.round(numericValue));
-            if (valueToCodeMap.hasOwnProperty(numericStr)) {
-              const matchedCode = valueToCodeMap[numericStr];
-              if (counts.hasOwnProperty(matchedCode)) {
-                counts[matchedCode]++;
-              }
-            }
-          }
-        });
-        return;
-      }
-      
-      // Handle comma-separated string values
-      const valueStr = String(value).trim();
-      if (valueStr === '') return;
-      
-      // Check if it's comma-separated
-      if (valueStr.includes(',')) {
-        const parts = valueStr.split(',').map(p => p.trim()).filter(p => p !== '');
-        parts.forEach(part => {
-          if (valueToCodeMap.hasOwnProperty(part)) {
-            const matchedCode = valueToCodeMap[part];
-            if (counts.hasOwnProperty(matchedCode)) {
-              counts[matchedCode]++;
-            }
-            return;
-          }
-          
-          const lowerValue = part.toLowerCase();
-          if (valueToCodeMap.hasOwnProperty(lowerValue)) {
-            const matchedCode = valueToCodeMap[lowerValue];
-            if (counts.hasOwnProperty(matchedCode)) {
-              counts[matchedCode]++;
-            }
-            return;
-          }
-          
-          const numericValue = parseFloat(part);
-          if (!isNaN(numericValue)) {
-            const numericStr = String(Math.round(numericValue));
-            if (valueToCodeMap.hasOwnProperty(numericStr)) {
-              const matchedCode = valueToCodeMap[numericStr];
-              if (counts.hasOwnProperty(matchedCode)) {
-                counts[matchedCode]++;
-              }
-            }
-          }
-        });
-        return;
-      }
-      
-      // Single value (same logic as single-select)
-      if (valueToCodeMap.hasOwnProperty(valueStr)) {
-        const matchedCode = valueToCodeMap[valueStr];
-        if (counts.hasOwnProperty(matchedCode)) {
-          counts[matchedCode]++;
-        }
-        return;
-      }
-      
-      const lowerValue = valueStr.toLowerCase();
-      if (valueToCodeMap.hasOwnProperty(lowerValue)) {
-        const matchedCode = valueToCodeMap[lowerValue];
-        if (counts.hasOwnProperty(matchedCode)) {
-          counts[matchedCode]++;
-        }
-        return;
-      }
-      
-      const numericValue = parseFloat(valueStr);
-      if (!isNaN(numericValue)) {
-        const numericStr = String(Math.round(numericValue));
-        if (valueToCodeMap.hasOwnProperty(numericStr)) {
-          const matchedCode = valueToCodeMap[numericStr];
-          if (counts.hasOwnProperty(matchedCode)) {
-            counts[matchedCode]++;
-          }
-        }
-      }
-    });
-    
-    return counts;
-  };
-
   // Render actual table for single select grid individual tables
   const renderSingleSelectGridTable = (option: TableOption) => {
     if (option.type !== 'individual' || !isSingleSelectGrid) {
       return null;
     }
-
     // Extract statement code from option ID (e.g., "B8_r1" -> "r1")
     let targetVariableName = variableName;
     let statementName: string | null = null;
@@ -537,7 +615,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
         }
       }
     }
-
     const totalResponding = countRespondentsWithData(targetVariableName, getVariableDataByExpectedHeader);
     
     // Get response options for this statement (should be the same as the base variable)
@@ -590,6 +667,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
         });
       });
     }
+    markTableData(totalResponding > 0);
     
     // Check if sort by frequency is enabled
     const sortState = variableSortByFrequency[variableName];
@@ -630,7 +708,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       
       sortedResponseOptions = [...remaining, ...heldOrdered];
     }
-
+    const noDataNotice = totalResponding === 0 ? renderNoDataBanner(option.id) : null;
     // Get selected stats (single select grids only show mean)
     const availableStats = getStatsForTableType(option.type, variable);
     const selectedStats = availableStats.filter(stat => statsSelections?.[stat.key]);
@@ -640,14 +718,12 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       const tableId = `${variableName}_NetSummaryTable_${idx}`;
       return variableTableSelections[variableName]?.has(tableId) || false;
     });
-
+    const overrideLabel = columnHeaderOverrides?.[option.label] || columnHeaderOverrides?.[option.code];
+    const headerLabel = overrideLabel || statementName || option.label;
+    const split = typeof headerLabel === 'string' ? headerLabel.split(' - ') : [];
     return (
       <div key={option.id} className="border border-gray-300 rounded-lg overflow-hidden bg-white">
-        {statementName && (
-          <div className="bg-gray-50 border-b border-gray-200 px-4 py-2">
-            <h4 className="text-sm font-semibold text-gray-900">{statementName}</h4>
-          </div>
-        )}
+        {noDataNotice}
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <colgroup>
@@ -658,6 +734,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
             <thead>
               <tr className="bg-gray-200 border-b border-gray-200">
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
+                  {split.length >= 2 ? split.slice(0, -1).join(' - ') : headerLabel}
                 </th>
                 <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
                   Count
@@ -777,16 +854,15 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       </div>
     );
   };
-
   // Render actual table for single select individual tables
   const renderSingleSelectTable = (option: TableOption) => {
     if (option.type !== 'individual' || !isSingleSelect || isSingleSelectGrid) {
       return null;
     }
-
     const totalResponding = countRespondentsWithData(variableName, getVariableDataByExpectedHeader);
     const responseOptions = getResponseOptions();
     const responseCounts = getResponseCounts(responseOptions);
+    markTableData(totalResponding > 0);
     
     // Check if sort by frequency is enabled
     const sortState = variableSortByFrequency[variableName];
@@ -837,9 +913,10 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       const tableId = `${variableName}_NetSummaryTable_${idx}`;
       return variableTableSelections[variableName]?.has(tableId) || false;
     });
-
+    const noDataNotice = totalResponding === 0 ? renderNoDataBanner(option.id) : null;
     return (
       <div key={option.id} className="border border-gray-300 rounded-lg overflow-hidden bg-white">
+        {noDataNotice}
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <colgroup>
@@ -850,6 +927,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
             <thead>
               <tr className="bg-gray-200 border-b border-gray-200">
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
+                  {option.label}
                 </th>
                 <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
                   Count
@@ -975,9 +1053,9 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       </div>
     );
   };
-
   // Check if a multi-select response option is mapped to a variable
   const isResponseOptionMapped = (responseCode: string): boolean => {
+    if (disableMappingIndicators) return true;
     if (!columnMapping) return true; // If no mapping, assume mapped
     
     const baseQuestionNumber = getBaseQuestionNumber(variableName);
@@ -1004,16 +1082,116 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     
     return false;
   };
-
   // Render actual table for multi-select individual tables
   const renderMultiSelectTable = (option: TableOption) => {
     if (option.type !== 'individual' || !isMultiSelect || isMultiSelectGrid) {
       return null;
     }
-
-    const totalResponding = countRespondentsWithData(variableName, getVariableDataByExpectedHeader);
+    // RAW PLAN: multi-selects are stored as many 0/1 columns (one per item) referenced in Data Map "notes".
+    // Show those items and compute % checked for each.
+    const noteItems = parseNotesAsMultiSelectItems();
+    if (noteItems.length > 0) {
+      const totalResponding = getMultiSelectBase(noteItems);
+      const noDataNotice = totalResponding === 0 ? renderNoDataBanner(option.id) : null;
+      markTableData(totalResponding > 0);
+      const counts: Record<string, number> = {};
+      noteItems.forEach((it) => {
+        const baseQuestionNumber = getBaseQuestionNumber(variableName);
+        const fallbackHeaders = new Set<string>([
+          `${variableName}`,
+          `${variableName}_${it.code}`,
+          `${variableName}${it.code}`,
+          `${baseQuestionNumber}${it.code}`,
+          `${baseQuestionNumber}_${it.code}`,
+        ]);
+        counts[it.code] = countCheckedForItemColumn(it.code, getVariableDataByExpectedHeader, [
+          ...Array.from(fallbackHeaders).filter(Boolean),
+        ]);
+      });
+      const sortState = variableSortByFrequency[variableName];
+      const isSortedByFrequency = sortState !== undefined ? sortState : true;
+      let sorted = isSortedByFrequency
+        ? [...noteItems].sort((a, b) => (counts[b.code] || 0) - (counts[a.code] || 0))
+        : noteItems;
+      if (isSortedByFrequency && variableHoldResponseCodes[variableName] && variableHoldResponseCodes[variableName].length > 0) {
+        const holdList = variableHoldResponseCodes[variableName];
+        const holdSet = new Set(holdList.map((c) => String(c)));
+        const remaining: typeof noteItems = [];
+        const held: typeof noteItems = [];
+        sorted.forEach((opt) => {
+          if (holdSet.has(opt.code)) held.push(opt);
+          else remaining.push(opt);
+        });
+        const heldOrdered: typeof noteItems = [];
+        holdList.forEach((code) => {
+          const match = held.find((opt) => opt.code === code);
+          if (match) heldOrdered.push(match);
+        });
+        sorted = [...remaining, ...heldOrdered];
+      }
+      return (
+        <div key={option.id} className="border border-gray-300 rounded-lg overflow-hidden bg-white">
+          {noDataNotice}
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <colgroup>
+                <col className="w-auto" />
+                <col className="w-20" />
+                <col className="w-20" />
+              </colgroup>
+              <thead>
+                <tr className="bg-gray-200 border-b border-gray-200">
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
+                    {option.label}
+                  </th>
+                  <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
+                    Count
+                  </th>
+                  <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    %
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <td className={`px-4 py-2 text-sm font-semibold border-r border-gray-200 ${totalResponding === 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                    Base (total responding)
+                  </td>
+                  <td className={`px-2 py-2 text-sm text-center font-medium border-r border-gray-200 ${totalResponding === 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                    {formatNumber(totalResponding)}
+                  </td>
+                  <td className={`px-2 py-2 text-sm text-center font-medium ${totalResponding === 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                    100%
+                  </td>
+                </tr>
+                {sorted.map((opt) => {
+                  const count = counts[opt.code] || 0;
+                  const percentage = totalResponding > 0 ? Math.round((count / totalResponding) * 100) : 0;
+                  return (
+                    <tr key={opt.code} className="border-b border-gray-200 hover:bg-gray-50">
+                      <td className="px-4 py-2 text-sm text-gray-900 border-r border-gray-200">
+                        {opt.text}
+                      </td>
+                      <td className="px-2 py-2 text-sm text-center text-gray-900 border-r border-gray-200">
+                        {formatNumber(count)}
+                      </td>
+                      <td className="px-2 py-2 text-sm text-center text-gray-900">
+                        {percentage}%
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
     const responseOptions = getResponseOptions();
-    const responseCounts = getMultiSelectResponseCounts(responseOptions);
+    const totalResponding = getMultiSelectBase(responseOptions);
+    const noDataNotice = totalResponding === 0 ? renderNoDataBanner(option.id) : null;
+    markTableData(totalResponding > 0);
+    const { counts: responseCounts } = getMultiSelectResponseCounts(variableName, responseOptions, getVariableDataByExpectedHeader);
     
     // Check if sort by frequency is enabled
     const sortState = variableSortByFrequency[variableName];
@@ -1058,9 +1236,9 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     // Get selected stats (multi-select typically doesn't show stats, but check anyway)
     const availableStats = getStatsForTableType(option.type, variable);
     const selectedStats = availableStats.filter(stat => statsSelections?.[stat.key]);
-
     return (
       <div key={option.id} className="border border-gray-300 rounded-lg overflow-hidden bg-white">
+        {noDataNotice}
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <colgroup>
@@ -1071,6 +1249,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
             <thead>
               <tr className="bg-gray-200 border-b border-gray-200">
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
+                  {option.label}
                 </th>
                 <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
                   Count
@@ -1095,7 +1274,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
               {sortedResponseOptions.map((opt) => {
                 const count = responseCounts[opt.code] || 0;
                 const percentage = totalResponding > 0 ? Math.round((count / totalResponding) * 100) : 0;
-                const isMapped = isResponseOptionMapped(opt.code);
+                const isMapped = disableMappingIndicators ? true : isResponseOptionMapped(opt.code);
                 return (
                   <tr 
                     key={opt.code} 
@@ -1104,7 +1283,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
                     <td className="px-4 py-2 text-sm text-gray-900 border-r border-gray-200">
                       <div className="flex items-center justify-between">
                         <span>{opt.text}</span>
-                        {!isMapped && (
+                        {!disableMappingIndicators && !isMapped && (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-200 text-yellow-800 border border-yellow-300 font-semibold ml-2">
                             Unmapped
                           </span>
@@ -1163,7 +1342,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       </div>
     );
   };
-
   // Calculate Levenshtein distance between two strings
   const levenshteinDistance = (str1: string, str2: string): number => {
     const len1 = str1.length;
@@ -1194,7 +1372,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     
     return matrix[len1][len2];
   };
-
   // Check if two strings are similar enough to be grouped
   const areSimilar = (str1: string, str2: string): boolean => {
     const normalized1 = str1.toLowerCase().trim();
@@ -1217,7 +1394,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     
     return distance <= maxDistance;
   };
-
   // Count unique open end responses with fuzzy matching
   const getOpenEndResponseCounts = (): Array<{ text: string; count: number }> => {
     if (!getVariableDataByExpectedHeader) return [];
@@ -1286,11 +1462,12 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       .map(({ text, count }) => ({ text, count }))
       .sort((a, b) => b.count - a.count);
   };
-
   // Get statements for multi-select grid
   const getStatements = (): Array<{ code: string; text: string }> => {
     if (!variable) return [];
-    
+    if (columnStatementsFromNotes.length > 0) {
+      return columnStatementsFromNotes;
+    }
     // First try variable.statements
     if (variable.statements && Object.keys(variable.statements).length > 0) {
       return Object.entries(variable.statements).map(([code, text]) => ({
@@ -1300,21 +1477,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     }
     
     // Fallback to questionnaireQuestions
-    const baseQuestionNumber = getBaseQuestionNumber(variable.name);
-    const matchingQuestion = questionnaireQuestions.find(question => {
-      const qNum = question.number || question.id;
-      if (!qNum) return false;
-      const qNumStr = String(qNum);
-      const normalizedQNum = qNumStr.replace(/^Q/i, '');
-      const normalizedBase = baseQuestionNumber.replace(/^Q/i, '');
-      return (
-        qNumStr === baseQuestionNumber ||
-        normalizedQNum === normalizedBase ||
-        `Q${normalizedQNum}` === baseQuestionNumber ||
-        `Q${normalizedBase}` === qNumStr
-      );
-    });
-    
     if (matchingQuestion && Array.isArray(matchingQuestion.statementOptions)) {
       return matchingQuestion.statementOptions.map((stmt: any, idx: number) => {
         if (typeof stmt === 'string') {
@@ -1329,7 +1491,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     
     return [];
   };
-
   // Count responses for multi-select grid summary table (for a specific column/response option)
   const getMultiSelectGridSummaryCounts = (columnCode: string, statements: Array<{ code: string; text: string }>): Record<string, number> => {
     if (!getVariableDataByExpectedHeader) return {};
@@ -1385,74 +1546,58 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     
     return counts;
   };
-
-  // Calculate mean or sum for a numeric grid statement across all columns (with optional outlier removal)
-  const calculateNumericGridSummaryForStatement = (
+  // Calculate mean or sum for a numeric grid statement for a SPECIFIC column (with optional outlier removal)
+  const calculateNumericGridSummaryForStatementAndColumn = (
     statementCode: string,
+    columnCode: string,
     summaryType: 'mean' | 'sum' | 'meanNoOutliers' | 'sumNoOutliers'
   ): number => {
     if (!getVariableDataByExpectedHeader) return 0;
-    
+
     const baseQuestionNumber = getBaseQuestionNumber(variableName);
     const allValues: number[] = [];
-    
-    // Get all column codes from variable.codes or responseOptions
-    const columnCodes: string[] = [];
-    if (variable && variable.codes && Object.keys(variable.codes).length > 0) {
-      columnCodes.push(...Object.keys(variable.codes));
-    } else {
-      // Fallback: try to get from responseOptions
-      const responseOptions = getResponseOptions();
-      responseOptions.forEach(opt => {
-        if (opt.code.startsWith('c') || /^\d+$/.test(opt.code)) {
-          columnCodes.push(opt.code);
-        }
-      });
-    }
-    
-    // For each column, get the statement's data and collect all values
-    columnCodes.forEach(columnCode => {
-      const possibleVariableNames = [
-        `${baseQuestionNumber}_${statementCode}_${columnCode}`,
-        `${baseQuestionNumber}${statementCode}${columnCode}`,
-        `${baseQuestionNumber}_${statementCode}_${columnCode.replace(/^c/i, '')}`,
-        `${baseQuestionNumber}${statementCode}${columnCode.replace(/^c/i, '')}`,
-      ];
-      
-      for (const varName of possibleVariableNames) {
-        const data = getVariableDataByExpectedHeader?.(varName);
-        if (data && data.values) {
-          data.values.forEach((value: any) => {
-            if (value === null || value === undefined || value === '') return;
-            const numValue = parseFloat(String(value));
-            if (!isNaN(numValue)) {
-              allValues.push(numValue);
-            }
-          });
-          break;
-        }
+
+    // Get data for this specific statement and column combination
+    const possibleVariableNames = [
+      `${baseQuestionNumber}_${statementCode}_${columnCode}`,
+      `${baseQuestionNumber}${statementCode}${columnCode}`,
+      `${baseQuestionNumber}_${statementCode}_${columnCode.replace(/^c/i, '')}`,
+      `${baseQuestionNumber}${statementCode}${columnCode.replace(/^c/i, '')}`,
+    ];
+
+    for (const varName of possibleVariableNames) {
+      const data = getVariableDataByExpectedHeader?.(varName);
+      if (data && data.values) {
+        data.values.forEach((value: any) => {
+          if (value === null || value === undefined || value === '') return;
+          const numValue = parseFloat(String(value));
+          if (!isNaN(numValue)) {
+            allValues.push(numValue);
+          }
+        });
+        break;
       }
-    });
-    
+    }
+
     if (allValues.length === 0) return 0;
-    
+
     // For outlier removal, calculate mean and std dev first, then filter
     if (summaryType === 'meanNoOutliers' || summaryType === 'sumNoOutliers') {
       const sum = allValues.reduce((acc, val) => acc + val, 0);
       const mean = sum / allValues.length;
-      
+
       // Calculate standard deviation
       const variance = allValues.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / allValues.length;
       const stdDev = Math.sqrt(variance);
-      
+
       // Filter values within 2 standard deviations from mean
       const valuesNoOutliers = allValues.filter(val => Math.abs(val - mean) <= 2 * stdDev);
-      
+
       if (valuesNoOutliers.length === 0) {
         // If no values remain, return 0
         return 0;
       }
-      
+
       if (summaryType === 'meanNoOutliers') {
         const sumNoOutliers = valuesNoOutliers.reduce((acc, val) => acc + val, 0);
         return sumNoOutliers / valuesNoOutliers.length;
@@ -1461,7 +1606,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
         return valuesNoOutliers.reduce((acc, val) => acc + val, 0);
       }
     }
-    
+
     // Regular mean or sum
     if (summaryType === 'mean') {
       const sum = allValues.reduce((acc, val) => acc + val, 0);
@@ -1471,7 +1616,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       return allValues.reduce((acc, val) => acc + val, 0);
     }
   };
-
   // Render actual table for numeric grid mean/sum summary tables
   const renderNumericGridSummaryTable = (option: TableOption) => {
     if (option.type !== 'summary' || !isNumericGrid) {
@@ -1491,6 +1635,19 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
                        isMeanNoOutliersSummary ? 'meanNoOutliers' : 'sumNoOutliers';
     const statements = getStatements();
     if (statements.length === 0) return null;
+    // Determine if this summary option targets a specific column (for multi-column grids)
+    const extractColumnCodeFromId = (id: string): string | null => {
+      const match = id.match(/_(c\d+)[^_]*SummaryTable$/i);
+      if (match && match[1]) return match[1].toLowerCase();
+      return null;
+    };
+    const normalizeCol = (code: string) => {
+      const trimmed = String(code || '').trim();
+      if (!trimmed) return '';
+      const lower = trimmed.toLowerCase();
+      return lower.startsWith('c') ? lower : `c${lower}`;
+    };
+    const selectedColumnCode = extractColumnCodeFromId(option.id);
     
     // Calculate total responding (anyone who answered at least one statement)
     let totalResponding = 0;
@@ -1498,19 +1655,24 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     
     statements.forEach(stmt => {
       const baseQuestionNumber = getBaseQuestionNumber(variableName);
-      const columnCodes: string[] = [];
+      const columnCodesRaw: string[] = [];
       if (variable && variable.codes && Object.keys(variable.codes).length > 0) {
-        columnCodes.push(...Object.keys(variable.codes));
+        columnCodesRaw.push(...Object.keys(variable.codes));
       } else {
         const responseOptions = getResponseOptions();
         responseOptions.forEach(opt => {
           if (opt.code.startsWith('c') || /^\d+$/.test(opt.code)) {
-            columnCodes.push(opt.code);
+            columnCodesRaw.push(opt.code);
           }
         });
       }
+      const normalizedColumns = columnCodesRaw.map(normalizeCol).filter(Boolean);
+      const columnsToUse =
+        selectedColumnCode && normalizedColumns.some(col => col === normalizeCol(selectedColumnCode))
+          ? normalizedColumns.filter(col => col === normalizeCol(selectedColumnCode))
+          : normalizedColumns;
       
-      columnCodes.forEach(columnCode => {
+      columnsToUse.forEach(columnCode => {
         const possibleVariableNames = [
           `${baseQuestionNumber}_${stmt.code}_${columnCode}`,
           `${baseQuestionNumber}${stmt.code}${columnCode}`,
@@ -1535,22 +1697,35 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     });
     
     totalResponding = respondentSet.size;
-    
-    // Calculate summary values and base for each statement
+
+    // Get column codes and labels
+    const columnCodesRaw: string[] = [];
+    const columnLabels: Record<string, string> = {};
+    if (variable && variable.codes && Object.keys(variable.codes).length > 0) {
+      Object.entries(variable.codes).forEach(([code, label]) => {
+        columnCodesRaw.push(code);
+        columnLabels[normalizeCol(code)] = String(label || code);
+      });
+    } else {
+      const responseOptions = getResponseOptions();
+      responseOptions.forEach(opt => {
+        if (opt.code.startsWith('c') || /^\d+$/.test(opt.code)) {
+          columnCodesRaw.push(opt.code);
+          columnLabels[normalizeCol(opt.code)] = opt.text;
+        }
+      });
+    }
+    const normalizedColumns = columnCodesRaw.map(normalizeCol).filter(Boolean);
+    const columnCodes = normalizedColumns;
+    const columnsToUse =
+      selectedColumnCode && normalizedColumns.some(col => col === normalizeCol(selectedColumnCode))
+        ? normalizedColumns.filter(col => col === normalizeCol(selectedColumnCode))
+        : normalizedColumns;
+
+    // Calculate summary values for each statement and each column
     const statementSummaries = statements.map(stmt => {
       const baseQuestionNumber = getBaseQuestionNumber(variableName);
-      const columnCodes: string[] = [];
-      if (variable && variable.codes && Object.keys(variable.codes).length > 0) {
-        columnCodes.push(...Object.keys(variable.codes));
-      } else {
-        const responseOptions = getResponseOptions();
-        responseOptions.forEach(opt => {
-          if (opt.code.startsWith('c') || /^\d+$/.test(opt.code)) {
-            columnCodes.push(opt.code);
-          }
-        });
-      }
-      
+
       // Calculate base for this statement (anyone who answered any column for this statement)
       let statementBase = 0;
       let adjustedBase = 0;
@@ -1560,7 +1735,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
         // First, collect all values for this statement across all columns
         const allValuesForStatement: Array<{ value: number; respondentIndex: number }> = [];
         
-        columnCodes.forEach(columnCode => {
+        columnsToUse.forEach(columnCode => {
           const possibleVariableNames = [
             `${baseQuestionNumber}_${stmt.code}_${columnCode}`,
             `${baseQuestionNumber}${stmt.code}${columnCode}`,
@@ -1609,7 +1784,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
         // For regular tables, use the original base calculation
         const statementRespondentSet = new Set<number>();
         
-        columnCodes.forEach(columnCode => {
+        columnsToUse.forEach(columnCode => {
           const possibleVariableNames = [
             `${baseQuestionNumber}_${stmt.code}_${columnCode}`,
             `${baseQuestionNumber}${stmt.code}${columnCode}`,
@@ -1636,31 +1811,44 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
         adjustedBase = statementBase;
       }
       
+      // Calculate values for each column
+      const columnValues: Record<string, number> = {};
+      columnsToUse.forEach(colCode => {
+        columnValues[colCode] = calculateNumericGridSummaryForStatementAndColumn(stmt.code, colCode, summaryType);
+      });
+
       return {
         code: stmt.code,
         text: stmt.text,
-        value: calculateNumericGridSummaryForStatement(stmt.code, summaryType),
+        columnValues: columnValues,
         base: adjustedBase, // Use adjusted base for outlier-removed tables, original base for others
       };
     });
     
-    // Calculate total of all values for percentage calculation (only used for sum tables)
-    const totalValue = statementSummaries.reduce((sum, stmt) => sum + stmt.value, 0);
-    
+    // Calculate total of all values for each column for percentage calculation (only used for sum tables)
+    const totalValuesByColumn: Record<string, number> = {};
+    columnsToUse.forEach(colCode => {
+      totalValuesByColumn[colCode] = statementSummaries.reduce((sum, stmt) => sum + (stmt.columnValues[colCode] || 0), 0);
+    });
+    const noDataNotice = statementSummaries.length > 0 && statementSummaries.every(stmt => stmt.base === 0)
+      ? renderNoDataBanner(option.id)
+      : null;
+    markTableData(statementSummaries.some(stmt => stmt.base > 0));
+
     // Check if all bases are equal
-    const allBasesEqual = statementSummaries.length > 0 && 
+    const allBasesEqual = statementSummaries.length > 0 &&
       statementSummaries.every(stmt => stmt.base === statementSummaries[0].base);
-    
+
     // Check if this is a mean summary table (mean or meanNoOutliers)
     const isMeanSummaryTable = summaryType === 'mean' || summaryType === 'meanNoOutliers';
-    
+
     // Check if sort by frequency is enabled (numeric grids don't default to sort)
     const sortState = variableSortByFrequency[variableName];
     const isSortedByFrequency = sortState !== undefined ? sortState : false;
-    
-    // Sort statements by value (descending) if sort by frequency is enabled
-    let sortedStatements = isSortedByFrequency
-      ? [...statementSummaries].sort((a, b) => b.value - a.value)
+
+    // Sort statements by first column value (descending) if sort by frequency is enabled
+    let sortedStatements = isSortedByFrequency && columnsToUse.length > 0
+      ? [...statementSummaries].sort((a, b) => (b.columnValues[columnsToUse[0]] || 0) - (a.columnValues[columnsToUse[0]] || 0))
       : statementSummaries;
     
     // Apply hold ordering if hold codes are selected
@@ -1689,48 +1877,61 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       
       sortedStatements = [...remaining, ...heldOrdered];
     }
-
-    const tableName = summaryType === 'mean' ? 'Mean Summary' : 
+    const tableName = summaryType === 'mean' ? 'Mean Summary' :
                      summaryType === 'sum' ? 'Sum Summary' :
-                     summaryType === 'meanNoOutliers' ? 'Mean (Outliers Removed) Summary' : 
+                     summaryType === 'meanNoOutliers' ? 'Mean (Outliers Removed) Summary' :
                      'Sum (Outliers Removed) Summary';
+
+    // If there are multiple columns, show a column for each data column
+    const hasMultipleColumns = columnsToUse.length > 1;
 
     return (
       <div key={option.id} className="border border-gray-300 rounded-lg overflow-hidden bg-white">
-        <div className="bg-gray-50 border-b border-gray-200 px-4 py-2">
-          <h4 className="text-sm font-semibold text-gray-900">{tableName}</h4>
-        </div>
+        {noDataNotice}
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <colgroup>
               <col className="w-auto" />
-              <col className="w-20" />
-              {!isMeanSummaryTable && <col className="w-20" />}
+              {columnsToUse.map(colCode => (
+                <React.Fragment key={colCode}>
+                  <col className="w-20" />
+                  {!isMeanSummaryTable && <col className="w-20" />}
+                </React.Fragment>
+              ))}
             </colgroup>
             <thead>
-              <tr className="bg-gray-200 border-b border-gray-200">
-                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
+              <tr
+                className="border-b"
+                style={{ backgroundColor: BRAND_ORANGE }}
+              >
+                <th className="px-4 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-200">
+                  {tableName}
                 </th>
-                <th className={`px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider ${!isMeanSummaryTable ? 'border-r border-gray-200' : ''}`}>
-                  {summaryType === 'mean' || summaryType === 'meanNoOutliers' ? 'Mean' : 'Sum'}
-                </th>
-                {!isMeanSummaryTable && (
-                  <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    %
-                  </th>
-                )}
+                {columnsToUse.map((colCode, idx) => (
+                  <React.Fragment key={colCode}>
+                    <th
+                      className={`px-2 py-2 text-center text-xs font-semibold text-white uppercase tracking-wider ${!isMeanSummaryTable ? 'border-r border-gray-200' : (idx < columnsToUse.length - 1 ? 'border-r border-gray-200' : '')}`}
+                    >
+                      {hasMultipleColumns ? (columnLabels[colCode] || colCode) : (isMeanSummaryTable ? '' : 'Sum')}
+                    </th>
+                    {!isMeanSummaryTable && (
+                      <th className={`px-2 py-2 text-center text-xs font-semibold text-white uppercase tracking-wider ${idx < columnsToUse.length - 1 ? 'border-r border-gray-200' : ''}`}>
+                        %
+                      </th>
+                    )}
+                  </React.Fragment>
+                ))}
               </tr>
             </thead>
             <tbody>
               {isMeanSummaryTable ? (
                 // For mean summary tables: show base row above each statement, no % column, no total row
                 sortedStatements.map((stmt, index) => {
-                  const displayValue = formatNumber(stmt.value.toFixed(2));
                   const isBaseZero = stmt.base === 0;
                   const baseRowClass = isBaseZero ? 'text-red-600' : 'text-gray-900';
                   // Only show base row if bases are different, or if this is the first statement
                   const showBaseRow = !allBasesEqual || index === 0;
-                  
+
                   return (
                     <React.Fragment key={stmt.code}>
                       {/* Base row for this statement */}
@@ -1739,9 +1940,14 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
                           <td className={`px-4 py-2 text-sm font-semibold border-r border-gray-200 ${baseRowClass}`}>
                             Base (total responding)
                           </td>
-                          <td className={`px-2 py-2 text-sm text-center font-medium ${baseRowClass}`}>
-                            {formatNumber(stmt.base)}
-                          </td>
+                          {columnsToUse.map((colCode, colIdx) => (
+                            <td
+                              key={colCode}
+                              className={`px-2 py-2 text-sm text-center font-medium ${baseRowClass} ${colIdx < columnsToUse.length - 1 ? 'border-r border-gray-200' : ''}`}
+                            >
+                              {formatNumber(stmt.base)}
+                            </td>
+                          ))}
                         </tr>
                       )}
                       {/* Statement row */}
@@ -1749,9 +1955,17 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
                         <td className="px-4 py-2 text-sm text-gray-900 border-r border-gray-200">
                           {stmt.text}
                         </td>
-                        <td className="px-2 py-2 text-sm text-center text-gray-900">
-                          {displayValue}
-                        </td>
+                        {columnsToUse.map((colCode, colIdx) => {
+                          const displayValue = formatNumber((stmt.columnValues[colCode] || 0).toFixed(2));
+                          return (
+                            <td
+                              key={colCode}
+                              className={`px-2 py-2 text-sm text-center text-gray-900 ${colIdx < columnsToUse.length - 1 ? 'border-r border-gray-200' : ''}`}
+                            >
+                              {displayValue}
+                            </td>
+                          );
+                        })}
                       </tr>
                     </React.Fragment>
                   );
@@ -1760,14 +1974,11 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
                 // For sum summary tables: show base row above each statement, keep % column and total row
                 <>
                   {sortedStatements.map((stmt, index) => {
-                    // Calculate percentage: this row's value divided by sum of all values
-                    const percentage = totalValue > 0 ? Math.round((stmt.value / totalValue) * 100) : 0;
-                    const displayValue = formatNumber(Math.round(stmt.value));
                     const isBaseZero = stmt.base === 0;
                     const baseRowClass = isBaseZero ? 'text-red-600' : 'text-gray-900';
                     // Only show base row if bases are different, or if this is the first statement
                     const showBaseRow = !allBasesEqual || index === 0;
-                    
+
                     return (
                       <React.Fragment key={stmt.code}>
                         {/* Base row for this statement */}
@@ -1776,12 +1987,16 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
                             <td className={`px-4 py-2 text-sm font-semibold border-r border-gray-200 ${baseRowClass}`}>
                               Base (total responding)
                             </td>
-                            <td className={`px-2 py-2 text-sm text-center font-medium border-r border-gray-200 ${baseRowClass}`}>
-                              {formatNumber(stmt.base)}
-                            </td>
-                            <td className={`px-2 py-2 text-sm text-center font-medium ${baseRowClass}`}>
-                              100%
-                            </td>
+                            {columnsToUse.map((colCode, colIdx) => (
+                              <React.Fragment key={colCode}>
+                                <td className={`px-2 py-2 text-sm text-center font-medium border-r border-gray-200 ${baseRowClass}`}>
+                                  {formatNumber(stmt.base)}
+                                </td>
+                                <td className={`px-2 py-2 text-sm text-center font-medium ${baseRowClass} ${colIdx < columnsToUse.length - 1 ? 'border-r border-gray-200' : ''}`}>
+                                  100%
+                                </td>
+                              </React.Fragment>
+                            ))}
                           </tr>
                         )}
                         {/* Statement row */}
@@ -1789,12 +2004,23 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
                           <td className="px-4 py-2 text-sm text-gray-900 border-r border-gray-200">
                             {stmt.text}
                           </td>
-                          <td className="px-2 py-2 text-sm text-center text-gray-900 border-r border-gray-200">
-                            {displayValue}
-                          </td>
-                          <td className="px-2 py-2 text-sm text-center text-gray-900">
-                            {percentage}%
-                          </td>
+                          {columnsToUse.map((colCode, colIdx) => {
+                            const columnValue = stmt.columnValues[colCode] || 0;
+                            const displayValue = formatNumber(Math.round(columnValue));
+                            const percentage = totalValuesByColumn[colCode] > 0
+                              ? Math.round((columnValue / totalValuesByColumn[colCode]) * 100)
+                              : 0;
+                            return (
+                              <React.Fragment key={colCode}>
+                                <td className="px-2 py-2 text-sm text-center text-gray-900 border-r border-gray-200">
+                                  {displayValue}
+                                </td>
+                                <td className={`px-2 py-2 text-sm text-center text-gray-900 ${colIdx < columnsToUse.length - 1 ? 'border-r border-gray-200' : ''}`}>
+                                  {percentage}%
+                                </td>
+                              </React.Fragment>
+                            );
+                          })}
                         </tr>
                       </React.Fragment>
                     );
@@ -1804,12 +2030,16 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
                     <td className="px-4 py-2 text-sm font-semibold text-gray-900 border-r border-gray-200">
                       Total
                     </td>
-                    <td className="px-2 py-2 text-sm text-center text-gray-900 font-medium border-r border-gray-200">
-                      {formatNumber(Math.round(totalValue))}
-                    </td>
-                    <td className="px-2 py-2 text-sm text-center text-gray-900 font-medium">
-                      100%
-                    </td>
+                    {columnsToUse.map((colCode, colIdx) => (
+                      <React.Fragment key={colCode}>
+                        <td className="px-2 py-2 text-sm text-center text-gray-900 font-medium border-r border-gray-200">
+                          {formatNumber(Math.round(totalValuesByColumn[colCode] || 0))}
+                        </td>
+                        <td className={`px-2 py-2 text-sm text-center text-gray-900 font-medium ${colIdx < columnsToUse.length - 1 ? 'border-r border-gray-200' : ''}`}>
+                          100%
+                        </td>
+                      </React.Fragment>
+                    ))}
                   </tr>
                 </>
               )}
@@ -1819,7 +2049,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       </div>
     );
   };
-
   // Calculate mean for a single select grid statement
   const calculateSingleSelectGridMeanForStatement = (statementCode: string): number => {
     if (!getVariableDataByExpectedHeader) return 0;
@@ -1894,7 +2123,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     // Calculate weighted mean
     return calculateMean(responseOptions, responseCounts);
   };
-
   // Render actual table for single select grid mean summary tables and net summary tables
   const renderSingleSelectGridSummaryTable = (option: TableOption) => {
     if (option.type !== 'summary' || !isSingleSelectGrid) {
@@ -2025,12 +2253,13 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
         
         sortedStatements = [...remaining, ...heldOrdered];
       }
-      
+      const noDataNotice = statementNetCounts.length > 0 && statementNetCounts.every(stmt => stmt.base === 0)
+        ? renderNoDataBanner(option.id)
+        : null;
+      markTableData(statementNetCounts.some(stmt => stmt.base > 0));
       return (
         <div key={option.id} className="border border-gray-300 rounded-lg overflow-hidden bg-white">
-          <div className="bg-gray-50 border-b border-gray-200 px-4 py-2">
-            <h4 className="text-sm font-semibold text-gray-900">{net.name || `Net ${netIndex + 1}`}</h4>
-          </div>
+          {noDataNotice}
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <colgroup>
@@ -2039,13 +2268,17 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
                 <col className="w-20" />
               </colgroup>
               <thead>
-                <tr className="bg-gray-200 border-b border-gray-200">
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
+                <tr
+                  className="border-b"
+                  style={{ backgroundColor: BRAND_ORANGE }}
+                >
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-200">
+                    {net.name || `Net ${netIndex + 1}`}
                   </th>
-                  <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
+                  <th className="px-2 py-2 text-center text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-200">
                     Count
                   </th>
-                  <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-2 py-2 text-center text-xs font-semibold text-white uppercase tracking-wider">
                     %
                   </th>
                 </tr>
@@ -2183,12 +2416,13 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       
       sortedStatements = [...remaining, ...heldOrdered];
     }
-
+    markTableData(statementMeans.some(stmt => stmt.base > 0));
+    const noDataNotice = statementMeans.length > 0 && statementMeans.every(stmt => stmt.base === 0)
+      ? renderNoDataBanner(option.id)
+      : null;
     return (
       <div key={option.id} className="border border-gray-300 rounded-lg overflow-hidden bg-white">
-        <div className="bg-gray-50 border-b border-gray-200 px-4 py-2">
-          <h4 className="text-sm font-semibold text-gray-900">Mean Summary</h4>
-        </div>
+        {noDataNotice}
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <colgroup>
@@ -2196,11 +2430,15 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
               <col className="w-20" />
             </colgroup>
             <thead>
-              <tr className="bg-gray-200 border-b border-gray-200">
-                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
+              <tr
+                className="border-b"
+                style={{ backgroundColor: BRAND_ORANGE }}
+              >
+                <th className="px-4 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-200">
+                  Mean Summary
                 </th>
-                <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  Mean
+                <th className="px-2 py-2 text-center text-xs font-semibold text-white uppercase tracking-wider">
+                  {/* Intentionally blank to avoid repeating MEAN */}
                 </th>
               </tr>
             </thead>
@@ -2243,7 +2481,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       </div>
     );
   };
-
   // Render actual table for multi-select grid summary tables
   const renderMultiSelectGridSummaryTable = (option: TableOption) => {
     if (option.type !== 'summary' || !isMultiSelectGrid) {
@@ -2310,8 +2547,10 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     });
     
     totalResponding = respondentSet.size;
+    markTableData(totalResponding > 0);
     
     const statementCounts = getMultiSelectGridSummaryCounts(columnCode, statements);
+    const noDataNotice = totalResponding === 0 ? renderNoDataBanner(option.id) : null;
     
     // Check if sort by frequency is enabled (multi-select grids default to true)
     const sortState = variableSortByFrequency[variableName];
@@ -2352,14 +2591,12 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       
       sortedStatements = [...remaining, ...heldOrdered];
     }
-
+    const overrideLabel = columnHeaderOverrides?.[responseOptionName || ''] || columnHeaderOverrides?.[option.label] || columnHeaderOverrides?.[option.code];
+    const headerLabel = overrideLabel || responseOptionName || option.label;
+    const split = typeof headerLabel === 'string' ? headerLabel.split(' - ') : [];
     return (
       <div key={option.id} className="border border-gray-300 rounded-lg overflow-hidden bg-white">
-        {responseOptionName && (
-          <div className="bg-gray-50 border-b border-gray-200 px-4 py-2">
-            <h4 className="text-sm font-semibold text-gray-900">{responseOptionName}</h4>
-          </div>
-        )}
+        {noDataNotice}
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <colgroup>
@@ -2370,6 +2607,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
             <thead>
               <tr className="bg-gray-200 border-b border-gray-200">
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
+                  {split.length >= 2 ? split.slice(0, -1).join(' - ') : headerLabel}
                 </th>
                 <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
                   Count
@@ -2414,7 +2652,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       </div>
     );
   };
-
   // Get numeric frequency distribution
   const getNumericFrequencyDistribution = (targetVariableName?: string): Array<{ value: number; count: number }> => {
     if (!getVariableDataByExpectedHeader) return [];
@@ -2442,7 +2679,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       .map(([value, count]) => ({ value: parseFloat(value), count }))
       .sort((a, b) => a.value - b.value);
   };
-
   // Calculate statistics for numeric data
   const calculateNumericStats = (targetVariableName?: string): Record<string, number> => {
     if (!getVariableDataByExpectedHeader) return {};
@@ -2515,7 +2751,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       max,
     };
   };
-
   // Render actual table for numeric individual tables
   const renderNumericTable = (option: TableOption) => {
     const isNumericQuestion = typeLower.includes('numeric') && !typeLower.includes('grid') && !typeLower.includes('list');
@@ -2526,32 +2761,68 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       return null;
     }
     
-    // For numeric grids, extract statement code from option ID (e.g., "S14_r1" -> "r1")
+    // For numeric grids, extract statement code and aggregate values across all columns for that statement
     let targetVariableName = variableName;
     let statementName: string | null = null;
+    let aggregatedValues: number[] | null = null;
+    let aggregatedRespondentSet: Set<number> | null = null;
+    let debugHeaders: string[] = [];
     if (isNumericGrid && option.id !== variableName) {
-      // This is a statement-specific table
       const statementCodeMatch = option.id.match(/_(r\d+)$/);
       if (statementCodeMatch) {
         const statementCode = statementCodeMatch[1];
         const baseQuestionNumber = getBaseQuestionNumber(variableName);
-        // Try different variable name formats
-        const possibleNames = [
-          `${baseQuestionNumber}_${statementCode}`,
-          `${baseQuestionNumber}${statementCode}`,
-        ];
-        // Use the first one that has data, or default to the first format
-        for (const name of possibleNames) {
-          const data = getVariableDataByExpectedHeader?.(name);
-          if (data && data.values) {
-            targetVariableName = name;
-            break;
+
+        const values: number[] = [];
+        const respondentSet = new Set<number>();
+
+        // Use exact headers from the data map: baseQuestionNumber + statementCode + columnCode
+        const columnCodes: string[] = [];
+        if (variable?.codes && Object.keys(variable.codes).length > 0) {
+          columnCodes.push(...Object.keys(variable.codes));
+        } else {
+          const responseOptions = getResponseOptions();
+          responseOptions.forEach(opt => {
+            if (opt.code.startsWith('c') || /^\d+$/.test(opt.code)) {
+              columnCodes.push(opt.code);
+            }
+          });
+        }
+        const normalizeCol = (code: string) => {
+          const trimmed = String(code || '').trim();
+          if (!trimmed) return '';
+          if (/^c\d+/i.test(trimmed)) return trimmed;
+          if (/^\d+$/.test(trimmed)) return `c${trimmed}`;
+          return trimmed;
+        };
+        const normalizedColumns = columnCodes.map(normalizeCol).filter(Boolean);
+        const columnFromVariableNameMatch = variableName.match(/c\d+/i);
+        const columnFromVariableName = columnFromVariableNameMatch ? normalizeCol(columnFromVariableNameMatch[0]) : null;
+        const columnsToUse = columnFromVariableName
+          ? [columnFromVariableName]
+          : (normalizedColumns.length > 0 ? normalizedColumns : ['c1']);
+
+        const exactHeaders = columnsToUse.map(col => `${baseQuestionNumber}${statementCode}${col}`);
+        debugHeaders = exactHeaders;
+
+        exactHeaders.forEach(header => {
+          const data = getVariableDataByExpectedHeader?.(header);
+          if (data && Array.isArray(data.values)) {
+            data.values.forEach((value: any, idx: number) => {
+              if (value === null || value === undefined || value === '') return;
+              const numValue = parseFloat(String(value));
+              if (!isNaN(numValue)) {
+                values.push(numValue);
+                respondentSet.add(idx);
+              }
+            });
           }
-        }
-        if (targetVariableName === variableName) {
-          targetVariableName = possibleNames[0];
-        }
-        
+        });
+
+        aggregatedValues = values;
+        aggregatedRespondentSet = respondentSet;
+        targetVariableName = `${baseQuestionNumber}_${statementCode}`;
+
         // Get statement name from variable.statements
         if (variable && variable.statements && variable.statements[statementCode]) {
           statementName = String(variable.statements[statementCode]);
@@ -2565,22 +2836,95 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
         }
       }
     }
-    
-    const totalResponding = countRespondentsWithData(targetVariableName, getVariableDataByExpectedHeader);
-    const frequencyDistribution = getNumericFrequencyDistribution(targetVariableName);
-    const stats = calculateNumericStats(targetVariableName);
+
+    const computeFrequencyDistribution = (vals: number[]): Array<{ value: number; count: number }> => {
+      const freq: Record<number, number> = {};
+      vals.forEach(v => {
+        const rounded = Math.round(v);
+        freq[rounded] = (freq[rounded] || 0) + 1;
+      });
+      return Object.entries(freq)
+        .map(([value, count]) => ({ value: parseFloat(value), count }))
+        .sort((a, b) => a.value - b.value);
+    };
+
+    const computeStats = (vals: number[]) => {
+      if (!vals.length) return {};
+      const sorted = [...vals].sort((a, b) => a - b);
+      const sum = vals.reduce((acc, val) => acc + val, 0);
+      const mean = sum / vals.length;
+      const variance = vals.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / vals.length;
+      const stdDev = Math.sqrt(variance);
+      const median = sorted.length % 2 === 0
+        ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+        : sorted[Math.floor(sorted.length / 2)];
+      const freqMap: Record<number, number> = {};
+      vals.forEach(v => {
+        const r = Math.round(v);
+        freqMap[r] = (freqMap[r] || 0) + 1;
+      });
+      const modeEntry = Object.entries(freqMap).reduce((max, [val, count]) =>
+        count > max[1] ? [val, count] : max, ['0', 0]);
+      const mode = parseFloat(modeEntry[0]);
+      const min = sorted[0];
+      const max = sorted[sorted.length - 1];
+
+      const lowerBound = mean - 2 * stdDev;
+      const upperBound = mean + 2 * stdDev;
+      const valsNoOutliers = vals.filter(v => v >= lowerBound && v <= upperBound);
+      const sumNoOutliers = valsNoOutliers.reduce((acc, val) => acc + val, 0);
+      const meanNoOutliers = valsNoOutliers.length > 0 ? sumNoOutliers / valsNoOutliers.length : 0;
+
+      return {
+        mean,
+        meanNoOutliers,
+        sum,
+        sumNoOutliers,
+        stdDev,
+        median,
+        mode,
+        min,
+        max,
+      };
+    };
+
+    let totalResponding = 0;
+    let frequencyDistribution: Array<{ value: number; count: number }> = [];
+    let stats: Record<string, number> = {};
+
+    // Use only aggregated values for numeric grids so the frequency table reflects the exact headers list
+    if (isNumericGrid && aggregatedValues && aggregatedRespondentSet) {
+      totalResponding = aggregatedRespondentSet.size;
+      frequencyDistribution = computeFrequencyDistribution(aggregatedValues);
+      stats = computeStats(aggregatedValues) as Record<string, number>;
+    } else {
+      totalResponding = countRespondentsWithData(targetVariableName, getVariableDataByExpectedHeader);
+      frequencyDistribution = getNumericFrequencyDistribution(targetVariableName);
+      stats = calculateNumericStats(targetVariableName);
+    }
+    // Suppress the red no-data banner for numeric grids while debugging headers
+    const noDataNotice =
+      isNumericGrid
+        ? null
+        : (totalResponding === 0 ? renderNoDataBanner(option.id) : null);
+    // For numeric grids in debug mode, mark as having data so parent doesn't collapse
+    if (isNumericGrid) {
+      markTableData(true);
+    } else {
+      markTableData(totalResponding > 0);
+    }
     
     // Get selected stats
     const availableStats = getStatsForTableType(option.type, variable);
     const selectedStats = availableStats.filter(stat => statsSelections?.[stat.key]);
     
+    const overrideLabel = columnHeaderOverrides?.[statementName || ''] || columnHeaderOverrides?.[option.label] || columnHeaderOverrides?.[option.code];
+    const headerLabel = overrideLabel || statementName || option.label;
+    const split = typeof headerLabel === 'string' ? headerLabel.split(' - ') : [];
+    markTableData(totalResponding > 0);
     return (
       <div key={option.id} className="border border-gray-300 rounded-lg overflow-hidden bg-white">
-        {statementName && (
-          <div className="bg-gray-50 border-b border-gray-200 px-4 py-2">
-            <h4 className="text-sm font-semibold text-gray-900">{statementName}</h4>
-          </div>
-        )}
+        {noDataNotice}
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <colgroup>
@@ -2591,6 +2935,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
             <thead>
               <tr className="bg-gray-200 border-b border-gray-200">
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
+                  {split.length >= 2 ? split.slice(0, -1).join(' - ') : headerLabel}
                 </th>
                 <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
                   Count
@@ -2663,7 +3008,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       </div>
     );
   };
-
   // Get open end response counts for a specific variable name
   const getOpenEndResponseCountsForVariable = (targetVariableName: string): Array<{ text: string; count: number }> => {
     if (!getVariableDataByExpectedHeader) return [];
@@ -2732,16 +3076,15 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       .map(({ text, count }) => ({ text, count }))
       .sort((a, b) => b.count - a.count);
   };
-
   // Render actual table for open end individual tables
   const renderOpenEndTable = (option: TableOption) => {
     const isOpenEndType = typeLower.includes('open end') && !typeLower.includes('list');
     if (option.type !== 'individual' || !isOpenEndType) {
       return null;
     }
-
     const totalResponding = countRespondentsWithData(variableName, getVariableDataByExpectedHeader);
     const responseCounts = getOpenEndResponseCounts();
+    markTableData(totalResponding > 0);
     
     // Check if sort by frequency is enabled (open ends default to true)
     const sortState = variableSortByFrequency[variableName];
@@ -2755,7 +3098,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     // Get selected stats (open ends typically don't show stats, but check anyway)
     const availableStats = getStatsForTableType(option.type, variable);
     const selectedStats = availableStats.filter(stat => statsSelections?.[stat.key]);
-
     return (
       <div key={option.id} className="border border-gray-300 rounded-lg overflow-hidden bg-white">
         <div className="overflow-x-auto">
@@ -2848,7 +3190,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       </div>
     );
   };
-
   // Render actual table for open-end list summary tables
   const renderOpenEndListSummaryTable = (option: TableOption) => {
     if (option.type !== 'summary' || !isOpenEndListType) {
@@ -2913,6 +3254,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     // Get data for this specific response option
     const totalResponding = countRespondentsWithData(expectedHeader, getVariableDataByExpectedHeader);
     const responseCounts = getOpenEndResponseCountsForVariable(expectedHeader);
+    const noDataNotice = totalResponding === 0 ? renderNoDataBanner(option.id) : null;
     
     // Check if sort by frequency is enabled (open ends default to true)
     const sortState = variableSortByFrequency[variableName];
@@ -2923,11 +3265,12 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       ? [...responseCounts].sort((a, b) => b.count - a.count)
       : responseCounts;
     
+    const overrideLabel = columnHeaderOverrides?.[responseOptionName || ''] || columnHeaderOverrides?.[option.label] || columnHeaderOverrides?.[option.code];
+    const headerLabel = overrideLabel || responseOptionName || option.label;
+    markTableData(totalResponding > 0);
     return (
       <div key={option.id} className="border border-gray-300 rounded-lg overflow-hidden bg-white">
-        <div className="bg-gray-50 border-b border-gray-200 px-4 py-2">
-          <h4 className="text-sm font-semibold text-gray-900">{responseOptionName}</h4>
-        </div>
+        {noDataNotice}
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <colgroup>
@@ -2938,6 +3281,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
             <thead>
               <tr className="bg-gray-200 border-b border-gray-200">
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
+                  {split.length >= 2 ? split.slice(0, -1).join(' - ') : headerLabel}
                 </th>
                 <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200">
                   Count
@@ -2981,7 +3325,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       </div>
     );
   };
-
   const renderTableBox = (option: TableOption) => {
     // For single select individual tables, render actual table instead of placeholder
     if (option.type === 'individual' && isSingleSelect && !isSingleSelectGrid) {
@@ -3034,7 +3377,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     if (option.type === 'summary' && isOpenEndListType) {
       return renderOpenEndListSummaryTable(option);
     }
-
     const availableStats = getStatsForTableType(option.type, variable);
     const isTableSelected = variableTableSelections[variableName]?.has(option.id) || false;
     
@@ -3147,28 +3489,30 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       </div>
     );
   };
+  const summaryContent = summaryTables.length > 0 ? (
+    <div>
+      <div className="grid grid-cols-1 gap-3">
+        {summaryTables.map(renderTableBox)}
+      </div>
+    </div>
+  ) : null;
+
+  const individualContent = individualTables.length > 0 ? (
+    <div>
+      <div className="grid grid-cols-1 gap-3">
+        {individualTables.map(renderTableBox)}
+      </div>
+    </div>
+  ) : null;
+
+  if (anyTableRendered && !anyTableHasData) {
+    return renderNoDataBanner(undefined, 'No data found for these tables - bases are 0 across all rows/columns. Upload or map data for this question to see tables.');
+  }
 
   return (
     <div className="space-y-6">
-      {/* Summary Tables Section - First */}
-      {summaryTables.length > 0 && (
-        <div>
-          <div className="grid grid-cols-1 gap-3">
-            {summaryTables.map(renderTableBox)}
-          </div>
-        </div>
-      )}
-
-      {/* Individual Tables Section */}
-      {individualTables.length > 0 && (
-        <div>
-          <div className="grid grid-cols-1 gap-3">
-            {individualTables.map(renderTableBox)}
-          </div>
-        </div>
-      )}
-
+      {summaryContent}
+      {individualContent}
     </div>
   );
 };
-

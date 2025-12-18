@@ -6,6 +6,28 @@ interface UseDataMappingProps {
   qnrViewMode?: string;
 }
 
+type DatamapCachePayload = {
+  version: 1;
+  cachedAt: string;
+  questionnaireId: string;
+  data: {
+    sheetName: string;
+    questions: any[];
+    totalQuestions: number;
+    columnDefinitions?: Array<{ columnName: string; description: string }>;
+    parsedQuestions?: Array<{
+      questionNumber: string;
+      description: string;
+      responseType: string;
+      responseCodes?: Array<{ code: string; text: string }>;
+      isOpenResponse?: boolean;
+    }>;
+    warning?: string;
+    error?: string;
+    availableSheets?: string[];
+  };
+};
+
 export const useDataMapping = (props?: UseDataMappingProps) => {
   const { selectedQuestionnaire, qnrViewMode } = props || {};
   
@@ -36,6 +58,25 @@ export const useDataMapping = (props?: UseDataMappingProps) => {
   // Track if we've already attempted to load datamap to prevent repeated failed requests
   const datamapLoadAttemptedRef = useRef<Set<string>>(new Set());
 
+  const getDatamapCacheKey = useCallback((questionnaireId: string) => {
+    return `datamap_${questionnaireId}`;
+  }, []);
+
+  const sanitizeDatamapForCache = useCallback((data: any) => {
+    // Keep the payload small: rawData can be huge and is not needed for UI.
+    // Persist only what Data Map + DQv2 plan inference uses.
+    return {
+      sheetName: data?.sheetName || 'Unknown',
+      questions: Array.isArray(data?.questions) ? data.questions : [],
+      totalQuestions: Number(data?.totalQuestions || 0),
+      columnDefinitions: Array.isArray(data?.columnDefinitions) ? data.columnDefinitions : [],
+      parsedQuestions: Array.isArray(data?.parsedQuestions) ? data.parsedQuestions : [],
+      warning: data?.warning,
+      error: data?.error,
+      availableSheets: Array.isArray(data?.availableSheets) ? data.availableSheets : undefined,
+    };
+  }, []);
+
   // Wrapper to track all columnMapping changes and persist to localStorage
   const setColumnMapping = useCallback((mapping: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)) => {
     setColumnMappingState((prev) => {
@@ -52,6 +93,26 @@ export const useDataMapping = (props?: UseDataMappingProps) => {
       return next;
     });
   }, [selectedQuestionnaire]);
+
+  // Preload datamap from localStorage quickly on questionnaire change (fast render after refresh).
+  useEffect(() => {
+    if (!selectedQuestionnaire?.id) return;
+    // If we already have datamap data in memory, don't override it.
+    if (datamapData) return;
+    try {
+      const key = getDatamapCacheKey(String(selectedQuestionnaire.id));
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as DatamapCachePayload;
+      if (!parsed || parsed.version !== 1) return;
+      if (String(parsed.questionnaireId) !== String(selectedQuestionnaire.id)) return;
+      if (!parsed.data || typeof parsed.data !== 'object') return;
+      setDatamapData(parsed.data as any);
+    } catch {
+      // ignore cache errors
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedQuestionnaire?.id, getDatamapCacheKey]);
 
   // Load datamap function
   const loadDatamap = useCallback(async (force = false) => {
@@ -85,6 +146,17 @@ export const useDataMapping = (props?: UseDataMappingProps) => {
       if (response.ok) {
         const data = await response.json();
         setDatamapData(data);
+        try {
+          const payload: DatamapCachePayload = {
+            version: 1,
+            cachedAt: new Date().toISOString(),
+            questionnaireId: String(selectedQuestionnaire.id),
+            data: sanitizeDatamapForCache(data),
+          };
+          localStorage.setItem(getDatamapCacheKey(String(selectedQuestionnaire.id)), JSON.stringify(payload));
+        } catch {
+          // ignore cache failures
+        }
         // Remove from attempted set on success so it can be reloaded if needed
         datamapLoadAttemptedRef.current.delete(qnrId);
       } else {

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { Variable } from '../../utils/tabs/types';
 import { getBaseQuestionNumber } from '../../utils/tabs/questionHelpers';
@@ -15,6 +15,7 @@ interface RawDataViewerProps {
   columnMapping?: Record<string, string>;
   variables?: Variable[];
   questionnaireQuestions?: any[];
+  showMappedHeaderRow?: boolean;
 }
 
 export const RawDataViewer: React.FC<RawDataViewerProps> = ({
@@ -29,11 +30,17 @@ export const RawDataViewer: React.FC<RawDataViewerProps> = ({
   columnMapping = {},
   variables = [],
   questionnaireQuestions = [],
+  showMappedHeaderRow = true,
 }) => {
   const [rawDataSearch, setRawDataSearch] = useState('');
   const [showRawDataSuggestions, setShowRawDataSuggestions] = useState(false);
   const firstHeaderRowRef = useRef<HTMLTableRowElement>(null);
   const [secondRowTop, setSecondRowTop] = useState(40);
+  const [highlightColumn, setHighlightColumn] = useState<string | null>(null);
+
+  const getHeaderDomId = useCallback((header: string) => {
+    return `raw-col-${String(header).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  }, []);
 
   // Helper function to get expected column headers for a base question number
   const getExpectedColumnHeadersForBase = useMemo(() => {
@@ -216,6 +223,23 @@ export const RawDataViewer: React.FC<RawDataViewerProps> = ({
     }
   }, [visibleHeaders]);
 
+  useEffect(() => {
+    if (!highlightColumn) return;
+    if (!visibleHeaders.includes(highlightColumn)) return;
+
+    const targetId = getHeaderDomId(highlightColumn);
+    const el = document.getElementById(targetId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      el.classList.add('ring-2', 'ring-orange-500');
+      const timeout = window.setTimeout(() => {
+        el.classList.remove('ring-2', 'ring-orange-500');
+        setHighlightColumn(null);
+      }, 3000);
+      return () => window.clearTimeout(timeout);
+    }
+  }, [getHeaderDomId, highlightColumn, visibleHeaders]);
+
   // Show loading state
   if (loading) {
     return <div className="text-center py-8 text-gray-500">Loading data...</div>;
@@ -276,8 +300,14 @@ export const RawDataViewer: React.FC<RawDataViewerProps> = ({
                   <div
                     key={idx}
                     onClick={() => {
-                      // Scroll to column if needed (could implement smooth scroll)
+                      const idxInAll = allColumns.indexOf(header);
+                      if (idxInAll !== -1) {
+                        const targetPage = Math.floor(idxInAll / columnsPerPageCount);
+                        onColumnChange(targetPage * columnsPerPageCount);
+                        setHighlightColumn(String(header));
+                      }
                       setShowRawDataSuggestions(false);
+                      setRawDataSearch('');
                     }}
                     className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
                   >
@@ -332,9 +362,10 @@ export const RawDataViewer: React.FC<RawDataViewerProps> = ({
                   return (
                     <th
                       key={idx}
+                      id={getHeaderDomId(String(header))}
                       className={`px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap bg-gray-50 ${
                         isFirstColumn ? 'sticky left-0 z-30 shadow-[2px_0_4px_rgba(0,0,0,0.1)]' : 'z-20'
-                      }`}
+                      } ${highlightColumn === header ? 'bg-orange-50' : ''}`}
                       style={{ borderBottom: 'none' }}
                     >
                       <div className="truncate" title={String(header)}>
@@ -344,48 +375,50 @@ export const RawDataViewer: React.FC<RawDataViewerProps> = ({
                   );
                 })}
               </tr>
-              <tr className="bg-gray-100 sticky" style={{ top: `${secondRowTop}px`, zIndex: 20 }}>
-                {visibleHeaders.map((header, idx) => {
-                  const isFirstColumn = idx === 0;
-                  
-                  // Find the expected variable that maps to this column header
-                  // columnMapping is { expectedVariable: columnHeader }
-                  // We need to reverse lookup: find expectedVariable where columnHeader === header
-                  let mappedVariable = '';
-                  if (columnMapping && Object.keys(columnMapping).length > 0) {
-                    const headerStr = String(header);
-                    // Check for exact match
-                    const mappingEntry = Object.entries(columnMapping).find(
-                      ([expectedVar, mappedCol]) => String(mappedCol) === headerStr
-                    );
-                    if (mappingEntry) {
-                      mappedVariable = mappingEntry[0];
-                    } else {
-                      // Try case-insensitive match
-                      const headerLower = headerStr.toLowerCase().trim();
-                      const mappingEntryCaseInsensitive = Object.entries(columnMapping).find(
-                        ([expectedVar, mappedCol]) => String(mappedCol).toLowerCase().trim() === headerLower
+              {showMappedHeaderRow && (
+                <tr className="bg-gray-100 sticky" style={{ top: `${secondRowTop}px`, zIndex: 20 }}>
+                  {visibleHeaders.map((header, idx) => {
+                    const isFirstColumn = idx === 0;
+                    
+                    // Find the expected variable that maps to this column header
+                    // columnMapping is { expectedVariable: columnHeader }
+                    // We need to reverse lookup: find expectedVariable where columnHeader === header
+                    let mappedVariable = '';
+                    if (columnMapping && Object.keys(columnMapping).length > 0) {
+                      const headerStr = String(header);
+                      // Check for exact match
+                      const mappingEntry = Object.entries(columnMapping).find(
+                        ([expectedVar, mappedCol]) => String(mappedCol) === headerStr
                       );
-                      if (mappingEntryCaseInsensitive) {
-                        mappedVariable = mappingEntryCaseInsensitive[0];
+                      if (mappingEntry) {
+                        mappedVariable = mappingEntry[0];
+                      } else {
+                        // Try case-insensitive match
+                        const headerLower = headerStr.toLowerCase().trim();
+                        const mappingEntryCaseInsensitive = Object.entries(columnMapping).find(
+                          ([expectedVar, mappedCol]) => String(mappedCol).toLowerCase().trim() === headerLower
+                        );
+                        if (mappingEntryCaseInsensitive) {
+                          mappedVariable = mappingEntryCaseInsensitive[0];
+                        }
                       }
                     }
-                  }
-                  
-                  return (
-                    <th
-                      key={idx}
-                      className={`px-4 py-2 text-left text-xs font-normal text-gray-600 whitespace-nowrap bg-gray-100 border-b border-gray-200 ${
-                        isFirstColumn ? 'sticky left-0 z-30 shadow-[2px_0_4px_rgba(0,0,0,0.1)]' : 'z-20'
-                      }`}
-                    >
-                      <div className="truncate" title={mappedVariable || '-'}>
-                        {mappedVariable || '-'}
-                      </div>
-                    </th>
-                  );
-                })}
-              </tr>
+                    
+                    return (
+                      <th
+                        key={idx}
+                        className={`px-4 py-2 text-left text-xs font-normal text-gray-600 whitespace-nowrap bg-gray-100 border-b border-gray-200 ${
+                          isFirstColumn ? 'sticky left-0 z-30 shadow-[2px_0_4px_rgba(0,0,0,0.1)]' : 'z-20'
+                        } ${highlightColumn === header ? 'bg-orange-50' : ''}`}
+                      >
+                        <div className="truncate" title={mappedVariable || '-'}>
+                          {mappedVariable || '-'}
+                        </div>
+                      </th>
+                    );
+                  })}
+                </tr>
+              )}
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {allRows.length > 0 ? (
@@ -406,7 +439,7 @@ export const RawDataViewer: React.FC<RawDataViewerProps> = ({
                               isFirstColumn 
                                 ? 'sticky left-0 z-10 bg-white hover:bg-gray-50 shadow-[2px_0_4px_rgba(0,0,0,0.1)]' 
                                 : 'bg-white'
-                            }`}
+                            } ${highlightColumn === header ? 'bg-orange-50' : ''}`}
                           >
                             <div className="truncate" title={displayValue}>
                               {displayValue}

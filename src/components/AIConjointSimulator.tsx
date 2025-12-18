@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, CONJOINT_BACKEND_ENABLED } from '../config';
 import { IconDeviceFloppy, IconRefresh, IconPlus, IconInfoCircle } from '@tabler/icons-react';
 
 interface AIConjointSimulatorProps {
@@ -550,6 +550,11 @@ export default function AIConjointSimulator({ workflow, onClose, dataOnly = fals
     const selectionsToUse = selections || scenarios[0]?.selections || {};
     const nameToUse = scenarioName || scenarios[0]?.name || 'Scenario';
     const idToUse = scenarioId || `scenario_${Date.now()}`;
+
+    if (!CONJOINT_BACKEND_ENABLED) {
+      alert('Conjoint backend is disabled (UI-only mode).');
+      return;
+    }
     
     if (!workflow?.id) {
       alert('Workflow not found');
@@ -726,6 +731,11 @@ export default function AIConjointSimulator({ workflow, onClose, dataOnly = fals
       return;
     }
 
+    if (!CONJOINT_BACKEND_ENABLED) {
+      alert('Conjoint backend is disabled (UI-only mode).');
+      return;
+    }
+
     // Prevent double uploads
     if (uploadingData) {
       console.log('[Upload] Upload already in progress, skipping');
@@ -742,8 +752,8 @@ export default function AIConjointSimulator({ workflow, onClose, dataOnly = fals
       
       // Use AI-powered data processing endpoint for AI workflows
       const endpoint = workflow.aiGenerated 
-        ? 'http://localhost:3005/api/conjoint/ai-workflow/process-data'
-        : 'http://localhost:3005/api/conjoint/workflows/' + workflow.id + '/survey';
+        ? `${API_BASE_URL}/api/conjoint/ai-workflow/process-data`
+        : `${API_BASE_URL}/api/conjoint/workflows/${workflow.id}/survey`;
       
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -855,6 +865,11 @@ export default function AIConjointSimulator({ workflow, onClose, dataOnly = fals
   };
 
   const estimateUtilities = async () => {
+    if (!CONJOINT_BACKEND_ENABLED) {
+      alert('Conjoint backend is disabled (UI-only mode).');
+      return;
+    }
+
     setEstimating(true);
     setEstimationError(null);
     try {
@@ -1020,6 +1035,11 @@ export default function AIConjointSimulator({ workflow, onClose, dataOnly = fals
     const [isDeleting, setIsDeleting] = useState(false);
 
     const handleUpload = async (file: File) => {
+      if (!CONJOINT_BACKEND_ENABLED) {
+        alert('Conjoint backend is disabled (UI-only mode).');
+        return;
+      }
+
       setIsUploading(true);
       setUploadStatus('idle');
       setUploadMessage('');
@@ -1031,8 +1051,8 @@ export default function AIConjointSimulator({ workflow, onClose, dataOnly = fals
 
         const token = localStorage.getItem('cognitive_dash_token');
         const endpoint = workflow.aiGenerated 
-          ? 'http://localhost:3005/api/conjoint/ai-workflow/process-data'
-          : 'http://localhost:3005/api/conjoint/workflows/' + workflow.id + '/survey';
+          ? `${API_BASE_URL}/api/conjoint/ai-workflow/process-data`
+          : `${API_BASE_URL}/api/conjoint/workflows/${workflow.id}/survey`;
         
         const response = await fetch(endpoint, {
           method: 'POST',
@@ -1116,6 +1136,11 @@ export default function AIConjointSimulator({ workflow, onClose, dataOnly = fals
         return;
       }
 
+      if (!CONJOINT_BACKEND_ENABLED) {
+        alert('Conjoint backend is disabled (UI-only mode).');
+        return;
+      }
+
       setIsDeleting(true);
       try {
         const token = localStorage.getItem('cognitive_dash_token');
@@ -1170,7 +1195,7 @@ export default function AIConjointSimulator({ workflow, onClose, dataOnly = fals
               }</p>
             </div>
             <div className="flex gap-3">
-              {workflow?.survey?.storedFileName && (
+              {CONJOINT_BACKEND_ENABLED && workflow?.survey?.storedFileName && (
                 <a
                   href={`${API_BASE_URL}/api/conjoint/workflows/${workflow.id}/survey/download`}
                   download
@@ -1565,6 +1590,15 @@ export default function AIConjointSimulator({ workflow, onClose, dataOnly = fals
           </button>
         </div>
       </div>
+
+      {!CONJOINT_BACKEND_ENABLED && (
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 text-sm text-amber-900">
+          <p className="font-semibold">UI-only mode</p>
+          <p className="mt-1 text-amber-800">
+            The Conjoint backend has been removed from this repo. Upload, estimation, and scenario analysis are disabled.
+          </p>
+        </div>
+      )}
 
       {/* Debug Panel - Matching Diagnostics Only */}
       {showDebugPanel && (

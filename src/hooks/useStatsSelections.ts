@@ -2,18 +2,20 @@ import { useState, useCallback, useEffect } from 'react';
 import { VariableStatsSelection, createDefaultStatsSelection } from '../utils/tabs/types';
 
 interface UseStatsSelectionsProps {
+  storageKey?: string;
   selectedQuestionnaireId?: string;
 }
 
 export const useStatsSelections = (props?: UseStatsSelectionsProps) => {
-  const { selectedQuestionnaireId } = props || {};
+  const { selectedQuestionnaireId, storageKey } = props || {};
+  const keyBase = storageKey || selectedQuestionnaireId;
   const [variableStatsSelections, setVariableStatsSelections] = useState<Record<string, VariableStatsSelection>>({});
   const [singleSelectSort, setSingleSelectSort] = useState<Record<string, { column: 'code' | 'count' | 'percentage', direction: 'asc' | 'desc' }>>({});
 
   // Load stats selections from localStorage when questionnaire changes
   useEffect(() => {
-    if (selectedQuestionnaireId) {
-      const key = `variableStatsSelections_${selectedQuestionnaireId}`;
+    if (keyBase) {
+      const key = `variableStatsSelections_${keyBase}`;
       const stored = localStorage.getItem(key);
       if (stored) {
         try {
@@ -28,23 +30,23 @@ export const useStatsSelections = (props?: UseStatsSelectionsProps) => {
     } else {
       setVariableStatsSelections({});
     }
-  }, [selectedQuestionnaireId]);
+  }, [keyBase]);
 
   // Save stats selections to localStorage when they change
   useEffect(() => {
-    if (selectedQuestionnaireId && Object.keys(variableStatsSelections).length > 0) {
-      const key = `variableStatsSelections_${selectedQuestionnaireId}`;
+    if (keyBase && Object.keys(variableStatsSelections).length > 0) {
+      const key = `variableStatsSelections_${keyBase}`;
       try {
         localStorage.setItem(key, JSON.stringify(variableStatsSelections));
       } catch (e) {
         console.warn('Failed to persist stats selections to localStorage', e);
       }
-    } else if (selectedQuestionnaireId && Object.keys(variableStatsSelections).length === 0) {
+    } else if (keyBase && Object.keys(variableStatsSelections).length === 0) {
       // Clear localStorage if selections are empty
-      const key = `variableStatsSelections_${selectedQuestionnaireId}`;
+      const key = `variableStatsSelections_${keyBase}`;
       localStorage.removeItem(key);
     }
-  }, [variableStatsSelections, selectedQuestionnaireId]);
+  }, [variableStatsSelections, keyBase]);
 
   const getStatsSelectionsForVariable = useCallback((variableName: string): VariableStatsSelection => {
     if (!variableName) return createDefaultStatsSelection();

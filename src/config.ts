@@ -14,6 +14,11 @@ console.log('🌐 API_BASE_URL set to:', backendURL);
 
 export const API_BASE_URL = backendURL;
 
+// Conjoint backend feature flag
+// Default is disabled. Enable by setting: VITE_CONJOINT_BACKEND_ENABLED=true
+export const CONJOINT_BACKEND_ENABLED =
+  (import.meta as any)?.env?.VITE_CONJOINT_BACKEND_ENABLED === 'true';
+
 // API endpoints
 export const API_ENDPOINTS = {
   auth: {

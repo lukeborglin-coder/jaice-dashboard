@@ -18,12 +18,12 @@ import storytellingRouter from './routes/storytelling.routes.mjs';
 import migrateTranscriptsRouter from './routes/migrate-transcripts.mjs';
 import questionnaireRouter from './routes/questionnaire.routes.mjs';
 import openEndCodingRouter from './routes/openEndCoding.routes.mjs';
-import conjointRouter from './routes/conjoint.routes.mjs';
 import storageRouter from './routes/storage.routes.mjs';
 import notificationsRouter from './routes/notifications.routes.mjs';
 import adminMessagesRouter from './routes/adminMessages.routes.mjs';
 import utilitiesRouter from './routes/utilities.routes.mjs';
 import dataQualityRouter from './routes/dataQuality.routes.mjs';
+import tabPlansRouter from './routes/tabPlans.routes.mjs';
 
 // Load environment variables
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -113,8 +113,8 @@ app.use('/api/costs', apiLimiter, costsRouter);
 app.use('/api/storytelling', apiLimiter, storytellingRouter);
 app.use('/api/migrate', apiLimiter, migrateTranscriptsRouter);
 app.use('/api/questionnaire', apiLimiter, questionnaireRouter);
+app.use('/api/tab-plans', apiLimiter, tabPlansRouter);
 app.use('/api/openend', apiLimiter, openEndCodingRouter);
-app.use('/api/conjoint', apiLimiter, conjointRouter);
 app.use('/api/storage', apiLimiter, storageRouter);
 app.use('/api/notifications', apiLimiter, notificationsRouter);
 app.use('/api/admin-messages', apiLimiter, adminMessagesRouter);

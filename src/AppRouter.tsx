@@ -25,7 +25,6 @@ export default function AppRouter() {
 			<Route path="/feedback/*" element={<App />} />
 			<Route path="/qnr/*" element={<App />} />
 			<Route path="/data-quality/*" element={isAdmin ? <App /> : <Navigate to="/home" replace />} />
-			<Route path="/data-quality-v2/*" element={isAdmin ? <App /> : <Navigate to="/home" replace />} />
 		</Routes>
 	)
 }

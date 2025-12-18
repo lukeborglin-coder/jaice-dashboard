@@ -17,6 +17,8 @@ interface SettingsPopupModalProps {
   onSignificanceLevelChange: (level: 95 | 90) => void;
   percentageDecimals: 0 | 1 | 2;
   onPercentageDecimalsChange: (decimals: 0 | 1 | 2) => void;
+  showIncludedQuestions: boolean;
+  onShowIncludedQuestionsChange: (show: boolean) => void;
   variables: Variable[];
   questionnaireQuestions: any[];
   selectedQuestionnaire: any;
@@ -30,6 +32,8 @@ export const SettingsPopupModal: React.FC<SettingsPopupModalProps> = ({
   onSignificanceLevelChange,
   percentageDecimals,
   onPercentageDecimalsChange,
+  showIncludedQuestions,
+  onShowIncludedQuestionsChange,
   variables,
   questionnaireQuestions,
   selectedQuestionnaire,
@@ -102,6 +106,19 @@ export const SettingsPopupModal: React.FC<SettingsPopupModalProps> = ({
               <option value={1}>1 decimal</option>
               <option value={2}>2 decimals</option>
             </select>
+          </div>
+
+          {/* Show Hidden Questions Setting */}
+          <div>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={showIncludedQuestions}
+                onChange={(e) => onShowIncludedQuestionsChange(e.target.checked)}
+                className="mr-2"
+              />
+              <span className="text-sm text-gray-700">Show hidden questions in specs</span>
+            </label>
           </div>
 
           {/* Reset Specs Button */}

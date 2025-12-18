@@ -76,20 +76,13 @@
         document.body.addEventListener('click', function() {
             document.getElementById('status').textContent = 'Starting JAICE Dashboard...';
             
-            // Try to launch the VBS script
+            // Launch the batch file
             try {
                 const shell = new ActiveXObject("WScript.Shell");
-                shell.Run("JAICE-Dashboard.vbs", 0, false);
+                shell.Run("Start-JAICE.bat", 1, false);
                 document.getElementById('status').textContent = 'JAICE Dashboard launched!';
             } catch (e) {
-                // Fallback to batch file
-                try {
-                    const shell = new ActiveXObject("WScript.Shell");
-                    shell.Run("JAICE-Dashboard.bat", 1, false);
-                    document.getElementById('status').textContent = 'JAICE Dashboard launched!';
-                } catch (e2) {
-                    document.getElementById('status').textContent = 'Error: Could not launch. Please run JAICE-Dashboard.bat manually.';
-                }
+                document.getElementById('status').textContent = 'Error: Could not launch. Please run Start-JAICE.bat manually.';
             }
         });
 

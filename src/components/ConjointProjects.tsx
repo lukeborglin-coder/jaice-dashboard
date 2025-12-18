@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, CONJOINT_BACKEND_ENABLED } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 import { DocumentTextIcon, CalendarIcon, UserGroupIcon, UserIcon, ArrowLeftIcon, ChevronDownIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { IconBook2, IconPlus } from '@tabler/icons-react';
@@ -255,6 +255,8 @@ export default function ConjointProjects({
   onCreateProject
 }: ConjointProjectsProps) {
   const { user } = useAuth();
+  const conjointBackendDisabledMessage =
+    'Conjoint backend is disabled (UI-only mode). Set VITE_CONJOINT_BACKEND_ENABLED=true to enable it in a future iteration.';
 
   const [archivedProjects, setArchivedProjects] = useState<any[]>([]);
   const [loadingArchived, setLoadingArchived] = useState(false);
@@ -692,6 +694,12 @@ export default function ConjointProjects({
   const showSpinner = activeTab === 'archived' && loadingArchived;
 
   const loadProjectWorkflowDrafts = useCallback(async (projectId: string) => {
+    if (!CONJOINT_BACKEND_ENABLED) {
+      setProjectWorkflows([]);
+      setLoadingProjectWorkflows(false);
+      setLoadProjectWorkflowsError(conjointBackendDisabledMessage);
+      return;
+    }
     setLoadingProjectWorkflows(true);
     setLoadProjectWorkflowsError(null);
     try {
@@ -1152,6 +1160,11 @@ export default function ConjointProjects({
       return;
     }
 
+    if (!CONJOINT_BACKEND_ENABLED) {
+      setSaveWorkflowError(conjointBackendDisabledMessage);
+      return;
+    }
+
     if (!normalizedAttributes.length || !designMatrix.length || !designSummary) {
       setSaveWorkflowError('Upload a valid attribute list and design matrix before saving.');
       return;
@@ -1243,6 +1256,11 @@ export default function ConjointProjects({
       return;
     }
 
+    if (!CONJOINT_BACKEND_ENABLED) {
+      setSurveyError(conjointBackendDisabledMessage);
+      return;
+    }
+
     setIsUploadingSurvey(true);
     setSurveyError(null);
     try {
@@ -1294,6 +1312,11 @@ export default function ConjointProjects({
   const handleEstimateUtilities = useCallback(async () => {
     if (!activeWorkflowId) {
       setEstimationError('Save the workflow draft before estimating utilities.');
+      return;
+    }
+
+    if (!CONJOINT_BACKEND_ENABLED) {
+      setEstimationError(conjointBackendDisabledMessage);
       return;
     }
 
@@ -1353,6 +1376,14 @@ export default function ConjointProjects({
 
   return (
     <div className="flex-1 p-6 space-y-4 max-w-full overflow-y-auto" style={{ height: 'calc(100vh - 80px)', marginTop: '80px' }}>
+      {!CONJOINT_BACKEND_ENABLED && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">Conjoint Simulator is in UI-only mode</p>
+          <p className="mt-1 text-amber-800">
+            Backend endpoints for Conjoint have been removed from this repo. Workflow creation, uploads, estimation, and scenario analysis are disabled.
+          </p>
+        </div>
+      )}
       <div className="space-y-3">
         {viewMode === 'home' && (
           <>
@@ -1597,7 +1628,7 @@ export default function ConjointProjects({
                           const workflowIdToUpdate = selectedWorkflow.id;
                           const updatedWorkflows = await loadProjectWorkflowDrafts(selectedProject.id);
                           // Find and update the selected workflow with the fresh data
-                          const updatedWorkflow = updatedWorkflows.find(w => w.id === workflowIdToUpdate);
+                          const updatedWorkflow = updatedWorkflows.find((w: any) => w.id === workflowIdToUpdate);
                           if (updatedWorkflow) {
                             setSelectedWorkflow(updatedWorkflow);
                           }
@@ -1627,7 +1658,7 @@ export default function ConjointProjects({
                               const workflowIdToUpdate = selectedWorkflow.id;
                               const updatedWorkflows = await loadProjectWorkflowDrafts(selectedProject.id);
                               // Find and update the selected workflow with the fresh data
-                              const updatedWorkflow = updatedWorkflows.find(w => w.id === workflowIdToUpdate);
+                              const updatedWorkflow = updatedWorkflows.find((w: any) => w.id === workflowIdToUpdate);
                               if (updatedWorkflow) {
                                 setSelectedWorkflow(updatedWorkflow);
                               }
@@ -1881,7 +1912,7 @@ export default function ConjointProjects({
                               </div>
                               <div className="flex items-center gap-2 ml-4">
                                 {/* Upload Data button for AI workflows that need survey data */}
-                                {workflow.aiGenerated && workflow.temporary && !workflow.surveyUploadedAt && (
+                                {CONJOINT_BACKEND_ENABLED && workflow.aiGenerated && workflow.temporary && !workflow.surveyUploadedAt && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -1928,26 +1959,28 @@ export default function ConjointProjects({
                                   </button>
                                 )}
                                 
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (window.confirm(`Delete workflow "${workflow.name || workflow.id}"?`)) {
-                                      fetch(`${API_BASE_URL}/api/conjoint/workflows/${workflow.id}`, {
-                                        method: 'DELETE',
-                                        headers: { Authorization: `Bearer ${localStorage.getItem('cognitive_dash_token') || localStorage.getItem('token') || ''}` }
-                                      }).then(() => {
-                                        loadProjectWorkflowDrafts(selectedProject.id);
-                                      }).catch(err => {
-                                        console.error('Error deleting workflow:', err);
-                                        alert('Failed to delete workflow');
-                                      });
-                                    }
-                                  }}
-                                  className="text-red-600 hover:text-red-800 p-1 rounded transition-colors"
-                                  title="Delete workflow"
-                                >
-                                  <TrashIcon className="h-4 w-4" />
-                                </button>
+                                {CONJOINT_BACKEND_ENABLED && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (window.confirm(`Delete workflow "${workflow.name || workflow.id}"?`)) {
+                                        fetch(`${API_BASE_URL}/api/conjoint/workflows/${workflow.id}`, {
+                                          method: 'DELETE',
+                                          headers: { Authorization: `Bearer ${localStorage.getItem('cognitive_dash_token') || localStorage.getItem('token') || ''}` }
+                                        }).then(() => {
+                                          loadProjectWorkflowDrafts(selectedProject.id);
+                                        }).catch(err => {
+                                          console.error('Error deleting workflow:', err);
+                                          alert('Failed to delete workflow');
+                                        });
+                                      }
+                                    }}
+                                    className="text-red-600 hover:text-red-800 p-1 rounded transition-colors"
+                                    title="Delete workflow"
+                                  >
+                                    <TrashIcon className="h-4 w-4" />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>

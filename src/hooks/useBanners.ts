@@ -7,10 +7,12 @@ import { Variable } from '../utils/tabs/types';
 interface UseBannersProps {
   selectedQuestionnaire?: any | null;
   variables?: Variable[];
+  storageKey?: string;
 }
 
 export const useBanners = (props?: UseBannersProps) => {
-  const { selectedQuestionnaire, variables = [] } = props || {};
+  const { selectedQuestionnaire, variables = [], storageKey } = props || {};
+  const keyBase = storageKey || selectedQuestionnaire?.id;
   
   const [newBannerGroups, setNewBannerGroups] = useState<BannerGroup[]>([]);
   const [showBannerBuilder, setShowBannerBuilder] = useState(false);
@@ -161,10 +163,10 @@ export const useBanners = (props?: UseBannersProps) => {
     setEditingBannerGroup(null);
   }, []);
 
-  // Load new banner groups from localStorage when questionnaire changes
+  // Load new banner groups from localStorage when key changes
   useEffect(() => {
-    if (selectedQuestionnaire?.id) {
-      const key = `newBannerGroups_${selectedQuestionnaire.id}`;
+    if (keyBase) {
+      const key = `newBannerGroups_${keyBase}`;
       const stored = localStorage.getItem(key);
       if (stored) {
         try {
@@ -179,20 +181,20 @@ export const useBanners = (props?: UseBannersProps) => {
     } else {
       setNewBannerGroups([]);
     }
-  }, [selectedQuestionnaire?.id]);
+  }, [keyBase]);
 
   // Save new banner groups to localStorage when they change
   useEffect(() => {
-    if (selectedQuestionnaire?.id && newBannerGroups.length > 0) {
-      const key = `newBannerGroups_${selectedQuestionnaire.id}`;
+    if (keyBase && newBannerGroups.length > 0) {
+      const key = `newBannerGroups_${keyBase}`;
       localStorage.setItem(key, JSON.stringify(newBannerGroups));
     }
-  }, [newBannerGroups, selectedQuestionnaire?.id]);
+  }, [newBannerGroups, keyBase]);
 
   // Load banner filter conditions from localStorage when questionnaire changes
   useEffect(() => {
-    if (selectedQuestionnaire?.id) {
-      const key = `bannerFilterConditions_${selectedQuestionnaire.id}`;
+    if (keyBase) {
+      const key = `bannerFilterConditions_${keyBase}`;
       const stored = localStorage.getItem(key);
       if (stored) {
         try {
@@ -207,24 +209,24 @@ export const useBanners = (props?: UseBannersProps) => {
     } else {
       setBannerFilterConditions(null);
     }
-  }, [selectedQuestionnaire?.id]);
+  }, [keyBase]);
 
   // Save banner filter conditions to localStorage when they change
   useEffect(() => {
-    if (selectedQuestionnaire?.id) {
-      const key = `bannerFilterConditions_${selectedQuestionnaire.id}`;
+    if (keyBase) {
+      const key = `bannerFilterConditions_${keyBase}`;
       if (bannerFilterConditions && bannerFilterConditions.length > 0) {
         localStorage.setItem(key, JSON.stringify(bannerFilterConditions));
       } else {
         localStorage.removeItem(key);
       }
     }
-  }, [bannerFilterConditions, selectedQuestionnaire?.id]);
+  }, [bannerFilterConditions, keyBase]);
 
   // Initialize hiddenFromBanners: hide open ends and open end lists by default
   useEffect(() => {
-    if (selectedQuestionnaire?.id) {
-      const key = `hiddenFromBanners_${selectedQuestionnaire.id}`;
+    if (keyBase) {
+      const key = `hiddenFromBanners_${keyBase}`;
       const stored = localStorage.getItem(key);
       
       if (stored) {
@@ -258,19 +260,19 @@ export const useBanners = (props?: UseBannersProps) => {
     } else {
       setHiddenFromBanners(new Set());
     }
-  }, [selectedQuestionnaire?.id, variables]);
+  }, [keyBase, variables]);
 
   // Save hiddenFromBanners to localStorage when it changes
   useEffect(() => {
-    if (selectedQuestionnaire?.id) {
-      const key = `hiddenFromBanners_${selectedQuestionnaire.id}`;
+    if (keyBase) {
+      const key = `hiddenFromBanners_${keyBase}`;
       if (hiddenFromBanners.size > 0) {
         localStorage.setItem(key, JSON.stringify(Array.from(hiddenFromBanners)));
       } else {
         localStorage.removeItem(key);
       }
     }
-  }, [hiddenFromBanners, selectedQuestionnaire?.id]);
+  }, [hiddenFromBanners, keyBase]);
 
   return {
     newBannerGroups,

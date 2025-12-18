@@ -70,36 +70,15 @@ export async function runQAForRespondents(projectId, respondentIds = null, optio
     ['open_end', 'logic_consistency', 'custom'].includes(r.checkTypeId)
   );
   
-  // Calculate median LOI for speeding checks (if needed)
-  let medianLOI = null;
-  if (deterministicRules.some((r) => r.checkTypeId === 'speeding')) {
-    const loiValues = Object.values(qaData)
-      .map((row) => {
-        const loiCols = ['LOI', 'loi', 'LengthOfInterview', 'length_of_interview', 'duration'];
-        for (const col of loiCols) {
-          if (row.columns?.[col] !== undefined && row.columns[col] !== null) {
-            const val = parseFloat(row.columns[col]);
-            if (!isNaN(val)) return val;
-          }
-        }
-        return null;
-      })
-      .filter((v) => v !== null)
-      .sort((a, b) => a - b);
-    
-    if (loiValues.length > 0) {
-      const mid = Math.floor(loiValues.length / 2);
-      medianLOI = loiValues.length % 2 === 0
-        ? (loiValues[mid - 1] + loiValues[mid]) / 2
-        : loiValues[mid];
-    }
-  }
+  // Get expected LOI from quality plan (in minutes)
+  // Speeding check will use this to compare against 'qtime' column in data
+  const expectedLOI = qualityPlan.expectedLOI || null;
   
   // Process each respondent
   const results = [];
   const settings = {
     ...qualityPlan.globalAggressiveness,
-    medianLOI
+    expectedLOI
   };
   
   for (const respno of respondentsToCheck) {
@@ -118,7 +97,7 @@ export async function runQAForRespondents(projectId, respondentIds = null, optio
         if (rule.checkTypeId === 'straightlining') {
           flag = deterministicChecks.checkStraightlining(respondentData, rule, settings);
         } else if (rule.checkTypeId === 'speeding') {
-          flag = deterministicChecks.checkSpeeding(respondentData, medianLOI, rule, settings);
+          flag = deterministicChecks.checkSpeeding(respondentData, expectedLOI, rule, settings);
         } else if (rule.checkTypeId === 'logic_consistency') {
           flag = deterministicChecks.checkBasicLogic(respondentData, rule, settings);
         }
@@ -183,5 +162,7 @@ export async function runQAForRespondents(projectId, respondentIds = null, optio
     results
   };
 }
+
+
 
 

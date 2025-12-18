@@ -23,6 +23,7 @@ export function getTableOptionsForVariable(
   const isNumericQuestion = typeLower.includes('numeric') && !typeLower.includes('grid') && !typeLower.includes('list');
   const isOpenEndListType = typeLower.includes('open end list');
   const isOpenEndType = typeLower.includes('open end') && !isOpenEndListType;
+  const sharedNumericGridName = isNumericGrid ? getBaseQuestionNumber(variableName) : variableName;
   
   const baseQuestionNumber = getBaseQuestionNumber(variableName);
   const matchingQuestion = questionnaireQuestions.find(question => {
@@ -81,32 +82,72 @@ export function getTableOptionsForVariable(
   // Build summary table options
   const summaryTableOptions: TableOption[] = [];
   if (isNumericGrid) {
-    summaryTableOptions.push(
-      { 
-        id: `${variableName}_MeanSummaryTable`, 
-        label: `${baseQuestionNumber}: Mean Summary Table`, 
-        pill: 'Mean',
-        type: 'summary'
-      },
-      { 
-        id: `${variableName}_SumSummaryTable`, 
-        label: `${baseQuestionNumber}: Sum Summary Table`, 
-        pill: 'Sum',
-        type: 'summary'
-      },
-      { 
-        id: `${variableName}_MeanNoOutliersSummaryTable`, 
-        label: `${baseQuestionNumber}: Mean (Outliers Removed) Summary Table`, 
-        pill: 'Mean (Outliers Removed)',
-        type: 'summary'
-      },
-      { 
-        id: `${variableName}_SumNoOutliersSummaryTable`, 
-        label: `${baseQuestionNumber}: Sum (Outliers Removed) Summary Table`, 
-        pill: 'Sum (Outliers Removed)',
-        type: 'summary'
-      }
-    );
+    // Build column list for numeric grids so multi-column grids keep column codes in labels
+    const numericGridColumns: Array<{ code: string; label: string }> = [];
+    if (variable.codes && Object.keys(variable.codes).length > 0) {
+      Object.entries(variable.codes).forEach(([code, label]) => {
+        numericGridColumns.push({ code: String(code), label: String(label || code) });
+      });
+    } else if (matchingQuestion && Array.isArray(matchingQuestion.responseOptions)) {
+      matchingQuestion.responseOptions.forEach((opt: any, idx: number) => {
+        if (typeof opt === 'string') {
+          numericGridColumns.push({ code: `c${idx + 1}`, label: opt });
+        } else {
+          numericGridColumns.push({
+            code: opt.code || `c${idx + 1}`,
+            label: opt.text || opt.label || opt.value || opt.code || `Column ${idx + 1}`,
+          });
+        }
+      });
+    }
+
+    const columnsForSummary = numericGridColumns.length > 0 ? numericGridColumns : [{ code: '', label: '' }];
+
+    columnsForSummary.forEach((col, idx) => {
+      const colCodeRaw = String(col.code || `c${idx + 1}`);
+      const normalizedColCode =
+        colCodeRaw.startsWith('c') || colCodeRaw.startsWith('C') ? colCodeRaw : `c${colCodeRaw}`;
+      const hasMultipleColumns = columnsForSummary.length > 1;
+      const nameHasSuffix =
+        normalizedColCode && variableName.toLowerCase().includes(normalizedColCode.toLowerCase());
+      const labelPrefix = (() => {
+        if (!normalizedColCode) return variableName;
+        if (hasMultipleColumns) {
+          // Always append the column code for multi-column grids
+          return `${variableName}${normalizedColCode}`;
+        }
+        // Single-column grids: only append if not already present in the variable name
+        return nameHasSuffix ? variableName : `${variableName}${normalizedColCode}`;
+      })();
+      const idPrefix = hasMultipleColumns ? `${variableName}_${normalizedColCode}` : `${variableName}`;
+
+      summaryTableOptions.push(
+        { 
+          id: `${idPrefix}_MeanSummaryTable`, 
+          label: `${labelPrefix}: Mean Summary Table`, 
+          pill: 'Mean',
+          type: 'summary'
+        },
+        { 
+          id: `${idPrefix}_SumSummaryTable`, 
+          label: `${labelPrefix}: Sum Summary Table`, 
+          pill: 'Sum',
+          type: 'summary'
+        },
+        { 
+          id: `${idPrefix}_MeanNoOutliersSummaryTable`, 
+          label: `${labelPrefix}: Mean (Outliers Removed) Summary Table`, 
+          pill: 'Mean (Outliers Removed)',
+          type: 'summary'
+        },
+        { 
+          id: `${idPrefix}_SumNoOutliersSummaryTable`, 
+          label: `${labelPrefix}: Sum (Outliers Removed) Summary Table`, 
+          pill: 'Sum (Outliers Removed)',
+          type: 'summary'
+        }
+      );
+    });
   }
   if (isSingleSelectGrid) {
     summaryTableOptions.push({

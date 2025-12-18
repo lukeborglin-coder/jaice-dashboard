@@ -2,21 +2,23 @@ import { useState, useCallback, useEffect } from 'react';
 import { createSerializedTableSelections, parseSerializedTableSelections } from '../utils/tabs/serialization';
 
 interface UseTableSelectionsProps {
+  storageKey?: string;
   selectedQuestionnaireId?: string;
 }
 
 export const useTableSelections = (props?: UseTableSelectionsProps) => {
-  const { selectedQuestionnaireId } = props || {};
+  const { selectedQuestionnaireId, storageKey } = props || {};
+  const keyBase = storageKey || selectedQuestionnaireId;
   const [variableTableSelections, setVariableTableSelections] = useState<Record<string, Set<string>>>({});
   const [summaryTableSortSelections, setSummaryTableSortSelections] = useState<Record<string, Set<string>>>({});
   const [variableSortByFrequency, setVariableSortByFrequency] = useState<Record<string, boolean>>({});
   const [variableHoldResponseCodes, setVariableHoldResponseCodes] = useState<Record<string, string[]>>({});
   const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<string, boolean>>({});
 
-  // Load table selections from localStorage when questionnaire changes
+  // Load table selections from localStorage when key changes
   useEffect(() => {
-    if (selectedQuestionnaireId) {
-      const key = `variableTableSelections_${selectedQuestionnaireId}`;
+    if (keyBase) {
+      const key = `variableTableSelections_${keyBase}`;
       const stored = localStorage.getItem(key);
       if (stored) {
         try {
@@ -29,7 +31,7 @@ export const useTableSelections = (props?: UseTableSelectionsProps) => {
         setVariableTableSelections({});
       }
 
-      const sortKey = `summaryTableSortSelections_${selectedQuestionnaireId}`;
+      const sortKey = `summaryTableSortSelections_${keyBase}`;
       const storedSort = localStorage.getItem(sortKey);
       if (storedSort) {
         try {
@@ -42,7 +44,7 @@ export const useTableSelections = (props?: UseTableSelectionsProps) => {
         setSummaryTableSortSelections({});
       }
 
-      const frequencyKey = `variableSortByFrequency_${selectedQuestionnaireId}`;
+      const frequencyKey = `variableSortByFrequency_${keyBase}`;
       const storedFrequency = localStorage.getItem(frequencyKey);
       if (storedFrequency) {
         try {
@@ -55,7 +57,7 @@ export const useTableSelections = (props?: UseTableSelectionsProps) => {
         setVariableSortByFrequency({});
       }
 
-      const holdKey = `variableHoldResponseCodes_${selectedQuestionnaireId}`;
+      const holdKey = `variableHoldResponseCodes_${keyBase}`;
       const storedHold = localStorage.getItem(holdKey);
       if (storedHold) {
         try {
@@ -73,12 +75,12 @@ export const useTableSelections = (props?: UseTableSelectionsProps) => {
       setVariableSortByFrequency({});
       setVariableHoldResponseCodes({});
     }
-  }, [selectedQuestionnaireId]);
+  }, [keyBase]);
 
   // Save table selections to localStorage when they change
   useEffect(() => {
-    if (selectedQuestionnaireId) {
-      const key = `variableTableSelections_${selectedQuestionnaireId}`;
+    if (keyBase) {
+      const key = `variableTableSelections_${keyBase}`;
       const serialized = createSerializedTableSelections(variableTableSelections);
       if (Object.keys(serialized).length > 0) {
         try {
@@ -90,12 +92,12 @@ export const useTableSelections = (props?: UseTableSelectionsProps) => {
         localStorage.removeItem(key);
       }
     }
-  }, [variableTableSelections, selectedQuestionnaireId]);
+  }, [variableTableSelections, keyBase]);
 
   // Save summary sort selections to localStorage when they change
   useEffect(() => {
-    if (selectedQuestionnaireId) {
-      const key = `summaryTableSortSelections_${selectedQuestionnaireId}`;
+    if (keyBase) {
+      const key = `summaryTableSortSelections_${keyBase}`;
       const serialized = createSerializedTableSelections(summaryTableSortSelections);
       if (Object.keys(serialized).length > 0) {
         try {
@@ -107,12 +109,12 @@ export const useTableSelections = (props?: UseTableSelectionsProps) => {
         localStorage.removeItem(key);
       }
     }
-  }, [summaryTableSortSelections, selectedQuestionnaireId]);
+  }, [summaryTableSortSelections, keyBase]);
 
   // Save sort by frequency to localStorage when it changes
   useEffect(() => {
-    if (selectedQuestionnaireId) {
-      const key = `variableSortByFrequency_${selectedQuestionnaireId}`;
+    if (keyBase) {
+      const key = `variableSortByFrequency_${keyBase}`;
       if (Object.keys(variableSortByFrequency).length > 0) {
         try {
           localStorage.setItem(key, JSON.stringify(variableSortByFrequency));
@@ -123,12 +125,12 @@ export const useTableSelections = (props?: UseTableSelectionsProps) => {
         localStorage.removeItem(key);
       }
     }
-  }, [variableSortByFrequency, selectedQuestionnaireId]);
+  }, [variableSortByFrequency, keyBase]);
 
   // Save hold response codes to localStorage when they change
   useEffect(() => {
-    if (selectedQuestionnaireId) {
-      const key = `variableHoldResponseCodes_${selectedQuestionnaireId}`;
+    if (keyBase) {
+      const key = `variableHoldResponseCodes_${keyBase}`;
       if (Object.keys(variableHoldResponseCodes).length > 0) {
         try {
           localStorage.setItem(key, JSON.stringify(variableHoldResponseCodes));
@@ -139,7 +141,7 @@ export const useTableSelections = (props?: UseTableSelectionsProps) => {
         localStorage.removeItem(key);
       }
     }
-  }, [variableHoldResponseCodes, selectedQuestionnaireId]);
+  }, [variableHoldResponseCodes, keyBase]);
 
   const handleToggleIndividualTable = useCallback((variableName: string, tableName: string, allTableNames: string[], initialSelectedNames?: string[]) => {
     if (!variableName || !tableName) return;
@@ -367,6 +369,7 @@ export const useTableSelections = (props?: UseTableSelectionsProps) => {
     setVariableTableSelections,
     setSummaryTableSortSelections,
     setVariableSortByFrequency,
+    setVariableHoldResponseCodes,
   };
 };
 

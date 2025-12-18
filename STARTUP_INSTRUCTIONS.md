@@ -2,20 +2,12 @@
 
 ## Quick Start (One-Click Launch)
 
-### Option 1: Double-click the batch file
-1. **Double-click `start-jaice.bat`** in your project folder
+### Option: Double-click the batch file
+1. **Double-click `Start-JAICE.bat`** in your project folder
 2. The script will automatically:
-   - Check if Node.js is installed
-   - Install dependencies if needed
-   - Start both the backend server and frontend
+   - Stop anything already listening on ports 3005 and 5173
+   - Start the backend server and frontend
    - Open your browser to the dashboard
-
-### Option 2: Right-click and run PowerShell script
-1. **Right-click `start-jaice.ps1`** and select "Run with PowerShell"
-2. If you get an execution policy error, run this command in PowerShell as Administrator:
-   ```powershell
-   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-   ```
 
 ## What happens when you start:
 

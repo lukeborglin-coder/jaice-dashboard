@@ -3,15 +3,13 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { IconDatabaseExclamation } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useDataQuality } from '../hooks/useDataQuality';
-import QualityPlanTab from '../components/dataQuality/QualityPlanTab';
-import DataUploadTab from '../components/dataQuality/DataUploadTab';
-import QAResultsTab from '../components/dataQuality/QAResultsTab';
 import { API_BASE_URL } from '../config';
+import { useQuestionnaire } from '../hooks/useQuestionnaire';
+import { useRawDataViewer } from '../hooks/useRawDataViewer';
+import { useDataMapping } from '../hooks/useDataMapping';
+import { DataQualityV2DataTab } from '../components/dataQualityV2/DataQualityV2DataTab';
 
 const BRAND_ORANGE = '#D14A2D';
-
-type TabType = 'plan' | 'upload' | 'results';
 
 interface DataQualityPageProps {
   projects?: any[];
@@ -28,48 +26,20 @@ export default function DataQualityPage({ projects = [], onNavigateToProject }: 
   const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
   const [selectedProject, setSelectedProject] = useState<any | null>(null);
   const [archivedProjects, setArchivedProjects] = useState<any[]>([]);
-  const [activeTabType, setActiveTabType] = useState<TabType>('plan');
+  const [creatingDataset, setCreatingDataset] = useState(false);
 
   // Extract projectId from URL if provided
   const projectId = urlProjectId || (location.pathname.match(/\/data-quality\/([^\/]+)/)?.[1]);
 
-  const {
-    qualityPlan,
-    loadingPlan,
-    qaData,
-    loadingData,
-    qaResults,
-    loadingResults,
-    resultsSummary,
-    loadQualityPlan,
-    saveQualityPlan,
-    loadQAData,
-    uploadQAData,
-    loadQAResults,
-    runQA,
-    updateQAResult
-  } = useDataQuality({ projectId: projectId || null });
-
   // Filter to only quantitative projects
   const isQuantitative = useCallback((project: any) => {
     const methodology = project?.methodologyType?.toLowerCase();
-    if (!methodology) {
-      return false;
-    }
-    return methodology.includes('quant') ||
-           methodology === 'quantitative' ||
-           methodology === 'quant';
+    if (!methodology) return false;
+    return methodology.includes('quant') || methodology === 'quantitative' || methodology === 'quant';
   }, []);
 
-  const quantActiveProjects = useMemo(
-    () => projects.filter(isQuantitative),
-    [projects, isQuantitative]
-  );
-
-  const quantArchivedProjects = useMemo(
-    () => archivedProjects.filter(isQuantitative),
-    [archivedProjects, isQuantitative]
-  );
+  const quantActiveProjects = useMemo(() => projects.filter(isQuantitative), [projects, isQuantitative]);
+  const quantArchivedProjects = useMemo(() => archivedProjects.filter(isQuantitative), [archivedProjects, isQuantitative]);
 
   const filterProjectsByUser = useCallback((list: any[]) => {
     if (!showMyProjectsOnly || !user) return list;
@@ -90,19 +60,11 @@ export default function DataQualityPage({ projects = [], onNavigateToProject }: 
     });
   }, [showMyProjectsOnly, user]);
 
-  const filteredActiveProjects = useMemo(
-    () => filterProjectsByUser(quantActiveProjects),
-    [filterProjectsByUser, quantActiveProjects]
-  );
-
-  const filteredArchivedProjects = useMemo(
-    () => filterProjectsByUser(quantArchivedProjects),
-    [filterProjectsByUser, quantArchivedProjects]
-  );
-
+  const filteredActiveProjects = useMemo(() => filterProjectsByUser(quantActiveProjects), [filterProjectsByUser, quantActiveProjects]);
+  const filteredArchivedProjects = useMemo(() => filterProjectsByUser(quantArchivedProjects), [filterProjectsByUser, quantArchivedProjects]);
   const displayProjects = activeTab === 'active' ? filteredActiveProjects : filteredArchivedProjects;
 
-  // Load archived projects
+  // Load archived projects (mirrors DataQualityPage)
   useEffect(() => {
     const loadArchived = async () => {
       try {
@@ -124,6 +86,37 @@ export default function DataQualityPage({ projects = [], onNavigateToProject }: 
     }
   }, [user?.id]);
 
+  // Questionnaire container for DQ v2 (created on demand)
+  const questionnaireHook = useQuestionnaire({ selectedProject });
+  const {
+    questionnaires,
+    selectedQuestionnaire,
+    loadQuestionnaires,
+    setSelectedQuestionnaire,
+  } = questionnaireHook;
+
+  const rawDataHook = useRawDataViewer({ selectedQuestionnaire });
+  const {
+    fullRawData,
+    loadingFullRawData,
+    rawDataPage,
+    rawDataRowsPerPage,
+    rawDataColumnStart,
+    rawDataColumnsPerPage,
+    loadFullRawData,
+    setFullRawData,
+    setRawDataPage,
+    setRawDataColumnStart,
+  } = rawDataHook;
+
+  const dataMappingHook = useDataMapping({ selectedQuestionnaire });
+  const {
+    datamapData,
+    loadingDatamap,
+    loadDatamap,
+    setDatamapData,
+  } = dataMappingHook;
+
   // Handle project selection from URL
   useEffect(() => {
     if (projectId && projects.length > 0) {
@@ -132,23 +125,68 @@ export default function DataQualityPage({ projects = [], onNavigateToProject }: 
       if (targetProject) {
         setSelectedProject(targetProject);
         setViewMode('project');
-        if (targetProject.archived) {
-          setActiveTab('archived');
-        } else {
-          setActiveTab('active');
-        }
+        if (targetProject.archived) setActiveTab('archived');
+        else setActiveTab('active');
       }
     }
   }, [projectId, projects, archivedProjects]);
 
-  // Load initial data when project is selected
+  // Load questionnaires when a project is selected
   useEffect(() => {
     if (selectedProject && viewMode === 'project') {
-      loadQualityPlan();
-      loadQAData(1, 50);
-      loadQAResults();
+      loadQuestionnaires(selectedProject.id);
     }
-  }, [selectedProject, viewMode, loadQualityPlan, loadQAData, loadQAResults]);
+  }, [selectedProject, viewMode, loadQuestionnaires]);
+
+  // Ensure there is a dedicated DQ v2 “dataset questionnaire” for this project
+  useEffect(() => {
+    if (!selectedProject || viewMode !== 'project') return;
+    if (!Array.isArray(questionnaires)) return;
+    if (creatingDataset) return;
+
+    // If already selected and is the dqv2 container, keep it
+    if (selectedQuestionnaire && (selectedQuestionnaire as any).isDataQualityV2) {
+      return;
+    }
+
+    const existing = questionnaires.find((q: any) => q?.isDataQualityV2 === true);
+    if (existing) {
+      setSelectedQuestionnaire(existing);
+      return;
+    }
+
+    const create = async () => {
+      setCreatingDataset(true);
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/questionnaire/create-empty`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            projectId: selectedProject.id,
+            name: 'Data Quality Dataset',
+          }),
+        });
+        if (resp.ok) {
+          const created = await resp.json();
+          await loadQuestionnaires(selectedProject.id);
+          setSelectedQuestionnaire(created);
+        } else {
+          const err = await resp.json().catch(() => ({}));
+          console.error('Failed to create DQ v2 dataset questionnaire', err);
+        }
+      } catch (e) {
+        console.error('Error creating DQ v2 dataset questionnaire', e);
+      } finally {
+        setCreatingDataset(false);
+      }
+    };
+
+    void create();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questionnaires, selectedProject, viewMode]);
 
   const handleProjectClick = useCallback((project: any) => {
     setSelectedProject(project);
@@ -162,8 +200,11 @@ export default function DataQualityPage({ projects = [], onNavigateToProject }: 
   const handleBackToProjects = useCallback(() => {
     setViewMode('home');
     setSelectedProject(null);
+    setSelectedQuestionnaire(null);
+    setDatamapData(null);
+    setFullRawData(null);
     navigate('/data-quality');
-  }, [navigate]);
+  }, [navigate, setDatamapData, setFullRawData, setSelectedQuestionnaire]);
 
   // Home view - Project list
   if (viewMode === 'home' || !selectedProject) {
@@ -174,10 +215,9 @@ export default function DataQualityPage({ projects = [], onNavigateToProject }: 
             <nav className="-mb-px flex space-x-8 items-center">
               <button
                 onClick={() => setActiveTab('active')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'active'
-                    ? 'text-white'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'active'
+                  ? 'text-white'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
                 style={activeTab === 'active' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
               >
@@ -185,10 +225,9 @@ export default function DataQualityPage({ projects = [], onNavigateToProject }: 
               </button>
               <button
                 onClick={() => setActiveTab('archived')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'archived'
-                    ? 'text-white'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'archived'
+                  ? 'text-white'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
                 style={activeTab === 'archived' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
               >
@@ -199,10 +238,9 @@ export default function DataQualityPage({ projects = [], onNavigateToProject }: 
               {user?.role !== 'oversight' && (
                 <button
                   onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
-                  className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
-                    showMyProjectsOnly
-                      ? 'bg-white border border-gray-300 hover:bg-gray-50'
-                      : 'text-white hover:opacity-90'
+                  className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${showMyProjectsOnly
+                    ? 'bg-white border border-gray-300 hover:bg-gray-50'
+                    : 'text-white hover:opacity-90'
                   }`}
                   style={showMyProjectsOnly ? {} : { backgroundColor: BRAND_ORANGE }}
                 >
@@ -276,16 +314,9 @@ export default function DataQualityPage({ projects = [], onNavigateToProject }: 
     );
   }
 
-  // Project view - Data Quality tabs
-  const tabs = [
-    { id: 'plan' as TabType, label: 'Quality Plan' },
-    { id: 'upload' as TabType, label: 'Data Upload' },
-    { id: 'results' as TabType, label: 'QA Results' }
-  ];
-
+  // Project view - Data Map + Raw Data (questionnaire-backed)
   return (
     <div className="flex-1 p-6 space-y-4 max-w-full overflow-y-auto overflow-x-hidden" style={{ height: 'calc(100vh - 80px)', marginTop: '80px' }}>
-      {/* Project Header */}
       <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
           <div className="flex items-center justify-between">
@@ -297,58 +328,49 @@ export default function DataQualityPage({ projects = [], onNavigateToProject }: 
               Back to Projects
             </button>
             <h2 className="text-xl font-semibold text-gray-900">{selectedProject.name}</h2>
-            <div></div> {/* Spacer for centering */}
+            <div></div>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="px-6 border-b border-gray-200">
-          <div className="flex space-x-1">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTabType(tab.id)}
-                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                  activeTabType === tab.id
-                    ? 'border-orange-500 text-orange-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Tab Content */}
         <div className="p-6">
-          {activeTabType === 'plan' && (
-            <QualityPlanTab
-              projectId={selectedProject.id}
-              qualityPlan={qualityPlan}
-              loadingPlan={loadingPlan}
-              onSavePlan={saveQualityPlan}
-              onLoadPlan={loadQualityPlan}
-            />
-          )}
-          {activeTabType === 'upload' && (
-            <DataUploadTab
-              projectId={selectedProject.id}
-              qaData={qaData}
-              loadingData={loadingData}
-              onUpload={uploadQAData}
-              onLoadData={loadQAData}
-            />
-          )}
-          {activeTabType === 'results' && (
-            <QAResultsTab
-              projectId={selectedProject.id}
-              qaResults={qaResults}
-              loadingResults={loadingResults}
-              resultsSummary={resultsSummary}
-              onRunQA={runQA}
-              onUpdateResult={updateQAResult}
-              onLoadResults={loadQAResults}
+          {!selectedQuestionnaire || creatingDataset ? (
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="p-8 text-center">
+                <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-[#D14A2D]"></div>
+                <p className="text-sm text-gray-700">Preparing dataset container…</p>
+              </div>
+            </div>
+          ) : (
+            <DataQualityV2DataTab
+              selectedProject={selectedProject}
+              selectedQuestionnaire={selectedQuestionnaire}
+              fullRawData={fullRawData}
+              loadingFullRawData={loadingFullRawData}
+              rawDataPage={rawDataPage}
+              rawDataRowsPerPage={rawDataRowsPerPage}
+              rawDataColumnStart={rawDataColumnStart}
+              rawDataColumnsPerPage={rawDataColumnsPerPage}
+              onPageChange={setRawDataPage}
+              onColumnChange={setRawDataColumnStart}
+              datamapData={datamapData}
+              loadingDatamap={loadingDatamap}
+              onDataUploaded={async () => {
+                setFullRawData(null);
+                // Keep the upload spinner until both are done.
+                await Promise.all([
+                  loadFullRawData(true),
+                  loadDatamap(true),
+                ]);
+              }}
+              onEnsureRawData={(force?: boolean) => {
+                loadFullRawData(!!force);
+              }}
+              onDataDeleted={() => {
+                setFullRawData(null);
+                setDatamapData(null);
+              }}
+              onLoadDatamap={loadDatamap}
+              onClearDatamap={() => setDatamapData(null)}
             />
           )}
         </div>
@@ -356,3 +378,5 @@ export default function DataQualityPage({ projects = [], onNavigateToProject }: 
     </div>
   );
 }
+
+

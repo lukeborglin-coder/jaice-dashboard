@@ -198,7 +198,10 @@ export const ConfigPopupModal: React.FC<ConfigPopupModalProps> = ({
 
   const summaryTableOptions: Array<{ id: string; label: string; pill?: string; netMeta?: { type: 'range' | 'codes'; index: number } }> = [];
   // Ensure we have a valid question number for labels
-  const questionNumberForLabel = baseQuestionNumberForPopup || (matchingQuestion?.number ? String(matchingQuestion.number) : popupVariableName.split('_')[0]) || popupVariableName;
+  const questionNumberForLabel =
+    baseQuestionNumberForPopup.replace(/^Q/i, '') ||
+    (matchingQuestion?.number ? String(matchingQuestion.number) : popupVariableName.split('_')[0]) ||
+    popupVariableName;
   
   if (isNumericGrid) {
     summaryTableOptions.push(
@@ -368,9 +371,9 @@ export const ConfigPopupModal: React.FC<ConfigPopupModalProps> = ({
           <div className="px-6 py-5 border-b border-gray-200 flex items-start justify-between gap-4">
             <div className="flex-1 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-xl font-semibold text-gray-900">Q{popupVariableName}</h3>
+                <h3 className="text-xl font-semibold text-gray-900">{popupVariableName}</h3>
                 {variable.type && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full bg-orange-50 text-orange-700 border border-orange-100">
+                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-800">
                     {variable.type}
                   </span>
                 )}

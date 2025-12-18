@@ -38,6 +38,7 @@
  * @property {number} globalAggressiveness.straightliningAggressiveness
  * @property {number} globalAggressiveness.speedingAggressiveness
  * @property {number} globalAggressiveness.logicAggressiveness
+ * @property {number} [expectedLOI] - Expected Length of Interview in minutes (from questionnaire)
  * @property {string} createdAt - ISO timestamp
  * @property {string} updatedAt - ISO timestamp
  * @property {string} [lastGeneratedFromQuestionnaireAt] - When plan was last auto-generated
@@ -91,7 +92,7 @@ export const QUALITY_CHECK_TYPES = [
     id: 'straightlining',
     label: 'Straight-Lining',
     description: 'Detects when respondents select the same value for multiple items in a grid/scale',
-    supportedQuestionTypes: ['Single Select Grid', 'Multi-Select Grid', 'Numeric Grid'],
+    supportedQuestionTypes: ['Single Select Grid', 'Numeric Grid'],
     defaultAggressiveness: 50,
     settingsSchema: {
       minGridItems: { type: 'number', default: 3, min: 2, max: 20 },
@@ -101,11 +102,11 @@ export const QUALITY_CHECK_TYPES = [
   {
     id: 'speeding',
     label: 'Speeding',
-    description: 'Identifies respondents who completed the survey too quickly',
-    supportedQuestionTypes: ['*'], // Applies to all question types
+    description: 'Uses qtime column to identify respondents who completed faster than expected LOI',
+    supportedQuestionTypes: ['*'], // Global check - applies to all respondents
     defaultAggressiveness: 50,
     settingsSchema: {
-      speedingThresholdPercent: { type: 'number', default: 30, min: 10, max: 50 }
+      speedingThresholdPercent: { type: 'number', default: 50, min: 20, max: 80 } // % of expected LOI to flag
     }
   },
   {
@@ -164,6 +165,7 @@ export function createDefaultQualityPlan(projectId) {
       speedingAggressiveness: 50,
       logicAggressiveness: 50
     },
+    expectedLOI: null, // Expected Length of Interview in minutes (set from questionnaire)
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -195,5 +197,7 @@ export function createDefaultQualityRule(question, checkTypeId) {
     enabled: true
   };
 }
+
+
 
 

@@ -6210,7 +6210,7 @@ export default function App() {
                 <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Data Quality</h1>
               </div>
             )}
-            
+
             {/* Spacer for non-Home pages to push icon to the right */}
             {route !== "Home" && route !== "Project Hub" && route !== "Vendor Library" && route !== "Transcripts" && route !== "Content Analysis" && route !== "Storytelling" && route !== "Stat Testing" && route !== "Tabs" && route !== "Admin Center" && route !== "Data Quality" && <div className="flex-grow"></div>}
             
