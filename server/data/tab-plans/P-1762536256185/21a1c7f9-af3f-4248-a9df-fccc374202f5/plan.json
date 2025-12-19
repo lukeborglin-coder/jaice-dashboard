@@ -1,0 +1,830 @@
+{
+  "id": "21a1c7f9-af3f-4248-a9df-fccc374202f5",
+  "projectId": "P-1762536256185",
+  "name": "Hypo ATU W2",
+  "sourceType": "raw",
+  "createdAt": "2025-12-19T15:48:37.375Z",
+  "updatedAt": "2025-12-19T16:25:46.091Z",
+  "specs": {
+    "variableTableSelections": {
+      "QS1": [
+        "QS1"
+      ],
+      "QS2": [
+        "QS2"
+      ],
+      "QS3": [
+        "QS3"
+      ],
+      "QS4": [
+        "QS4"
+      ],
+      "QS5": [
+        "QS5"
+      ],
+      "QS5W2": [
+        "QS5W2"
+      ],
+      "QS6": [
+        "QS6"
+      ],
+      "QS7": [
+        "QS7_r1",
+        "QS7_r2",
+        "QS7_MeanSummaryTable"
+      ],
+      "QS8": [
+        "QS8"
+      ],
+      "QS9": [
+        "QS9_r1",
+        "QS9_r2",
+        "QS9_r3",
+        "QS9_r4",
+        "QS9_r5",
+        "QS9_r6",
+        "QS9_r7",
+        "QS9_r8",
+        "QS9_MeanSummaryTable"
+      ],
+      "QS10": [
+        "QS10_c1_SummaryTable",
+        "QS10_c2_SummaryTable"
+      ],
+      "QS211A": [
+        "QS211A"
+      ],
+      "QS211Ax2": [
+        "QS211Ax2"
+      ],
+      "QS211AP": [
+        "QS211AP"
+      ],
+      "QS211Ax2P": [
+        "QS211Ax2P"
+      ],
+      "QS211B": [
+        "QS211B"
+      ],
+      "QS211Bx2": [
+        "QS211Bx2"
+      ],
+      "QS11": [
+        "QS11"
+      ],
+      "QS12": [
+        "QS12_r1",
+        "QS12_r2",
+        "QS12_r3",
+        "QS12_r4",
+        "QS12_r5",
+        "QS12_MeanSummaryTable"
+      ],
+      "QA1": [
+        "QA1"
+      ],
+      "QA2": [
+        "QA2"
+      ],
+      "A202": [
+        "A202"
+      ],
+      "QA3": [
+        "QA3",
+        "QA3_NetSummaryTable_0",
+        "QA3_NetSummaryTable_1",
+        "QA3_NetSummaryTable_2"
+      ],
+      "QA4": [
+        "QA4",
+        "QA4_NetSummaryTable_0",
+        "QA4_NetSummaryTable_1",
+        "QA4_NetSummaryTable_2"
+      ],
+      "QA5": [
+        "QA5"
+      ],
+      "QA6": [
+        "QA6",
+        "QA6_NetSummaryTable_0",
+        "QA6_NetSummaryTable_1",
+        "QA6_NetSummaryTable_2"
+      ],
+      "QA7": [
+        "QA7"
+      ],
+      "QA8": [
+        "QA8_r1",
+        "QA8_r2",
+        "QA8_r3",
+        "QA8_r4",
+        "QA8_r5",
+        "QA8_MeanSummaryTable"
+      ],
+      "pgQA9": [
+        "pgQA9"
+      ],
+      "QA9": [
+        "QA9"
+      ],
+      "pgQA10": [
+        "pgQA10"
+      ],
+      "QA10": [
+        "QA10"
+      ],
+      "pgQA1": [
+        "pgQA1"
+      ],
+      "pgQA2": [
+        "pgQA2"
+      ],
+      "pgQA3": [
+        "pgQA3"
+      ],
+      "QA11": [
+        "QA11_NetSummaryTable_0",
+        "QA11_NetSummaryTable_1",
+        "QA11_NetSummaryTable_2"
+      ],
+      "QB1": [
+        "QB1",
+        "QB1_NetSummaryTable_0",
+        "QB1_NetSummaryTable_1",
+        "QB1_NetSummaryTable_2"
+      ],
+      "QB2": [
+        "QB2_NetSummaryTable_0",
+        "QB2_NetSummaryTable_1",
+        "QB2_NetSummaryTable_2"
+      ],
+      "QB3": [
+        "QB3_NetSummaryTable_0",
+        "QB3_NetSummaryTable_1",
+        "QB3_NetSummaryTable_2"
+      ],
+      "QC1": [
+        "QC1_NetSummaryTable_0",
+        "QC1_NetSummaryTable_1",
+        "QC1_NetSummaryTable_2"
+      ],
+      "QC2": [
+        "QC2"
+      ],
+      "QC3": [
+        "QC3"
+      ],
+      "QC4": [
+        "QC4_NetSummaryTable_0",
+        "QC4_NetSummaryTable_1",
+        "QC4_NetSummaryTable_2"
+      ],
+      "QC5": [
+        "QC5"
+      ],
+      "QC6": [
+        "QC6"
+      ],
+      "QC8": [
+        "QC8_r1",
+        "QC8_r2",
+        "QC8_r3",
+        "QC8_r4",
+        "QC8_r5",
+        "QC8_r6",
+        "QC8_r7",
+        "QC8_MeanSummaryTable"
+      ],
+      "QD1": [
+        "QD1_r1",
+        "QD1_r2",
+        "QD1_r3",
+        "QD1_r4",
+        "QD1_r5",
+        "QD1_r6",
+        "QD1_r7",
+        "QD1_r8",
+        "QD1_MeanSummaryTable"
+      ],
+      "QD2": [
+        "QD2"
+      ],
+      "QD3": [
+        "QD3"
+      ],
+      "QD4": [
+        "QD4"
+      ],
+      "QD5": [
+        "QD5"
+      ],
+      "QD6": [
+        "QD6",
+        "QD6_NetSummaryTable_0",
+        "QD6_NetSummaryTable_1",
+        "QD6_NetSummaryTable_2"
+      ],
+      "QD7": [
+        "QD7"
+      ],
+      "QD8": [
+        "QD8_NetSummaryTable_0",
+        "QD8_NetSummaryTable_1",
+        "QD8_NetSummaryTable_2"
+      ],
+      "QE1": [
+        "QE1"
+      ],
+      "QE2": [
+        "QE2"
+      ],
+      "QF1": [
+        "QF1",
+        "QF1_NetSummaryTable_0",
+        "QF1_NetSummaryTable_1",
+        "QF1_NetSummaryTable_2"
+      ],
+      "QF2": [
+        "QF2"
+      ],
+      "QF3": [
+        "QF3"
+      ],
+      "QF4": [
+        "QF4_NetSummaryTable_0",
+        "QF4_NetSummaryTable_1",
+        "QF4_NetSummaryTable_2"
+      ],
+      "QF5": [
+        "QF5",
+        "QF5_NetSummaryTable_0",
+        "QF5_NetSummaryTable_1",
+        "QF5_NetSummaryTable_2"
+      ],
+      "QF6": [
+        "QF6_MeanSummaryTable"
+      ],
+      "pQG1": [
+        "pQG1"
+      ],
+      "QG1": [
+        "QG1_c1_SummaryTable",
+        "QG1_c2_SummaryTable"
+      ],
+      "QG2": [
+        "QG2"
+      ],
+      "QG3": [
+        "QG3"
+      ],
+      "QG4": [
+        "QG4"
+      ],
+      "QG5": [
+        "QG5"
+      ],
+      "QG6": [
+        "QG6"
+      ],
+      "QG7": [
+        "QG7"
+      ],
+      "PMAssist1": [
+        "PMAssist1"
+      ],
+      "PMAssist2": [
+        "PMAssist2"
+      ],
+      "PMAssist3": [
+        "PMAssist3"
+      ],
+      "PMAssist4": [
+        "PMAssist4"
+      ],
+      "PMAssist5": [
+        "PMAssist5"
+      ]
+    },
+    "variableStatsSelections": {
+      "QS1": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS211Ax2": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS211Ax2P": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QS211Bx2": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      },
+      "QA1": {
+        "t2b": false,
+        "m3b": false,
+        "mb": false,
+        "b2b": false,
+        "b3b": false,
+        "t3b": false,
+        "rated9_10": false,
+        "rated7_8": false,
+        "rated0_6": false,
+        "sum": true,
+        "mean": true,
+        "median": false,
+        "mode": false,
+        "stdDev": false,
+        "max": false,
+        "min": false,
+        "summaryTable": false,
+        "meanNoOutliers": true,
+        "sumNoOutliers": true
+      }
+    },
+    "summaryTableSortSelections": {},
+    "variableSortByFrequency": {
+      "QS2": true,
+      "hQS7Mask": true,
+      "noanswer": true,
+      "hQS10Mask": true,
+      "QS10": true,
+      "hS10": true,
+      "hS10Quota": true,
+      "hQS12Quotax1": true,
+      "QA7": true,
+      "QA9": true,
+      "pgQA1": true,
+      "pgQA2": true,
+      "pgQA3": true,
+      "hSeverity": true,
+      "hQ": true,
+      "hQC7Mask": true,
+      "hQC8Mask": true,
+      "QD3": true,
+      "QD5": true,
+      "QD7": true,
+      "QE2": true,
+      "hImg": true,
+      "pgLink": true,
+      "QG1": true,
+      "QG3": true,
+      "conditions": true
+    },
+    "variableHoldResponseCodes": {},
+    "singleSelectSort": {},
+    "newBannerGroups": [],
+    "bannerFilterConditions": null,
+    "hiddenFromBanners": [
+      "uuid",
+      "date",
+      "markers",
+      "QS8",
+      "QAllTermHid",
+      "QA5",
+      "QC2",
+      "QC3",
+      "QC5",
+      "QC6",
+      "QD4",
+      "QE1",
+      "QF2",
+      "QF3",
+      "PMAssist1",
+      "PMAssist2",
+      "PMAssist3",
+      "PMAssist4",
+      "PMAssist5",
+      "start_date",
+      "source",
+      "ipAddress",
+      "decLang",
+      "list",
+      "userAgent",
+      "dcua",
+      "url",
+      "session",
+      "cnt",
+      "shghash",
+      "pcid",
+      "sesskey",
+      "pwc",
+      "qinfo",
+      "identifier",
+      "ID"
+    ],
+    "netSummaryTableSelectedCodes": {
+      "QA3": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QA4": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QA6": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QA11": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QB1": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QB2": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QB3": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC1": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC4": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QD6": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QD8": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QF1": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QF4": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QF5": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ]
+    },
+    "netSummaryTableRanges": {},
+    "settings": {
+      "significanceLevel": 95,
+      "percentageDecimals": 0
+    }
+  }
+}

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Cog6ToothIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { Cog6ToothIcon, XMarkIcon, ClockIcon, CalculatorIcon, Bars3Icon, ChatBubbleBottomCenterTextIcon, PlayIcon } from '@heroicons/react/24/outline';
 import type { QualityPlan, QualityRule, QuestionType, CheckTypeId } from '../../types/dataQuality';
+import { classifyDatamapQuestionType } from '../../utils/tabs/questionHelpers';
 
 const BRAND_ORANGE = '#D14A2D';
 
@@ -27,19 +28,39 @@ type DatamapParsedQuestion = {
   description?: string;
   responseType?: string;
   responseCodes?: Array<{ code?: string; label?: string; text?: string }>;
+  responseOptions?: Array<{ code?: string; label?: string; text?: string; value?: string }>;
+  statementOptions?: Array<{ code?: string; label?: string; text?: string; value?: string }>;
+  notes?: string[];
 };
 
 type QualityPlanCardId = 'speeding' | 'straightlining' | 'numeric_grids' | 'open_end';
 
 const QUALITY_PLAN_CARDS: Array<{ id: QualityPlanCardId; label: string }> = [
   { id: 'speeding', label: 'Speeding' },
-  { id: 'straightlining', label: 'Straight-Lining (non-numeric grids)' },
-  { id: 'numeric_grids', label: 'Repeat Numerics' },
+  { id: 'straightlining', label: 'Straight-Lining' },
+  { id: 'numeric_grids', label: 'Numeric Grids' },
   { id: 'open_end', label: 'Open-End Quality' },
 ];
 
-function hasBracketsInResponseCodes(responseCodes: DatamapParsedQuestion['responseCodes']): boolean {
-  return Array.isArray(responseCodes) && responseCodes.some((rc) => /\[([^\]]+)\]|\(([^)]+)\)/.test(String(rc?.code || '').trim()));
+const normalizeOptions = (q: DatamapParsedQuestion): Array<{ code: string; label: string }> => {
+  const candidates = [q.responseCodes, q.responseOptions, q.statementOptions];
+  const src = candidates.find((c) => Array.isArray(c) && c.length > 0) as any[] | undefined;
+  if (!src) return [];
+  return src
+    .map((opt: any, idx: number) => {
+      if (opt == null) return null;
+      if (typeof opt === 'string' || typeof opt === 'number') {
+        return { code: String(opt), label: '' };
+      }
+      const code = opt.code ?? opt.value ?? idx + 1;
+      const label = opt.label ?? opt.text ?? opt.name ?? '';
+      return { code: String(code), label: String(label) };
+    })
+    .filter(Boolean) as Array<{ code: string; label: string }>;
+};
+
+function hasBracketsInResponseCodes(options: ReturnType<typeof normalizeOptions>): boolean {
+  return Array.isArray(options) && options.some((rc) => /\[([^\]]+)\]|\(([^)]+)\)/.test(String(rc?.code || '').trim()));
 }
 
 function normalizeQuestionNumberKey(value: unknown): string {
@@ -75,11 +96,30 @@ function isNumericGridQuestionFromDatamap(parsedQuestions: DatamapParsedQuestion
   if (!target) return false;
 
   const match = (parsedQuestions || []).find((q) => normalizeQuestionNumberKey(q?.questionNumber) === target);
+  if (!match) return false;
 
   const rt = String(match?.responseType || '').toLowerCase();
-  const hasCodes = Array.isArray(match?.responseCodes) && match!.responseCodes!.length > 0;
-  // Mirrors inference in this file + Data Map view: open numeric + response codes => numeric grid
-  return rt.includes('open numeric') && hasCodes;
+  const options = normalizeOptions(match);
+  const hasOptions = Array.isArray(options) && options.length > 0;
+  const hasNumericCodes = options.some((opt) => /^\d+(\.\d+)?$/.test(String(opt.code || '').trim()));
+  const hasBracketed = hasBracketsInResponseCodes(options);
+
+  // Explicit label support (e.g., "Numeric grid" or "Open numeric grid")
+  if (rt.includes('numeric grid')) return true;
+
+  // Open numeric + any options => numeric grid
+  if (rt.includes('open numeric') && hasOptions) return true;
+
+  // Response type mentions numeric and the options look numeric or bracketed => numeric grid
+  if (rt.includes('numeric') && hasOptions && (hasNumericCodes || hasBracketed)) return true;
+
+  // Values + bracketed codes (common grid export)
+  if (rt.includes('values') && hasBracketed) return true;
+
+  // Fallback: options look numeric/bracketed even if responseType is missing/ambiguous.
+  if (hasOptions && (hasNumericCodes || hasBracketed)) return true;
+
+  return false;
 }
 
 function isHiddenQuestionNumber(questionNumber: string): boolean {
@@ -106,16 +146,20 @@ function extractBracketTokens(value: string): string[] {
 }
 
 function countStatementsFromDatamapQuestion(q: DatamapParsedQuestion): number {
-  const rcs = q.responseCodes || [];
-  if (!Array.isArray(rcs) || rcs.length === 0) return 0;
+  const options = normalizeOptions(q);
+  if (!Array.isArray(options) || options.length === 0) {
+    // Fallback to notes length if present
+    if (Array.isArray(q.notes)) return q.notes.length;
+    return 0;
+  }
   const tokens = new Set<string>();
-  rcs.forEach((rc) => {
+  options.forEach((rc) => {
     const code = String(rc?.code || '').trim();
     if (!code) return;
     extractBracketTokens(code).forEach((t) => tokens.add(t));
   });
-  // Fallback: if nothing bracketed, treat as unknown (0)
-  return tokens.size;
+  // Fallback: if nothing bracketed, use option count
+  return tokens.size || options.length;
 }
 
 function normalizeHeaderKey(value: unknown) {
@@ -339,15 +383,30 @@ function computeDefaultSpeedingOverSeconds(qtimeStats: {
 
 function inferQuestionTypeFromDatamap(q: DatamapParsedQuestion): { questionType: QuestionType; forStraightlining: boolean; forOpenEnd: boolean } {
   const rt = String(q.responseType || '').toLowerCase();
-  const hasCodes = Array.isArray(q.responseCodes) && q.responseCodes.length > 0;
+  const options = normalizeOptions(q);
+  const hasCodes = options.length > 0;
+  const hasNumericCodes = options.some((opt) => /^\d+(\.\d+)?$/.test(String(opt.code || '').trim()));
+  const hasBracketed = hasBracketsInResponseCodes(options);
 
   // Open text → open_end rule
   if (rt.includes('open text')) {
     return { questionType: 'open_end', forStraightlining: false, forOpenEnd: true };
   }
 
-  // Numeric grid: open numeric + response codes
+  // Numeric grid: explicit "numeric grid" or numeric-ish options on numeric response types
+  if (rt.includes('numeric grid')) {
+    return { questionType: 'grid', forStraightlining: true, forOpenEnd: false };
+  }
   if (rt.includes('open numeric') && hasCodes) {
+    return { questionType: 'grid', forStraightlining: true, forOpenEnd: false };
+  }
+  if (rt.includes('numeric') && hasCodes && (hasNumericCodes || hasBracketed)) {
+    return { questionType: 'grid', forStraightlining: true, forOpenEnd: false };
+  }
+  if (rt.includes('values') && hasBracketed) {
+    return { questionType: 'grid', forStraightlining: true, forOpenEnd: false };
+  }
+  if (hasCodes && (hasNumericCodes || hasBracketed)) {
     return { questionType: 'grid', forStraightlining: true, forOpenEnd: false };
   }
 
@@ -361,13 +420,15 @@ function inferQuestionTypeFromDatamap(q: DatamapParsedQuestion): { questionType:
     return { questionType: 'multi', forStraightlining: false, forOpenEnd: false };
   }
 
-  // Single-select grids: values range + bracket-coded response codes
-  if (rt.includes('values:') && hasCodes && hasBracketsInResponseCodes(q.responseCodes)) {
-    return { questionType: 'grid', forStraightlining: true, forOpenEnd: false };
-  }
-
-  // Single select (values range)
-  if (rt.includes('values:')) {
+  // Single-select grids: values range + evidence of rows (brackets OR statementOptions/notes)
+  if (rt.includes('values:') && hasCodes) {
+    const hasStatementsMeta =
+      (Array.isArray(q.statementOptions) && q.statementOptions.length > 0) ||
+      (Array.isArray(q.notes) && q.notes.length > 0);
+    if (hasBracketsInResponseCodes(options) || hasStatementsMeta) {
+      return { questionType: 'grid', forStraightlining: true, forOpenEnd: false };
+    }
+    // Otherwise treat as simple single-select
     return { questionType: 'single', forStraightlining: false, forOpenEnd: false };
   }
 
@@ -379,12 +440,7 @@ function createPlanFromDatamap(projectId: string, parsedQuestions: DatamapParsed
   const now = new Date().toISOString();
 
   const rules: QualityRule[] = [];
-  const numericGridGroups = new Map<string, {
-    baseQuestionNumber: string;
-    baseKey: string;
-    columns: Array<{ questionNumber: string; columnIndex: number; questionText: string }>;
-    statementCount: number;
-  }>();
+
   const includeOtherSpecifyOpenEnds = (() => {
     try {
       const raw = localStorage.getItem(getSettingsKey(projectId));
@@ -423,41 +479,6 @@ function createPlanFromDatamap(projectId: string, parsedQuestions: DatamapParsed
     }
   })();
 
-  const repeatNumericsSettings = (() => {
-    try {
-      const raw = localStorage.getItem(getSettingsKey(projectId));
-      const parsed = raw ? JSON.parse(raw) : {};
-      const minValuesPerColumn = Number(parsed?.repeatNumericsMinValuesPerColumn);
-      const minConstantColumnsToFlag = Number(parsed?.repeatNumericsMinConstantColumnsToFlag);
-      const maxWeight = Number(parsed?.repeatNumericsMaxWeight);
-      return {
-        minValuesPerColumn: Number.isFinite(minValuesPerColumn) && minValuesPerColumn > 0 ? Math.floor(minValuesPerColumn) : 2,
-        minConstantColumnsToFlag:
-          Number.isFinite(minConstantColumnsToFlag) && minConstantColumnsToFlag > 0 ? Math.floor(minConstantColumnsToFlag) : 1,
-        maxWeight: Number.isFinite(maxWeight) && maxWeight > 0 ? Math.floor(maxWeight) : 20,
-      };
-    } catch {
-      return { minValuesPerColumn: 2, minConstantColumnsToFlag: 1, maxWeight: 20 };
-    }
-  })();
-
-  // Pre-count c# column variants so we only group when there are 2+ columns
-  // (prevents false positives for question numbers that coincidentally end with "c1").
-  const numericGridBaseCounts = (() => {
-    const counts = new Map<string, number>();
-    parsedQuestions.forEach((q) => {
-      const qNum = String(q?.questionNumber || '').trim();
-      if (!qNum) return;
-      if (isHiddenQuestionNumber(qNum)) return;
-      const parsedCol = parseNumericGridColumnQuestionNumber(qNum);
-      if (!parsedCol) return;
-      const baseKey = normalizeQuestionNumberKey(parsedCol.baseQuestionNumber);
-      if (!baseKey) return;
-      counts.set(baseKey, (counts.get(baseKey) || 0) + 1);
-    });
-    return counts;
-  })();
-
   // Always add a global speeding rule (mirrors backend plan generation)
   rules.push({
     id: `GLOBAL_speeding_${Date.now()}`,
@@ -474,6 +495,7 @@ function createPlanFromDatamap(projectId: string, parsedQuestions: DatamapParsed
   parsedQuestions.forEach((q, idx) => {
     const qNum = String(q.questionNumber || '').trim();
     if (!qNum) return;
+    const rtLower = String(q.responseType || '').toLowerCase();
 
     // Exclude hidden questions (matches Data Map "Hidden" column rule)
     if (isHiddenQuestionNumber(qNum)) {
@@ -481,6 +503,8 @@ function createPlanFromDatamap(projectId: string, parsedQuestions: DatamapParsed
     }
 
     const inferred = inferQuestionTypeFromDatamap(q);
+    const isGrid = inferred.questionType === 'grid';
+    const isOpenNumericGrid = rtLower.includes('open numeric') || rtLower.includes('numeric grid');
 
     if (inferred.forOpenEnd) {
       const qnLower = qNum.toLowerCase();
@@ -499,34 +523,9 @@ function createPlanFromDatamap(projectId: string, parsedQuestions: DatamapParsed
       });
     }
 
-    if (inferred.forStraightlining) {
+    if (isGrid) {
       const statementCount = countStatementsFromDatamapQuestion(q);
-
-      // If numeric grids are exported as QS11c1, QS11c2, ... group them under QS11
-      const parsedCol = parseNumericGridColumnQuestionNumber(qNum);
-      if (parsedCol) {
-        const baseQuestionNumber = parsedCol.baseQuestionNumber;
-        const baseKey = normalizeQuestionNumberKey(baseQuestionNumber);
-        const baseCount = baseKey ? (numericGridBaseCounts.get(baseKey) || 0) : 0;
-        if (baseKey && baseCount >= 2) {
-          const existing = numericGridGroups.get(baseKey) || {
-            baseQuestionNumber,
-            baseKey,
-            columns: [],
-            statementCount,
-          };
-          existing.columns.push({
-            questionNumber: qNum,
-            columnIndex: parsedCol.columnIndex,
-            questionText: String(q.description || ''),
-          });
-          existing.statementCount = Math.max(existing.statementCount || 0, statementCount || 0);
-          // Preserve a nicer base label if we see one later
-          if (!existing.baseQuestionNumber) existing.baseQuestionNumber = baseQuestionNumber;
-          numericGridGroups.set(baseKey, existing);
-          return;
-        }
-      }
+      const gridMode = isOpenNumericGrid ? 'numeric_grid' : 'single_select_grid';
 
       rules.push({
         id: `${qNum}_straightlining_${Date.now()}_${idx}`,
@@ -534,75 +533,19 @@ function createPlanFromDatamap(projectId: string, parsedQuestions: DatamapParsed
         questionText: String(q.description || ''),
         questionType: inferred.questionType,
         checkTypeId: 'straightlining',
-        enabled: statementCount >= straightliningSettings.minStatementsRequired,
+        enabled: true, // include all single-select grids by default
         config: {
           threshold: 80,
           statementCount,
           minAnsweredStatements: straightliningSettings.minStatementsRequired,
           weightReferenceStatements: straightliningSettings.weightReferenceStatements,
           maxWeight: straightliningSettings.maxWeight,
+          gridMode,
         },
         createdAt: now,
         updatedAt: now,
       });
     }
-  });
-
-  // Add one Repeat Numerics rule per grouped numeric grid (QS11c1..QS11cN => QS11)
-  numericGridGroups.forEach((g, key) => {
-    if (!g.columns || g.columns.length < 2) {
-      // Not truly multi-column; add as an individual straight-lining rule.
-      const only = g.columns && g.columns[0];
-      if (only) {
-        rules.push({
-          id: `${only.questionNumber}_straightlining_${Date.now()}`,
-          questionNumber: only.questionNumber,
-          questionText: String(only.questionText || ''),
-          questionType: 'grid',
-          checkTypeId: 'straightlining',
-          enabled: Number(g.statementCount || 0) >= straightliningSettings.minStatementsRequired,
-          config: {
-            threshold: 80,
-            statementCount: g.statementCount || 0,
-            minAnsweredStatements: straightliningSettings.minStatementsRequired,
-            weightReferenceStatements: straightliningSettings.weightReferenceStatements,
-            maxWeight: straightliningSettings.maxWeight,
-          },
-          createdAt: now,
-          updatedAt: now,
-        });
-      }
-      return;
-    }
-
-    const baseQuestionNumber = g.baseQuestionNumber || key;
-    const cols = g.columns
-      .slice()
-      .sort((a, b) => a.columnIndex - b.columnIndex)
-      .map((c) => ({ questionNumber: c.questionNumber, columnIndex: c.columnIndex }));
-
-    const statementCount = Number(g.statementCount || 0);
-    const enabled = Number.isFinite(statementCount) ? statementCount >= 2 : true;
-
-    rules.push({
-      id: `${baseQuestionNumber}_repeat_numerics_${Date.now()}`,
-      questionNumber: baseQuestionNumber,
-      questionText: String(g.columns.find((c) => c.questionText)?.questionText || ''),
-      questionType: 'grid',
-      checkTypeId: 'straightlining',
-      enabled,
-      config: {
-        gridMode: 'numeric_grid',
-        numericGridColumns: cols,
-        // Repeat Numerics checks for constant numeric values down each column.
-        minValuesPerColumn: repeatNumericsSettings.minValuesPerColumn,
-        minConstantColumnsToFlag: repeatNumericsSettings.minConstantColumnsToFlag,
-        maxWeight: repeatNumericsSettings.maxWeight,
-        statementCount: Number.isFinite(statementCount) ? statementCount : null,
-      },
-      createdAt: now,
-      updatedAt: now,
-    });
   });
 
   return {
@@ -627,6 +570,15 @@ function getSettingsKey(projectId: string) {
   return `dqv2_qualityPlanSettings_${projectId}`;
 }
 
+const isNumericGridCandidate = (rtLower: string, options: Array<{ code: string; label: string }>): boolean => {
+  if (rtLower.includes('numeric')) return true;
+  const hasNumericCodes = options.some((opt) => /^\d+(\.\d+)?$/.test(String(opt.code || '').trim()));
+  if (rtLower.includes('values') && hasNumericCodes) return true;
+  const hasBracketed = hasBracketsInResponseCodes(options);
+  if (rtLower.includes('values') && hasBracketed) return true;
+  return false;
+};
+
 export function QualityPlanView({
   projectId,
   datamapData,
@@ -643,26 +595,30 @@ export function QualityPlanView({
     return Array.isArray(arr) ? arr : [];
   }, [datamapData?.parsedQuestions]);
 
-  const repeatNumericsBaseKeysFromDatamap = useMemo(() => {
-    // baseKey -> count of c# variants in Data Map
-    const counts = new Map<string, number>();
-    parsedQuestions.forEach((q) => {
-      const qNum = String(q?.questionNumber || '').trim();
-      if (!qNum) return;
-      const parsedCol = parseNumericGridColumnQuestionNumber(qNum);
-      if (!parsedCol) return;
-      const baseKey = normalizeQuestionNumberKey(parsedCol.baseQuestionNumber);
-      if (!baseKey) return;
-      counts.set(baseKey, (counts.get(baseKey) || 0) + 1);
-    });
-    // Only treat as grouped numeric grid if it has multiple columns
-    const out = new Set<string>();
-    counts.forEach((n, k) => { if (n >= 2) out.add(k); });
-    return out;
-  }, [parsedQuestions]);
+  const getGridDotColor = (questionNumber: string): 'blue' | 'green' | null => {
+    const key = normalizeQuestionNumberKey(questionNumber);
+    if (!key) return null;
+    const match = (parsedQuestions || []).find((q) => normalizeQuestionNumberKey(q?.questionNumber) === key);
+    if (!match) return null;
+    const qt = classifyDatamapQuestionType(match);
+    if (qt === 'Numeric grid') return 'green';
+    if (qt === 'Single select grid') return 'blue';
+    return null;
+  };
+
+  const getStatementCountForQuestionNumber = (questionNumber: string): number | null => {
+    const key = normalizeQuestionNumberKey(questionNumber);
+    if (!key) return null;
+    const match = (parsedQuestions || []).find((q) => normalizeQuestionNumberKey(q?.questionNumber) === key);
+    if (!match) return null;
+    const c = countStatementsFromDatamapQuestion(match);
+    return Number.isFinite(c as any) ? c : null;
+  };
+
+  const repeatNumericsBaseKeysFromDatamap = useMemo(() => new Set<string>(), [parsedQuestions]);
 
   const [plan, setPlan] = useState<QualityPlan | null>(null);
-  type SettingsModalId = 'speeding' | 'straightlining' | 'repeat_numerics' | 'open_end' | null;
+  type SettingsModalId = 'speeding' | 'straightlining' | 'numeric_grids' | 'open_end' | null;
   const [settingsCheckType, setSettingsCheckType] = useState<SettingsModalId>(null);
   const [speedingThresholdMinutes, setSpeedingThresholdMinutes] = useState<number>(0);
   const [speedingUpperEnabled, setSpeedingUpperEnabled] = useState<boolean>(false);
@@ -679,6 +635,10 @@ export function QualityPlanView({
   const [repeatNumericsMinConstantColumnsToFlagInput, setRepeatNumericsMinConstantColumnsToFlagInput] = useState<string>('1');
   const [repeatNumericsMaxWeight, setRepeatNumericsMaxWeight] = useState<number>(20);
   const [repeatNumericsMaxWeightInput, setRepeatNumericsMaxWeightInput] = useState<string>('20');
+  const [numericIncludeRepeat, setNumericIncludeRepeat] = useState<boolean>(true);
+  const [numericIncludeOutliers, setNumericIncludeOutliers] = useState<boolean>(true);
+  const [numericMinStatements, setNumericMinStatements] = useState<number>(3);
+  const [numericMinStatementsInput, setNumericMinStatementsInput] = useState<string>('3');
   const [openEndEnabled, setOpenEndEnabled] = useState<boolean>(true);
   const [openEndEnabledInput, setOpenEndEnabledInput] = useState<boolean>(true);
   const [openEndIncludeOtherSpecify, setOpenEndIncludeOtherSpecify] = useState<boolean>(false);
@@ -763,155 +723,123 @@ export function QualityPlanView({
     setPlan(null);
   }, [projectId]);
 
-  // Backfill / migrate Repeat Numerics rules:
-  // - If Data Map has QS11c1..QS11cN, collapse those into ONE rule QS11 (gridMode=numeric_grid, numericGridColumns=[...])
-  // - Also tag legacy 2D numeric grids (r#c#) as gridMode=numeric_grid for UI grouping.
-  const numericGridBackfillDoneRef = useRef(false);
+  // Ensure all grid questions from the Data Map have straight-lining rules (including numeric grids).
   useEffect(() => {
     if (!plan) return;
-    if (!Array.isArray(plan.rules) || plan.rules.length === 0) return;
-    if (!Array.isArray(parsedQuestions) || parsedQuestions.length === 0) return;
+    if (!parsedQuestions || parsedQuestions.length === 0) return;
 
-    // If the plan still contains QS11c1/QS11c2-style rules for a base that has 2+ columns,
-    // rerun the backfill even if we've run before (covers hot reload + old stored plans).
-    const needsCollapse = (() => {
-      const straightliningRules = (plan.rules || []).filter((r) => r.checkTypeId === 'straightlining');
-      const counts = new Map<string, number>();
-      straightliningRules.forEach((r) => {
-        const parsedCol = parseNumericGridColumnQuestionNumber(String(r.questionNumber || '').trim());
-        if (!parsedCol) return;
-        const baseKey = normalizeQuestionNumberKey(parsedCol.baseQuestionNumber);
-        if (!baseKey) return;
-        if (!repeatNumericsBaseKeysFromDatamap.has(baseKey)) return;
-        counts.set(baseKey, (counts.get(baseKey) || 0) + 1);
-      });
-      // If any base has 2+ column rules still present, we should collapse.
-      for (const [, n] of counts.entries()) {
-        if (n >= 2) return true;
-      }
-      return false;
-    })();
+    const existingKeys = new Set(
+      (plan.rules || [])
+        .filter((r) => r.checkTypeId === 'straightlining')
+        .map((r) => normalizeQuestionNumberKey(r.questionNumber))
+    );
 
-    if (numericGridBackfillDoneRef.current && !needsCollapse) return;
-
-    const allCols = fullRawData?.columns || [];
+    const additions: QualityRule[] = [];
     const now = new Date().toISOString();
 
-    // Build Data Map numeric-grid groups: baseKey -> { baseQuestionNumber, columns[] }
-    const groups = new Map<string, { baseQuestionNumber: string; baseKey: string; columns: Array<{ questionNumber: string; columnIndex: number }> }>();
-    parsedQuestions.forEach((q) => {
+    parsedQuestions.forEach((q, idx) => {
       const qNum = String(q.questionNumber || '').trim();
       if (!qNum) return;
       if (isHiddenQuestionNumber(qNum)) return;
-      const parsedCol = parseNumericGridColumnQuestionNumber(qNum);
-      if (!parsedCol) return;
-      const baseKey = normalizeQuestionNumberKey(parsedCol.baseQuestionNumber);
-      if (!baseKey) return;
-      const existing = groups.get(baseKey) || { baseQuestionNumber: parsedCol.baseQuestionNumber, baseKey, columns: [] };
-      existing.columns.push({ questionNumber: qNum, columnIndex: parsedCol.columnIndex });
-      groups.set(baseKey, existing);
-    });
 
-    let nextRules = [...plan.rules];
-    let changed = false;
+      const inferred = inferQuestionTypeFromDatamap(q);
+      if (inferred.questionType !== 'grid') return;
 
-    // If Data Map doesn't contain the column-question rows (or parsing differs),
-    // fall back to grouping from the plan's own straightlining rules.
-    const planStraightliningRules = nextRules.filter((r) => r.checkTypeId === 'straightlining');
-    const planGroups = new Map<string, { baseQuestionNumber: string; baseKey: string; columns: Array<{ questionNumber: string; columnIndex: number }> }>();
-    planStraightliningRules.forEach((r) => {
-      const qNum = String(r.questionNumber || '').trim();
-      if (!qNum) return;
-      const parsedCol = parseNumericGridColumnQuestionNumber(qNum);
-      if (!parsedCol) return;
-      const baseKey = normalizeQuestionNumberKey(parsedCol.baseQuestionNumber);
-      if (!baseKey) return;
-      if (!repeatNumericsBaseKeysFromDatamap.has(baseKey)) return;
-      const existing = planGroups.get(baseKey) || { baseQuestionNumber: parsedCol.baseQuestionNumber, baseKey, columns: [] };
-      existing.columns.push({ questionNumber: qNum, columnIndex: parsedCol.columnIndex });
-      planGroups.set(baseKey, existing);
-    });
-    planGroups.forEach((g, baseKey) => {
-      const existing = groups.get(baseKey);
-      if (existing) return;
-      if (!g.columns || g.columns.length < 2) return;
-      groups.set(baseKey, g);
-    });
+      const key = normalizeQuestionNumberKey(qNum);
+      if (!key || existingKeys.has(key)) return;
 
-    // Collapse QS11c# rules into a single QS11 Repeat Numerics rule
-    groups.forEach((g) => {
-      const cols = g.columns.slice().sort((a, b) => a.columnIndex - b.columnIndex);
-      if (cols.length < 2) return; // not a multi-column grid
+      const rtLower = String(q.responseType || '').toLowerCase();
+      const isOpenNumericGrid = rtLower.includes('open numeric') || rtLower.includes('numeric grid');
+      const gridMode = isOpenNumericGrid ? 'numeric_grid' : 'single_select_grid';
+      const statementCount = countStatementsFromDatamapQuestion(q);
 
-      const colKeySet = new Set(cols.map((c) => normalizeQuestionNumberKey(c.questionNumber)));
-      const baseKey = g.baseKey;
-
-      const straightliningRules = nextRules.filter((r) => r.checkTypeId === 'straightlining');
-      const baseRule = straightliningRules.find((r) => normalizeQuestionNumberKey(r.questionNumber) === baseKey) || null;
-      const columnRules = straightliningRules.filter((r) => colKeySet.has(normalizeQuestionNumberKey(r.questionNumber)));
-
-      if (!baseRule && columnRules.length === 0) return;
-
-      // Choose the primary rule we will keep (prefer existing base rule; otherwise convert first column rule into base)
-      const primary: QualityRule = (baseRule || columnRules[0]) as any;
-      const enabled = (baseRule?.enabled ?? false) || columnRules.some((r) => r.enabled);
-
-      const nextConfig: any = {
-        ...(primary.config || {}),
-        gridMode: 'numeric_grid',
-        numericGridColumns: cols,
-        minValuesPerColumn: Number.isFinite(Number((primary.config as any)?.minValuesPerColumn)) ? Number((primary.config as any)?.minValuesPerColumn) : 2,
-        minConstantColumnsToFlag: Number.isFinite(Number((primary.config as any)?.minConstantColumnsToFlag)) ? Number((primary.config as any)?.minConstantColumnsToFlag) : 1,
-      };
-
-      const updatedPrimary: QualityRule = {
-        ...primary,
-        updatedAt: now,
-        enabled,
-        questionNumber: g.baseQuestionNumber,
+      additions.push({
+        id: `${qNum}_straightlining_${Date.now()}_${idx}_auto`,
+        questionNumber: qNum,
+        questionText: String(q.description || ''),
         questionType: 'grid',
-        config: nextConfig,
-      };
-
-      // Remove all column rules and base rule (except primary), then add updatedPrimary
-      const idsToRemove = new Set<string>();
-      columnRules.forEach((r) => { if (r.id !== primary.id) idsToRemove.add(r.id); });
-      if (baseRule && baseRule.id !== primary.id) idsToRemove.add(baseRule.id);
-
-      const beforeLen = nextRules.length;
-      nextRules = nextRules.filter((r) => !idsToRemove.has(r.id)).map((r) => (r.id === primary.id ? updatedPrimary : r));
-      if (nextRules.length !== beforeLen || idsToRemove.size > 0) changed = true;
-
-      // If primary wasn't already in the list as baseRule/columnRule (shouldn't happen), ensure it's included
-      if (!nextRules.some((r) => r.id === updatedPrimary.id)) {
-        nextRules.push(updatedPrimary);
-        changed = true;
-      }
+        checkTypeId: 'straightlining',
+        enabled: true,
+        config: {
+          threshold: 80,
+          statementCount,
+          minAnsweredStatements: straightliningMinStatements,
+          weightReferenceStatements: straightliningWeightReferenceStatements,
+          maxWeight: straightliningMaxWeight,
+          gridMode,
+        },
+        createdAt: now,
+        updatedAt: now,
+      });
     });
 
-    // Tag any remaining legacy numeric grids (open numeric + codes OR r#c# columns) with gridMode=numeric_grid
-    nextRules = nextRules.map((r) => {
-      if (r.checkTypeId !== 'straightlining') return r;
-      const mode = String((r.config as any)?.gridMode || '').toLowerCase();
-      if (mode === 'numeric_grid') return r;
+    if (additions.length === 0) return;
 
-      const looksNumericByDatamap = isNumericGridQuestionFromDatamap(parsedQuestions, r.questionNumber);
-      const looks2DByHeaders = Array.isArray(allCols) && allCols.length > 0 && getGrid2DCellInfosForQuestion(allCols, r.questionNumber).length > 0;
-      if (!looksNumericByDatamap && !looks2DByHeaders) return r;
-
-      changed = true;
-      return { ...r, updatedAt: now, config: { ...(r.config || {}), gridMode: 'numeric_grid' } };
-    });
-
-    numericGridBackfillDoneRef.current = true;
-    if (!changed) return;
-
-    const nextPlan: QualityPlan = { ...plan, updatedAt: now, rules: nextRules };
+    const nextPlan: QualityPlan = { ...plan, updatedAt: now, rules: [...(plan.rules || []), ...additions] };
     setPlan(nextPlan);
     try {
       localStorage.setItem(getStorageKey(projectId), JSON.stringify(nextPlan));
     } catch {}
-  }, [plan, parsedQuestions, projectId, fullRawData?.columns]);
+  }, [plan, parsedQuestions, straightliningMinStatements, straightliningWeightReferenceStatements, straightliningMaxWeight, projectId]);
+
+  // Ensure numeric grid questions have a selectable rule (gridMode=numeric_grid) for the Numeric Grids card.
+  useEffect(() => {
+    if (!plan) return;
+    if (!parsedQuestions || parsedQuestions.length === 0) return;
+
+    const existingNumericKeys = new Set(
+      (plan.rules || [])
+        .filter((r) => r.checkTypeId === 'straightlining')
+        .filter((r) => String((r.config as any)?.gridMode || '').toLowerCase() === 'numeric_grid')
+        .map((r) => normalizeQuestionNumberKey(r.questionNumber))
+    );
+
+    const additions: QualityRule[] = [];
+    const now = new Date().toISOString();
+
+    parsedQuestions.forEach((q, idx) => {
+      const qNum = String(q.questionNumber || '').trim();
+      if (!qNum) return;
+      if (isHiddenQuestionNumber(qNum)) return;
+      if (getGridDotColor(qNum) !== 'green') return;
+      const stmtCount = countStatementsFromDatamapQuestion(q);
+
+      const key = normalizeQuestionNumberKey(qNum);
+      if (!key || existingNumericKeys.has(key)) return;
+
+      const statementCount = countStatementsFromDatamapQuestion(q);
+
+      additions.push({
+        id: `${qNum}_numericGrid_${Date.now()}_${idx}`,
+        questionNumber: qNum,
+        questionText: String(q.description || ''),
+        questionType: 'grid',
+        checkTypeId: 'straightlining',
+        enabled: Number.isFinite(stmtCount as any) ? (stmtCount as number) >= (numericMinStatements || 3) : true,
+        config: {
+          threshold: 80,
+          statementCount,
+          minAnsweredStatements: numericMinStatements || straightliningMinStatements,
+          weightReferenceStatements: straightliningWeightReferenceStatements,
+          maxWeight: straightliningMaxWeight,
+          numericIncludeRepeat,
+          numericIncludeOutliers,
+          numericMinStatements: numericMinStatements || 3,
+          gridMode: 'numeric_grid',
+        },
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    if (additions.length === 0) return;
+
+    const nextPlan: QualityPlan = { ...plan, updatedAt: now, rules: [...(plan.rules || []), ...additions] };
+    setPlan(nextPlan);
+    try {
+      localStorage.setItem(getStorageKey(projectId), JSON.stringify(nextPlan));
+    } catch {}
+  }, [plan, parsedQuestions, projectId, straightliningMinStatements, straightliningWeightReferenceStatements, straightliningMaxWeight]);
 
   // Auto-generate a plan as soon as we have a Data Map (no button click needed).
   // Only runs when there is no stored plan yet (or it was cleared on new upload).
@@ -1015,6 +943,17 @@ export function QualityPlanView({
           setRepeatNumericsMaxWeightInput('20');
         }
 
+        if (parsed?.numericIncludeRepeat !== undefined) setNumericIncludeRepeat(!!parsed.numericIncludeRepeat);
+        if (parsed?.numericIncludeOutliers !== undefined) setNumericIncludeOutliers(!!parsed.numericIncludeOutliers);
+        const nm = Number(parsed?.numericMinStatements);
+        if (Number.isFinite(nm) && nm > 0) {
+          setNumericMinStatements(nm);
+          setNumericMinStatementsInput(String(nm));
+        } else {
+          setNumericMinStatements(3);
+          setNumericMinStatementsInput('3');
+        }
+
         const oeEnabled = parsed?.openEndEnabled === undefined ? true : Boolean(parsed?.openEndEnabled);
         setOpenEndEnabled(oeEnabled);
         setOpenEndEnabledInput(oeEnabled);
@@ -1037,6 +976,10 @@ export function QualityPlanView({
     setRepeatNumericsMinConstantColumnsToFlagInput('1');
     setRepeatNumericsMaxWeight(20);
     setRepeatNumericsMaxWeightInput('20');
+    setNumericIncludeRepeat(true);
+    setNumericIncludeOutliers(true);
+    setNumericMinStatements(3);
+    setNumericMinStatementsInput('3');
     setOpenEndEnabled(true);
     setOpenEndEnabledInput(true);
     setOpenEndIncludeOtherSpecify(false);
@@ -1046,159 +989,164 @@ export function QualityPlanView({
   const rulesByCard = useMemo(() => {
     const rules = plan?.rules || [];
 
+    const numericGridCandidates = Array.isArray(parsedQuestions)
+      ? parsedQuestions.map((q) => {
+          const qNum = String(q?.questionNumber || '').trim();
+          const hidden = isHiddenQuestionNumber(qNum);
+          const dot = getGridDotColor(qNum);
+          return { q, qNum, hidden, dot };
+        })
+      : [];
+
     const speeding = rules.filter((r) => r.checkTypeId === 'speeding');
     const open_end = rules.filter((r) => r.checkTypeId === 'open_end');
+    const straightlining = rules
+      .filter((r) => r.checkTypeId === 'straightlining')
+      .filter((r) => getGridDotColor(r.questionNumber) === 'blue');
 
-    const straightliningAll = rules.filter((r) => r.checkTypeId === 'straightlining');
-    const isRepeatNumericsRule = (r: QualityRule) => {
-      const cfg = (r as any)?.config ?? (r as any)?.settings ?? {};
-      const mode = String(cfg?.gridMode || '').toLowerCase();
-      if (mode === 'numeric_grid') return true;
-      if (Array.isArray(cfg?.numericGridColumns) && cfg.numericGridColumns.length > 0) return true;
+    // Numeric grids: use plan rules when available; fallback to Data Map green-dot questions (display-only).
+    const planNumericRules = rules
+      .filter((r) => r.checkTypeId === 'straightlining')
+      .filter((r) => String((r.config as any)?.gridMode || '').toLowerCase() === 'numeric_grid')
+      .filter((r) => getGridDotColor(r.questionNumber) === 'green');
 
-      // Exact match: QS11c1 itself is a numeric grid column-question
-      if (isNumericGridQuestionFromDatamap(parsedQuestions, r.questionNumber)) return true;
+    let numeric_grids: any[] = planNumericRules;
 
-      // Column-question match: QS11c1 should be treated as Repeat Numerics if its base QS11 has multiple columns.
-      const parsedCol = parseNumericGridColumnQuestionNumber(String(r.questionNumber || '').trim());
-      if (parsedCol) {
-        const baseKey = normalizeQuestionNumberKey(parsedCol.baseQuestionNumber);
-        if (baseKey && repeatNumericsBaseKeysFromDatamap.has(baseKey)) return true;
+    if (numeric_grids.length === 0) {
+      numeric_grids = numericGridCandidates
+        .filter((item) => {
+          if (!item.qNum) return false;
+          if (item.hidden) return false;
+          return item.dot === 'green';
+        })
+        .map((item, idx) => {
+          const stmtCount = countStatementsFromDatamapQuestion(item.q);
+          const minReq = numericMinStatements || 3;
+          const meetsMin = !Number.isFinite(stmtCount as any) || (stmtCount as number) >= minReq;
+          return {
+            id: `numeric_grid_${idx}_${item.qNum || 'q'}`,
+            questionNumber: item.qNum,
+            questionText: String(item.q?.description || ''),
+            enabled: meetsMin,
+            displayOnly: true,
+            statementCount: stmtCount,
+          };
+        }) as any[];
+
+      try {
+        const allParsed = Array.isArray(parsedQuestions) ? parsedQuestions.length : 0;
+        console.debug('[DQ][QP] Numeric grid build (fallback)', {
+          parsedQuestions: allParsed,
+          numericGridCount: numeric_grids.length,
+          sampleNumericGrids: numeric_grids.slice(0, 5).map((n) => n.questionNumber),
+        });
+      } catch {
+        /* noop */
       }
-
-      // Base match: QS11 should be treated as Repeat Numerics if Data Map contains QS11c1..QS11cN
-      const baseKey = normalizeQuestionNumberKey(r.questionNumber);
-      if (baseKey && repeatNumericsBaseKeysFromDatamap.has(baseKey)) return true;
-
-      // Legacy 2D exports: Qxxr#c#
-      if (Array.isArray(fullRawData?.columns) && fullRawData!.columns!.length > 0) {
-        return getGrid2DCellInfosForQuestion(fullRawData!.columns!, r.questionNumber).length > 0;
+    } else {
+      try {
+        console.debug('[DQ][QP] Numeric grid build (plan rules)', {
+          numericGridCount: numeric_grids.length,
+          sampleNumericGrids: numeric_grids.slice(0, 5).map((n) => n.questionNumber),
+        });
+      } catch {
+        /* noop */
       }
-      return false;
-    };
+    }
 
-    const numeric_grids = straightliningAll.filter(isRepeatNumericsRule);
-    const straightlining = straightliningAll.filter((r) => !numeric_grids.includes(r));
+    try {
+      // Debug counts for numeric grids to diagnose missing items
+      const allParsed = Array.isArray(parsedQuestions) ? parsedQuestions.length : 0;
+      const hiddenCount = numericGridCandidates.filter((c) => c.hidden).length;
+      const numericFlagged = numericGridCandidates.filter((c) => c.dot === 'green').length;
+      const rtCounts = new Map<string, number>();
+      numericGridCandidates.forEach((c) => {
+        const rt = String(c.q?.responseType || '').toLowerCase();
+        rtCounts.set(rt, (rtCounts.get(rt) || 0) + 1);
+      });
+      const responseTypeSummary = Array.from(rtCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([rt, n]) => `${rt || '(empty)'}: ${n}`);
+
+      const sampleNumericRTs = numericGridCandidates
+        .filter((c) => c.dot === 'green')
+        .slice(0, 5)
+        .map((c) => ({
+          q: c.qNum,
+          rt: String(c.q?.responseType || ''),
+          codes: (normalizeOptions(c.q || {}).slice(0, 3) || []).map((o) => o.code),
+          statements: getStatementCountForQuestionNumber(c.qNum),
+        }));
+
+      const sampleNonNumeric = numericGridCandidates
+        .filter((c) => c.dot !== 'green' && !c.hidden)
+        .slice(0, 5)
+        .map((c) => ({
+          q: c.qNum,
+          rt: String(c.q?.responseType || ''),
+          codes: (normalizeOptions(c.q || {}).slice(0, 3) || []).map((o) => o.code),
+          statements: getStatementCountForQuestionNumber(c.qNum),
+        }));
+
+      console.debug('[DQ][QP] Numeric grid build', {
+        parsedQuestions: allParsed,
+        numericGridCount: numeric_grids.length,
+        numericFlagged,
+        hiddenCount,
+        minStatementsRequired: numericMinStatements || 3,
+        sampleNumericGrids: numeric_grids.slice(0, 5).map((n) => n.questionNumber),
+        sampleNumericRTs,
+        sampleNonNumeric,
+        responseTypeSummary,
+      });
+    } catch {
+      /* noop */
+    }
 
     return { speeding, open_end, straightlining, numeric_grids };
-  }, [plan?.rules, parsedQuestions, fullRawData?.columns, repeatNumericsBaseKeysFromDatamap]);
+  }, [plan?.rules, parsedQuestions, fullRawData?.columns, repeatNumericsBaseKeysFromDatamap, numericMinStatements]);
 
   const numericGridEligibilityByRuleId = useMemo(() => {
-    const map = new Map<string, { included: boolean; reason: string | null }>();
-    const cols = fullRawData?.columns || [];
-    // If we don't have headers yet, we cannot determine eligibility reliably.
-    // Avoid disabling rules prematurely while data is still loading.
-    if (!Array.isArray(cols) || cols.length === 0) return map;
+    return new Map<string, { included: boolean; reason: string | null }>();
+  }, [rulesByCard.numeric_grids, fullRawData?.columns]);
 
-    (rulesByCard.numeric_grids || []).forEach((r) => {
-      const gridMode = String((r.config as any)?.gridMode || '').toLowerCase();
-      const numericGridColumns = (r.config as any)?.numericGridColumns;
+  // Enforce numeric grid min statements: auto-disable any numeric grid rule below the min.
+  useEffect(() => {
+    if (!plan) return;
+    if (!Array.isArray(plan.rules) || plan.rules.length === 0) return;
+    const minReq = numericMinStatements || 3;
+    const now = new Date().toISOString();
 
-      // Grouped numeric grids: base question with internal column questions (QS11c1..)
-      if (gridMode === 'numeric_grid' && Array.isArray(numericGridColumns) && numericGridColumns.length > 0) {
-        const rowCountsKnown: number[] = [];
-        let hasUnknown = false;
-
-        const getRowCountForSubQuestion = (subQ: string): number | null => {
-          const subKey = normalizeQuestionNumberKey(subQ);
-          const dm = (parsedQuestions || []).find((q) => normalizeQuestionNumberKey(q?.questionNumber) === subKey) || null;
-
-          // Prefer Data Map responseCodes: in many exports, the "rows" live here, not in the raw headers.
-          if (dm && Array.isArray(dm.responseCodes) && dm.responseCodes.length > 0) {
-            const rSet = new Set<number>();
-            dm.responseCodes.forEach((rc) => {
-              const candidates = [rc?.code, rc?.label, rc?.text].map((v) => String(v || '')).filter(Boolean);
-              candidates.forEach((t) => {
-                const m = t.match(/r(\d+)/gi);
-                if (!m) return;
-                m.forEach((hit) => {
-                  const n = parseInt(String(hit || '').replace(/[^0-9]/g, ''), 10);
-                  if (Number.isFinite(n) && n > 0) rSet.add(n);
-                });
-              });
-            });
-            if (rSet.size > 0) return rSet.size;
-            // Fallback: if no explicit r# markers, use the count of response codes as "rows"
-            return dm.responseCodes.length;
-          }
-
-          // Fallback to parsing from raw headers (legacy exports like Qxxc1r1, Qxxc1r2...)
-          const headers = Array.isArray(cols) && cols.length > 0 ? getStraightlineColumnNamesForQuestion(cols, subQ) : [];
-          if (headers.length > 0) {
-            const rSet = new Set<number>();
-            headers.forEach((h) => {
-              const m = String(h || '').match(/r(\d+)/i);
-              if (!m) return;
-              const ri = parseInt(String(m[1] || ''), 10);
-              if (Number.isFinite(ri) && ri > 0) rSet.add(ri);
-            });
-            return rSet.size;
-          }
-
-          return null;
-        };
-
-        (numericGridColumns as any[]).forEach((colDef) => {
-          const subQ = String(colDef?.questionNumber || '').trim();
-          if (!subQ) return;
-          const count = getRowCountForSubQuestion(subQ);
-          if (count === null) {
-            hasUnknown = true;
-            return;
-          }
-          rowCountsKnown.push(count);
-        });
-
-        // If we can't confidently compute row counts (unknown formats), don't disable.
-        if (rowCountsKnown.length === 0 && hasUnknown) {
-          map.set(r.id, { included: true, reason: null });
-          return;
+    let changed = false;
+    const nextRules = plan.rules.map((r) => {
+      if (r.checkTypeId !== 'straightlining') return r;
+      const mode = String((r.config as any)?.gridMode || '').toLowerCase();
+      if (mode !== 'numeric_grid') return r;
+      const dot = getGridDotColor(r.questionNumber);
+      if (dot !== 'green') return r;
+      const stmtCount = getStatementCountForQuestionNumber(r.questionNumber);
+      if (Number.isFinite(stmtCount as any)) {
+        const meets = (stmtCount as number) >= minReq;
+        if (!meets && r.enabled) {
+          changed = true;
+          return { ...r, enabled: false, updatedAt: now };
         }
-
-        if (rowCountsKnown.length === 0) {
-          map.set(r.id, { included: false, reason: 'Not included (unable to determine rows per column)' });
-          return;
+        if (meets && !r.enabled) {
+          changed = true;
+          return { ...r, enabled: true, updatedAt: now };
         }
-
-        const allKnownHaveOneOrLess = rowCountsKnown.every((n) => n <= 1);
-        // Only disable when we're confident every column has ≤1 row (i.e., no unknowns).
-        if (allKnownHaveOneOrLess && !hasUnknown) {
-          map.set(r.id, { included: false, reason: 'Not included (≤1 row per column)' });
-          return;
-        }
-
-        map.set(r.id, { included: true, reason: null });
-        return;
       }
-
-      // Legacy 2D numeric grids: r#c# columns
-      const cells = Array.isArray(cols) && cols.length > 0 ? getGrid2DCellInfosForQuestion(cols, r.questionNumber) : [];
-      if (cells.length === 0) {
-        map.set(r.id, { included: false, reason: 'Not included (no numeric-grid columns found)' });
-        return;
-      }
-
-      const rowsByC = new Map<number, Set<number>>();
-      cells.forEach((cell) => {
-        const set = rowsByC.get(cell.c) || new Set<number>();
-        set.add(cell.r);
-        rowsByC.set(cell.c, set);
-      });
-
-      const counts = Array.from(rowsByC.values()).map((s) => s.size);
-      const hasAnyColumns = counts.length > 0;
-      const allColumnsHaveOneOrLess = hasAnyColumns && counts.every((n) => n <= 1);
-
-      if (allColumnsHaveOneOrLess) {
-        map.set(r.id, { included: false, reason: 'Not included (≤1 row per column)' });
-        return;
-      }
-
-      map.set(r.id, { included: true, reason: null });
+      return r;
     });
 
-    return map;
-  }, [rulesByCard.numeric_grids, fullRawData?.columns]);
+    if (!changed) return;
+    const nextPlan: QualityPlan = { ...plan, updatedAt: now, rules: nextRules };
+    setPlan(nextPlan);
+    try {
+      localStorage.setItem(getStorageKey(projectId), JSON.stringify(nextPlan));
+    } catch {}
+  }, [plan, numericMinStatements, parsedQuestions, projectId]);
 
   // Enforce: numeric grids that are not included cannot be enabled
   const numericGridEligibilityAppliedRef = useRef(false);
@@ -1238,6 +1186,14 @@ export function QualityPlanView({
       numeric_grids: rulesByCard.numeric_grids.length,
     };
   }, [rulesByCard]);
+
+  const getCardMeta = (id: QualityPlanCardId) => {
+    if (id === 'speeding') return { icon: ClockIcon, bgClass: 'bg-red-100 border border-red-200', color: '#EF4444' };
+    if (id === 'numeric_grids') return { icon: CalculatorIcon, bgClass: 'bg-orange-100 border border-orange-200', color: BRAND_ORANGE };
+    if (id === 'straightlining') return { icon: Bars3Icon, bgClass: 'bg-amber-100 border border-amber-200', color: '#F59E0B' };
+    if (id === 'open_end') return { icon: ChatBubbleBottomCenterTextIcon, bgClass: 'bg-purple-100 border border-purple-200', color: '#8B5CF6' };
+    return { icon: null, bgClass: 'bg-gray-100 border border-gray-200', color: '#6B7280' };
+  };
 
   const handleGenerate = () => {
     const nextBase = createPlanFromDatamap(projectId, parsedQuestions);
@@ -1347,18 +1303,47 @@ export function QualityPlanView({
     setStraightliningWeightReferenceStatementsInput(String(derivedStraightliningSettings.referenceStatements));
     setStraightliningMaxWeightInput(String(derivedStraightliningSettings.maxStatements));
   };
-
-  const openRepeatNumericsSettings = () => {
-    setSettingsCheckType('repeat_numerics');
-    setRepeatNumericsMinValuesPerColumnInput(String(repeatNumericsMinValuesPerColumn || 2));
-    setRepeatNumericsMinConstantColumnsToFlagInput(String(repeatNumericsMinConstantColumnsToFlag || 1));
-    setRepeatNumericsMaxWeightInput(String(repeatNumericsMaxWeight || 20));
+  const openNumericGridSettings = () => {
+    setSettingsCheckType('numeric_grids');
   };
 
   const openOpenEndSettings = () => {
     setSettingsCheckType('open_end');
     setOpenEndEnabledInput(!!openEndEnabled);
     setOpenEndIncludeOtherSpecifyInput(!!openEndIncludeOtherSpecify);
+  };
+
+  const saveNumericGridSettings = () => {
+    const parsedMin = Number(numericMinStatementsInput);
+    const nextMin = Number.isFinite(parsedMin) && parsedMin > 0 ? Math.floor(parsedMin) : 3;
+    setNumericMinStatements(nextMin);
+    setNumericMinStatementsInput(String(nextMin));
+
+    try {
+      const existingRaw = localStorage.getItem(getSettingsKey(projectId));
+      const existing = existingRaw ? JSON.parse(existingRaw) : {};
+      localStorage.setItem(
+        getSettingsKey(projectId),
+        JSON.stringify({
+          ...(existing || {}),
+          numericIncludeRepeat,
+          numericIncludeOutliers,
+          numericMinStatements: nextMin,
+        })
+      );
+    } catch {
+      try {
+        localStorage.setItem(
+          getSettingsKey(projectId),
+          JSON.stringify({
+            numericIncludeRepeat,
+            numericIncludeOutliers,
+            numericMinStatements: nextMin,
+          })
+        );
+      } catch {}
+    }
+    setSettingsCheckType(null);
   };
 
   const saveOpenEndSettings = () => {
@@ -2231,6 +2216,10 @@ export function QualityPlanView({
     setRepeatNumericsMinConstantColumnsToFlagInput('1');
     setRepeatNumericsMaxWeight(20);
     setRepeatNumericsMaxWeightInput('20');
+    setNumericIncludeRepeat(true);
+    setNumericIncludeOutliers(true);
+    setNumericMinStatements(3);
+    setNumericMinStatementsInput('3');
     setOpenEndEnabled(true);
     setOpenEndEnabledInput(true);
     setOpenEndIncludeOtherSpecify(false);
@@ -2355,20 +2344,17 @@ export function QualityPlanView({
   }, [parsedQuestions, projectId, runningChecks]);
 
   return (
-    <div className="py-6 px-0">
+    <div className="pt-0 pb-6 px-0">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-lg font-semibold text-gray-900">Quality Plan</h3>
-          <p className="text-xs text-gray-500 mt-1">
-            Generated from your Data Map (not QNR). Stored locally for Data Quality v2 only.
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={resetPlanToDefaults}
             disabled={runningChecks || !parsedQuestions || parsedQuestions.length === 0}
-            className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
             title="Reset the plan + settings to defaults"
           >
             Reset to defaults
@@ -2376,12 +2362,14 @@ export function QualityPlanView({
           <button
             onClick={runQualityChecks}
             disabled={!plan || runningChecks || !((fullRawData?.rows?.length ?? 0) > 0)}
-            className="px-4 py-2 text-white rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2"
-            style={{ backgroundColor: '#111827' }}
+            className="px-3 py-1.5 text-sm text-white rounded-md disabled:opacity-50 transition-colors flex items-center gap-2"
+            style={{ backgroundColor: BRAND_ORANGE }}
             title={(fullRawData?.rows?.length ?? 0) <= 0 ? 'Upload a data file first' : 'Run quality checks'}
           >
-            {runningChecks && (
+            {runningChecks ? (
               <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+            ) : (
+              <PlayIcon className="h-4 w-4 text-white" />
             )}
             Run Quality Check
           </button>
@@ -2403,13 +2391,25 @@ export function QualityPlanView({
                   : ct.id === 'numeric_grids'
                     ? rulesByCard.numeric_grids
                     : rulesByCard.straightlining;
+            const isNumericGridCard = ct.id === 'numeric_grids';
 
             return (
-              <div key={ct.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col min-h-[360px]">
-                <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between" style={{ backgroundColor: `${BRAND_ORANGE}08` }}>
-                  <div>
-                    <div className="text-sm font-semibold text-gray-900">{ct.label}</div>
-                    <div className="text-xs text-gray-500">{countsByCard[ct.id] || 0} rule(s)</div>
+              <div key={ct.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col min-h-[420px] max-h-[580px] overflow-x-hidden">
+                <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between" style={{ backgroundColor: getCardMeta(ct.id).color ? `${getCardMeta(ct.id).color}14` : `${BRAND_ORANGE}08` }}>
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const meta = getCardMeta(ct.id);
+                      const Icon = meta.icon as any;
+                      return Icon ? (
+                        <span className={`inline-flex items-center justify-center h-7 w-7 rounded-full ${meta.bgClass || ''}`}>
+                          <Icon className="w-4 h-4" style={{ color: meta.color || BRAND_ORANGE }} />
+                        </span>
+                      ) : null;
+                    })()}
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">{ct.label}</div>
+                      <div className="text-xs text-gray-500">{countsByCard[ct.id] || 0} {ct.id === 'numeric_grids' ? 'item(s)' : 'rule(s)'}</div>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -2417,7 +2417,7 @@ export function QualityPlanView({
                       onClick={() => {
                         if (ct.id === 'speeding') openSpeedingSettings();
                         if (ct.id === 'straightlining') openStraightliningSettings();
-                        if (ct.id === 'numeric_grids') openRepeatNumericsSettings();
+                        if (ct.id === 'numeric_grids') openNumericGridSettings();
                         if (ct.id === 'open_end') openOpenEndSettings();
                       }}
                       disabled={ct.id !== 'speeding' && ct.id !== 'straightlining' && ct.id !== 'numeric_grids' && ct.id !== 'open_end'}
@@ -2428,63 +2428,176 @@ export function QualityPlanView({
                     </button>
                   </div>
                 </div>
-                <div className="divide-y divide-gray-100 flex-1 overflow-y-auto">
+                <div className="divide-y divide-gray-100 flex-1 overflow-y-auto overflow-x-hidden">
                   {rules.length === 0 ? (
-                    <div className="px-4 py-6 text-center text-sm text-gray-400">No rules</div>
+                    <div className="px-4 py-6 text-center text-sm text-gray-400">No {isNumericGridCard ? 'items' : 'rules'}</div>
                   ) : (
-                    rules.map((r) => (
-                      <div key={r.id} className="px-4 py-2.5 flex items-center justify-between hover:bg-gray-50">
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-gray-900 truncate">{r.questionNumber}</div>
-                          {!!r.questionText && (
-                            <div className="text-xs text-gray-500 truncate">{r.questionText}</div>
-                          )}
-                          {ct.id === 'numeric_grids' && (
-                            <div className="text-[11px] text-gray-500 mt-0.5 truncate">
-                              {(() => {
-                                const eligibility = numericGridEligibilityByRuleId.get(r.id);
-                                if (!eligibility) return '—';
-                                return eligibility.included ? 'Included' : (eligibility.reason || 'Not included');
-                              })()}
+                    rules.map((r) => {
+                      if (isNumericGridCard) {
+                        const isDisplayOnly = (r as any)?.displayOnly;
+                        const enabled = !!r.enabled;
+                        const handleNumericToggle = () => {
+                          if (isDisplayOnly) return;
+                          handleToggleRule(r.id);
+                        };
+
+                        return (
+                          <div
+                            key={r.id}
+                            className="px-4 py-2 flex items-center justify-between hover:bg-gray-50 cursor-pointer"
+                            onClick={handleNumericToggle}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (isDisplayOnly) return;
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                handleNumericToggle();
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="radio"
+                              className="h-4 w-4 text-green-600 border-gray-300 cursor-pointer"
+                              style={{ accentColor: '#16a34a' }}
+                              checked={enabled}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleNumericToggle();
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                                disabled={isDisplayOnly}
+                              />
+                              <div className="min-w-0">
+                              <div className="text-xs font-medium text-gray-900 truncate">{r.questionNumber}</div>
+                                {!!r.questionText && (
+                                  <div className="text-[11px] text-gray-500 truncate">{r.questionText}</div>
+                                )}
+                              </div>
                             </div>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (ct.id === 'numeric_grids') {
-                              const eligibility = numericGridEligibilityByRuleId.get(r.id);
-                              if (eligibility && !eligibility.included) return;
+                          </div>
+                        );
+                      }
+
+                      const handleToggle = () => {
+                        handleToggleRule(r.id);
+                      };
+                      return (
+                        <div
+                          key={r.id}
+                          className="px-4 py-2 flex items-center justify-between hover:bg-gray-50 cursor-pointer"
+                          onClick={handleToggle}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleToggle();
                             }
-                            handleToggleRule(r.id);
                           }}
-                          role="switch"
-                          aria-checked={!!r.enabled}
-                          aria-disabled={ct.id === 'numeric_grids' && !!numericGridEligibilityByRuleId.get(r.id) && !numericGridEligibilityByRuleId.get(r.id)!.included}
-                          disabled={ct.id === 'numeric_grids' && !!numericGridEligibilityByRuleId.get(r.id) && !numericGridEligibilityByRuleId.get(r.id)!.included}
-                          className={`ml-3 relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 ${
-                            (ct.id === 'numeric_grids' && !!numericGridEligibilityByRuleId.get(r.id) && !numericGridEligibilityByRuleId.get(r.id)!.included)
-                              ? 'bg-gray-200 cursor-not-allowed opacity-60'
-                              : (r.enabled ? 'bg-green-500 cursor-pointer' : 'bg-gray-300 cursor-pointer')
-                          }`}
-                          title={(ct.id === 'numeric_grids' && !!numericGridEligibilityByRuleId.get(r.id) && !numericGridEligibilityByRuleId.get(r.id)!.included)
-                            ? (numericGridEligibilityByRuleId.get(r.id)!.reason || 'Not included')
-                            : (r.enabled ? 'Enabled (click to disable)' : 'Disabled (click to enable)')}
                         >
-                          <span
-                            aria-hidden="true"
-                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                              r.enabled ? 'translate-x-5' : 'translate-x-1'
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    ))
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="radio"
+                              className="h-4 w-4 text-green-600 border-gray-300 cursor-pointer"
+                              style={{ accentColor: '#16a34a' }}
+                              checked={!!r.enabled}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleToggle();
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <div className="min-w-0">
+                              <div className="text-xs font-medium text-gray-900 truncate">{r.questionNumber}</div>
+                              {!!r.questionText && (
+                                <div className="text-[11px] text-gray-500 truncate">{r.questionText}</div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Numeric Grids Settings Modal */}
+      {settingsCheckType === 'numeric_grids' && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Numeric Grids Settings</h3>
+              <button
+                type="button"
+                onClick={() => setSettingsCheckType(null)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={numericIncludeRepeat}
+                    onChange={(e) => setNumericIncludeRepeat(e.target.checked)}
+                  />
+                  Repeat numerics
+                </label>
+                <div className="mt-3">
+                  <label className="block text-sm text-gray-700 mb-1">Min statements required</label>
+                  <input
+                    type="number"
+                    min={1}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:outline-none"
+                    value={numericMinStatementsInput}
+                    onChange={(e) => setNumericMinStatementsInput(e.target.value)}
+                    placeholder="e.g., 3"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Numeric grids with fewer statements will be excluded.</p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={numericIncludeOutliers}
+                    onChange={(e) => setNumericIncludeOutliers(e.target.checked)}
+                  />
+                  Outliers
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <button
+                type="button"
+                onClick={() => setSettingsCheckType(null)}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveNumericGridSettings}
+                className="px-4 py-2 text-white rounded-lg transition-colors"
+                style={{ backgroundColor: BRAND_ORANGE }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -2741,111 +2854,6 @@ export function QualityPlanView({
               <button
                 type="button"
                 onClick={saveStraightliningSettings}
-                className="px-4 py-2 text-white rounded-lg transition-colors"
-                style={{ backgroundColor: BRAND_ORANGE }}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Repeat Numerics Settings Modal (v2) */}
-      {settingsCheckType === 'repeat_numerics' && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Repeat Numerics Settings</h3>
-              <button
-                type="button"
-                onClick={() => setSettingsCheckType(null)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <XMarkIcon className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <div className="text-sm font-medium text-gray-900">What this check does</div>
-                <div className="mt-1 text-xs text-gray-500">
-                  For each numeric grid column (c1, c2, …), it looks at the numeric values across rows (r1..rN) for a respondent.
-                  If all numeric values in a column are identical (and there are enough values), that column is “constant”.
-                  A respondent is flagged if enough columns are constant.
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <div className="text-sm font-medium text-gray-900">Eligibility / minimums</div>
-                <div className="mt-1 text-xs text-gray-500">
-                  Helps avoid flagging when there isn’t enough numeric data in a column.
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Min numeric values per column
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      step={1}
-                      value={repeatNumericsMinValuesPerColumnInput}
-                      onChange={(e) => setRepeatNumericsMinValuesPerColumnInput(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:outline-none focus:border-gray-400"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Min constant columns to flag
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      step={1}
-                      value={repeatNumericsMinConstantColumnsToFlagInput}
-                      onChange={(e) => setRepeatNumericsMinConstantColumnsToFlagInput(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:outline-none focus:border-gray-400"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <div className="text-sm font-medium text-gray-900">Scoring strength</div>
-                <div className="mt-1 text-xs text-gray-500">
-                  Max weight for this check for a respondent. Actual weight scales by the % of eligible columns that are constant.
-                </div>
-
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Max weight
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={repeatNumericsMaxWeightInput}
-                    onChange={(e) => setRepeatNumericsMaxWeightInput(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:outline-none focus:border-gray-400"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
-              <button
-                type="button"
-                onClick={() => setSettingsCheckType(null)}
-                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={saveRepeatNumericsSettings}
                 className="px-4 py-2 text-white rounded-lg transition-colors"
                 style={{ backgroundColor: BRAND_ORANGE }}
               >

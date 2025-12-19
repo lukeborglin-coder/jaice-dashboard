@@ -164,7 +164,6 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     allQuestionnaires,
     loading: questionnaireLoading,
     loadQuestionnaires,
-    getQNRCount,
     migrateOpenEndQuestions,
     setQuestionnaires,
     setSelectedQuestionnaire,
@@ -822,8 +821,6 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   const filteredActiveProjects = useMemo(() => filterProjectsByUser(quantActiveProjects), [filterProjectsByUser, quantActiveProjects]);
   const filteredArchivedProjects = useMemo(() => filterProjectsByUser(quantArchivedProjects), [filterProjectsByUser, quantArchivedProjects]);
   const displayProjects = activeTab === 'active' ? filteredActiveProjects : filteredArchivedProjects;
-
-  // getQNRCount is now provided by the hook
 
   const handleProjectClick = useCallback((project: any) => {
     setSelectedProject(project);
@@ -1625,7 +1622,6 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
             onShowMyProjectsOnlyChange={setShowMyProjectsOnly}
             user={user}
             onProjectClick={handleProjectClick}
-            getQNRCount={getQNRCount}
           />
         )}
 

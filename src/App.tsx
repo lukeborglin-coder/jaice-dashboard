@@ -46,6 +46,7 @@ import {
   ExclamationTriangleIcon,
   EyeIcon,
   BeakerIcon,
+  CircleStackIcon,
 } from "@heroicons/react/24/outline";
 import {
   RocketLaunchIcon as RocketLaunchIconSolid,
@@ -6067,11 +6068,11 @@ export default function App() {
     () => {
       let tools = [
         { name: "QNR", icon: IconCheckbox },
-        { name: "Tabs", icon: IconChartDonut2 },
+        { name: "Tabs", icon: CircleStackIcon },
+        { name: "Data Quality", icon: IconDatabaseExclamation },
         { name: "Utilities", icon: IconChartLine },
         { name: "Stat Testing", icon: IconChartBar },
         { name: "Open-End Coding", icon: IconCode },
-        { name: "Data Quality", icon: IconDatabaseExclamation },
       ];
 
       // Only show Conjoint Simulator to admins
@@ -6081,7 +6082,7 @@ export default function App() {
 
       // Only show certain tools to admins
       if (user?.role !== 'admin') {
-        tools = tools.filter(item => !["Data Quality", "Stat Testing", "Utilities"].includes(item.name));
+        tools = tools.filter(item => !["Stat Testing", "Utilities"].includes(item.name));
       }
 
       return tools;
@@ -6218,7 +6219,7 @@ export default function App() {
             <div className="flex items-center gap-2">
 
               {/* Notification Bell - Hidden for oversight users */}
-              {user?.role !== 'oversight' && (
+              {user?.role === 'admin' && (
                 <NotificationBell
                   notifications={notifications}
                   unreadCount={notificationService.getUnreadCount()}
@@ -6479,27 +6480,9 @@ export default function App() {
       ) : route === "Open-End Coding" ? (
         <OpenEndCoding />
       ) : route === "Tabs" ? (
-        user?.role === 'admin' ? (
-          <Tabs projects={projects} onNavigateToProject={handleProjectView} onHeaderChange={setTabsHeader} />
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center p-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
-              <p className="text-gray-600">The Tabs page is only available to administrators.</p>
-            </div>
-          </div>
-        )
+        <Tabs projects={projects} onNavigateToProject={handleProjectView} onHeaderChange={setTabsHeader} />
       ) : route === "Data Quality" ? (
-        user?.role === 'admin' ? (
-          <DataQualityPage projects={projects} onNavigateToProject={handleProjectView} />
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center p-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
-              <p className="text-gray-600">The Data Quality page is only available to administrators.</p>
-            </div>
-          </div>
-        )
+        <DataQualityPage projects={projects} onNavigateToProject={handleProjectView} />
       ) : route === "Conjoint Simulator" ? (
         user?.role === 'admin' ? (
           <ConjointProjects
@@ -14020,7 +14003,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                     );
                   }
                   
-                  // Quantitative projects: QNR and Tabs (if admin)
+                  // Quantitative projects: QNR and Tabs
                   if (projectIsQuant) {
                     boxes.push(
                       <div 
@@ -14063,49 +14046,46 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                       </div>
                     );
                     
-                    // Only show Tabs for admin users
-                    if (user?.role === 'admin') {
-                      boxes.push(
-                        <div 
-                          key="tabs"
-                          onClick={() => {
-                            try {
-                              sessionStorage.setItem('cognitive_dash_tabs_focus_project', selectedProject.id);
-                              sessionStorage.setItem('cognitive_dash_tabs_view_mode', 'project');
-                              // Dispatch custom event to ensure Tabs component picks it up
-                              window.dispatchEvent(new CustomEvent('selectProjectInTabs', { 
-                                detail: { 
-                                  projectId: selectedProject.id,
-                                  projectName: selectedProject.name
-                                } 
-                              }));
-                            } catch (e) {
-                              console.warn('Unable to store Tabs navigation info', e);
-                            }
-                            navigateToRoute('Tabs');
-                          }}
-                          className="bg-white rounded-xl cursor-pointer hover:shadow-lg transition-all overflow-hidden flex flex-col relative"
-                          style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
-                        >
-                          <div className="h-20" style={{ backgroundColor: BRAND.orange }}></div>
-                          <div className="flex-1 px-6 pb-6 pt-0 flex flex-col items-center text-center">
-                            <div className="relative -mt-10 mb-4">
-                              <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center border-4 border-white" style={{ boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
-                                <IconChartDonut2 className="w-10 h-10" style={{ color: BRAND.orange }} />
-                              </div>
+                    boxes.push(
+                      <div 
+                        key="tabs"
+                        onClick={() => {
+                          try {
+                            sessionStorage.setItem('cognitive_dash_tabs_focus_project', selectedProject.id);
+                            sessionStorage.setItem('cognitive_dash_tabs_view_mode', 'project');
+                            // Dispatch custom event to ensure Tabs component picks it up
+                            window.dispatchEvent(new CustomEvent('selectProjectInTabs', { 
+                              detail: { 
+                                projectId: selectedProject.id,
+                                projectName: selectedProject.name
+                              } 
+                            }));
+                          } catch (e) {
+                            console.warn('Unable to store Tabs navigation info', e);
+                          }
+                          navigateToRoute('Tabs');
+                        }}
+                        className="bg-white rounded-xl cursor-pointer hover:shadow-lg transition-all overflow-hidden flex flex-col relative"
+                        style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
+                      >
+                        <div className="h-20" style={{ backgroundColor: BRAND.orange }}></div>
+                        <div className="flex-1 px-6 pb-6 pt-0 flex flex-col items-center text-center">
+                          <div className="relative -mt-10 mb-4">
+                            <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center border-4 border-white" style={{ boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
+                              <IconChartDonut2 className="w-10 h-10" style={{ color: BRAND.orange }} />
                             </div>
-                            <div className="font-semibold text-2xl mb-1" style={{ color: BRAND.orange }}>Tabs</div>
-                            <div className="text-sm text-gray-500 mb-6">View tabs</div>
-                            <div className="w-full flex justify-around pt-4 border-t border-gray-200">
-                              <div className="text-center">
-                                <div className="text-xl font-bold text-gray-900">{qnrCount}</div>
-                                <div className="text-xs mt-1" style={{ color: BRAND.orange }}>Saved</div>
-                              </div>
+                          </div>
+                          <div className="font-semibold text-2xl mb-1" style={{ color: BRAND.orange }}>Tabs</div>
+                          <div className="text-sm text-gray-500 mb-6">View tabs</div>
+                          <div className="w-full flex justify-around pt-4 border-t border-gray-200">
+                            <div className="text-center">
+                              <div className="text-xl font-bold text-gray-900">{qnrCount}</div>
+                              <div className="text-xs mt-1" style={{ color: BRAND.orange }}>Saved</div>
                             </div>
                           </div>
                         </div>
-                      );
-                    }
+                      </div>
+                    );
                   }
                   
                   return boxes;
@@ -22490,11 +22470,4 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
     </div>
   );
 }
-
-
-
-
-
-
-
 

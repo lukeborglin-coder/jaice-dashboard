@@ -78,6 +78,18 @@ export function getTableOptionsForVariable(
       });
     });
   }
+  // Fallback: if single select grid lacks statements in variable meta, build from questionnaire responseOptions
+  if (isSingleSelectGrid && individualTableOptions.length === 0 && matchingQuestion && Array.isArray(matchingQuestion.responseOptions)) {
+    matchingQuestion.responseOptions.forEach((opt: any, idx: number) => {
+      const code = typeof opt === 'string' ? `c${idx + 1}` : (opt.code || `c${idx + 1}`);
+      const label = typeof opt === 'string' ? opt : (opt.text || opt.label || opt.value || opt.code || code);
+      individualTableOptions.push({
+        id: `${variableName}_${code}`,
+        label: String(label || code),
+        type: 'individual',
+      });
+    });
+  }
 
   // Build summary table options
   const summaryTableOptions: TableOption[] = [];
@@ -154,6 +166,12 @@ export function getTableOptionsForVariable(
       id: `${variableName}_MeanSummaryTable`,
       label: `${baseQuestionNumber}: Mean Summary Table`,
       pill: 'Mean',
+      type: 'summary'
+    });
+    summaryTableOptions.push({
+      id: `${variableName}_SumSummaryTable`,
+      label: `${baseQuestionNumber}: Sum Summary Table`,
+      pill: 'Sum',
       type: 'summary'
     });
     

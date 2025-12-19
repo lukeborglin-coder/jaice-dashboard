@@ -118,90 +118,57 @@ export const useVariables = (props?: UseVariablesProps) => {
       }
     }
 
-    // Try to find the expected header in columnMapping (try variations)
-    let expectedHeader: string | undefined = undefined;
-    
-    // Try exact match with converted name first
-    if (columnMapping[lookupName]) {
-      expectedHeader = lookupName;
-    }
-    
-    // Try exact match with original name
-    if (!expectedHeader && columnMapping[variableName]) {
-      expectedHeader = variableName;
-    }
-    
-    // Try exact match with processed name (for hidden variables)
-    if (!expectedHeader && processedName !== variableName && columnMapping[processedName]) {
-      expectedHeader = processedName;
-    }
-    
+    // Try to find the expected header in columnMapping (try variations) or raw columns directly
+    const withQ = lookupName.startsWith('Q') ? lookupName : `Q${lookupName}`;
+    const withoutQ = lookupName.startsWith('Q') ? lookupName.substring(1) : lookupName;
+    const candHeaders: string[] = [];
+
+    candHeaders.push(lookupName, variableName, processedName, withQ, withoutQ);
+
+    // Allow single-column fallback (c1) for single-selects and other one-column questions
+    candHeaders.push(`${lookupName}c1`, `${withQ}c1`, `${withoutQ}c1`, `${variableName}c1`, `${processedName}c1`);
+
     // For single select grids, also try format without underscore (C1r1 instead of C1_r1)
-    if (!expectedHeader && processedName.includes('_r')) {
+    if (processedName.includes('_r')) {
       const withoutUnderscore = processedName.replace('_r', 'r');
-      if (columnMapping[withoutUnderscore]) {
-        expectedHeader = withoutUnderscore;
-      }
-    }
-    
-    // Try with Q prefix (but not for hidden variables - they use "h" prefix)
-    if (!expectedHeader && !processedName.toLowerCase().startsWith('h')) {
-      const withQ = lookupName.startsWith('Q') ? lookupName : `Q${lookupName}`;
-      if (columnMapping[withQ]) {
-        expectedHeader = withQ;
-      }
-    }
-    
-    // Try without Q prefix
-    if (!expectedHeader && lookupName.startsWith('Q')) {
-      const withoutQ = lookupName.substring(1);
-      if (columnMapping[withoutQ]) {
-        expectedHeader = withoutQ;
-      }
+      candHeaders.push(withoutUnderscore, `${withoutUnderscore}c1`);
     }
 
-    // For numeric questions, try with r1 suffix
-    if (!expectedHeader) {
-      const baseWithR1 = lookupName.endsWith('r1') ? lookupName : `${lookupName}r1`;
-      const withQandR1 = baseWithR1.startsWith('Q') ? baseWithR1 : `Q${baseWithR1}`;
-      if (columnMapping[withQandR1]) {
-        expectedHeader = withQandR1;
-      } else if (columnMapping[baseWithR1]) {
-        expectedHeader = baseWithR1;
-      }
+    // For numeric questions, try r1 variations
+    const baseWithR1 = lookupName.endsWith('r1') ? lookupName : `${lookupName}r1`;
+    const withQandR1 = baseWithR1.startsWith('Q') ? baseWithR1 : `Q${baseWithR1}`;
+    candHeaders.push(baseWithR1, withQandR1);
 
-      // Also try without r1 suffix if lookupName already has it
-      if (!expectedHeader && lookupName.endsWith('r1')) {
-        const withoutR1 = lookupName.slice(0, -2);
-        if (columnMapping[withoutR1]) {
-          expectedHeader = withoutR1;
-        }
-        const withQnoR1 = withoutR1.startsWith('Q') ? withoutR1 : `Q${withoutR1}`;
-        if (!expectedHeader && columnMapping[withQnoR1]) {
-          expectedHeader = withQnoR1;
-        }
-      }
-    }
+    // Try to find a mapping
+    let expectedHeader: string | undefined = candHeaders.find((h) => !!columnMapping[h]);
 
-    // Try case-insensitive lookup
+    // Try case-insensitive mapping if needed
     if (!expectedHeader) {
       const mappingKeys = Object.keys(columnMapping);
-      const matchingKey = mappingKeys.find(key => 
-        key.toLowerCase() === lookupName.toLowerCase() ||
-        (!lookupName.toLowerCase().startsWith('h') && key.toLowerCase() === (lookupName.startsWith('Q') ? lookupName : `Q${lookupName}`).toLowerCase()) ||
-        (lookupName.startsWith('Q') && key.toLowerCase() === lookupName.substring(1).toLowerCase())
-      );
+      const matchingKey = mappingKeys.find(key => candHeaders.some(h => h.toLowerCase() === key.toLowerCase()));
       if (matchingKey) {
         expectedHeader = matchingKey;
       }
     }
-    
-    if (!expectedHeader) {
-      return undefined;
+
+    let matchedColumnHeader: string | undefined = expectedHeader ? columnMapping[expectedHeader] : undefined;
+
+    // If still not found, match directly against raw column headers (case-insensitive)
+    if (!matchedColumnHeader && fullRawData?.columns) {
+      const lowerColumns = new Map<string, string>();
+      fullRawData.columns.forEach((c: string) => {
+        lowerColumns.set(String(c).toLowerCase().trim(), c);
+      });
+      for (const h of candHeaders) {
+        const found = lowerColumns.get(h.toLowerCase().trim());
+        if (found) {
+          matchedColumnHeader = found;
+          expectedHeader = h;
+          break;
+        }
+      }
     }
-    
-    // Get the matched column header (the actual Excel column name)
-    const matchedColumnHeader = columnMapping[expectedHeader];
+
     if (!matchedColumnHeader) {
       return undefined;
     }

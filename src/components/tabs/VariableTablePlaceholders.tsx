@@ -20,6 +20,7 @@ interface VariableTablePlaceholdersProps {
   questionnaireQuestions?: any[];
   disableMappingIndicators?: boolean;
   columnHeaderOverrides?: Record<string, string>;
+  onTablesNoData?: (variableName: string, noData: boolean) => void;
 }
 // Define which stats apply to which table types
 const getStatsForTableType = (tableType: 'individual' | 'summary' | 'net', variable: Variable | null): Array<{ key: keyof VariableStatsSelection; label: string }> => {
@@ -85,6 +86,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
   questionnaireQuestions = [],
   disableMappingIndicators = false,
   columnHeaderOverrides,
+  onTablesNoData,
 }) => {
   const variableName = variable?.name || '';
   const typeLower = variable?.type?.toLowerCase() || '';
@@ -3505,7 +3507,15 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     </div>
   ) : null;
 
-  if (anyTableRendered && !anyTableHasData) {
+  const noDataAcrossTables = anyTableRendered && !anyTableHasData;
+
+  React.useEffect(() => {
+    if (!onTablesNoData) return;
+    if (!variableName) return;
+    onTablesNoData(variableName, noDataAcrossTables);
+  }, [onTablesNoData, variableName, noDataAcrossTables]);
+
+  if (noDataAcrossTables) {
     return renderNoDataBanner(undefined, 'No data found for these tables - bases are 0 across all rows/columns. Upload or map data for this question to see tables.');
   }
 

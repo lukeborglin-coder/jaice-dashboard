@@ -1,5 +1,5 @@
 import React from 'react';
-import { IconTable, IconCheckbox } from '@tabler/icons-react';
+import { IconTable } from '@tabler/icons-react';
 
 const BRAND_ORANGE = '#D14A2D';
 
@@ -13,7 +13,6 @@ interface HomeViewProps {
   onShowMyProjectsOnlyChange: (value: boolean) => void;
   user: any;
   onProjectClick: (project: any) => void;
-  getQNRCount: (projectId: string) => number;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -26,7 +25,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onShowMyProjectsOnlyChange,
   user,
   onProjectClick,
-  getQNRCount,
 }) => {
   return (
     <>
@@ -95,7 +93,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">QNRs</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -111,12 +108,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">{project.client || '-'}</div>
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <div className="flex items-center justify-center gap-1 text-sm text-gray-900">
-                        <IconCheckbox className="h-4 w-4 text-gray-400" />
-                        <span>{getQNRCount(project.id)}</span>
-                      </div>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -127,4 +118,3 @@ export const HomeView: React.FC<HomeViewProps> = ({
     </>
   );
 };
-

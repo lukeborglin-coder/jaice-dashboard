@@ -55,15 +55,14 @@ export function getDefaultTableSelectionsForVariable(
     ''
   ).trim();
 
-  // Multi-select (non-grid): frequency table - ALWAYS show for multi-selects
-  if (isMultiSelect) {
-    defaultSelections.add(variableName);
+  // If the Q# does NOT contain any digit, return empty set (no default tables)
+  if (!/\d/.test(questionIdentifier)) {
     return defaultSelections;
   }
 
-  // If the Q# does NOT contain any digit, return empty set (no default tables)
-  // This check comes AFTER multi-select to ensure multi-selects always get tables
-  if (!/\d/.test(questionIdentifier)) {
+  // Multi-select (non-grid): frequency table
+  if (isMultiSelect) {
+    defaultSelections.add(variableName);
     return defaultSelections;
   }
 

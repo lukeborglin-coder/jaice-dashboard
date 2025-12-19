@@ -172,7 +172,16 @@ export const getExpectedHeadersForQuestion = (
   }
   // Single Select (non-grid) - just Q{number}
   else if (typeLower.includes('single select') && !typeLower.includes('grid')) {
-    expectedHeaders.push(`Q${qNumStr}`);
+    // Prefer the plain question number; also allow a single column code (c1) fallback
+    const candidates = [
+      qNumStr,
+      `${qNumStr}c1`,
+      `Q${qNumStr}`,
+      `Q${qNumStr}c1`,
+    ];
+    candidates.forEach((h) => {
+      if (!expectedHeaders.includes(h)) expectedHeaders.push(h);
+    });
   }
   // Open End (not Open End List) - just Q{number}
   else if (typeLower.includes('open end') || typeLower.includes('open-ended') || typeLower.includes('text')) {

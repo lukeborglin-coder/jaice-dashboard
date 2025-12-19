@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import {
   CloudArrowUpIcon,
   TrashIcon,
@@ -9,8 +9,11 @@ import {
   Bars3Icon,
   ClockIcon,
   CalculatorIcon,
+  PlayIcon,
+  ArrowLeftIcon,
 } from '@heroicons/react/24/outline';
 import * as XLSX from 'xlsx';
+import { classifyDatamapQuestionType, detect7ptScale } from '../../utils/tabs/questionHelpers';
 import { API_BASE_URL } from '../../config';
 import { RawDataViewer } from '../tabs/RawDataViewer';
 import { QualityPlanView, type DQV2RespondentResult, type DQV2RunResultsPayload } from './QualityPlanView';
@@ -26,6 +29,8 @@ interface UploadedFileInfo {
 interface DataQualityV2DataTabProps {
   selectedProject: any | null;
   selectedQuestionnaire: any | null;
+  hideUploadBox?: boolean;
+  initialUploadedFileInfo?: UploadedFileInfo | null;
 
   fullRawData: { columns: string[]; rows: any[] } | null;
   loadingFullRawData: boolean;
@@ -44,11 +49,18 @@ interface DataQualityV2DataTabProps {
   onLoadDatamap?: (force?: boolean) => void;
   onEnsureRawData?: (force?: boolean) => void;
   onClearDatamap?: () => void;
+  onBackToFiles?: () => void;
+  showBackButton?: boolean;
 }
 
-export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
+export interface DataQualityV2UploadHandle {
+  openUploadPicker: () => void;
+}
+
+const DataQualityV2DataTabComponent = ({
   selectedProject,
   selectedQuestionnaire,
+  initialUploadedFileInfo,
   fullRawData,
   loadingFullRawData,
   rawDataPage,
@@ -64,7 +76,10 @@ export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
   onLoadDatamap,
   onEnsureRawData,
   onClearDatamap,
-}) => {
+  onBackToFiles,
+  showBackButton = false,
+  hideUploadBox = false,
+}, ref: React.Ref<DataQualityV2UploadHandle>) => {
   const getResultsStorageKey = (projectId: string) => `dqv2_qualityResults_${projectId}`;
 
   const normalizeHeaderKey = (value: unknown) => String(value || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
@@ -83,6 +98,7 @@ export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
   const [uploadingFile, setUploadingFile] = useState(false);
   const [dataTabView, setDataTabView] = useState<'datamap' | 'rawdata' | 'qualityPlan' | 'results'>('datamap');
   const [datamapSearch, setDatamapSearch] = useState('');
+  const [showHiddenRows, setShowHiddenRows] = useState(false);
   const [expandedDatamapRows, setExpandedDatamapRows] = useState<Set<number>>(new Set());
   const [qualityPlanResetKey, setQualityPlanResetKey] = useState(0);
   const [dqv2Results, setDqv2Results] = useState<DQV2RespondentResult[] | null>(null);
@@ -122,6 +138,42 @@ export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
 
     return count;
   }, [fullRawData?.rows, fullRawData?.columns]);
+
+  const generateTagsForQuestion = useMemo(() => {
+    return (q: any) => {
+      const tags: string[] = [];
+      const responseType = String(q?.responseType || '').toLowerCase();
+      const questionType = classifyDatamapQuestionType(q || {});
+
+      const isNumericGrid = questionType === 'Numeric grid';
+      const isNumeric = questionType === 'Numeric';
+      const hasValues01 = responseType.match(/values?:\s*0\s*-\s*1/i);
+
+      if (isNumericGrid || isNumeric) {
+        if (hasValues01) {
+          tags.push('%');
+        } else {
+          tags.push('Number');
+        }
+      }
+
+      const isSingleSelectLike = questionType === 'Single select' || questionType === 'Single select grid';
+      const hasScaleTag = tags.some(tag => /scale\s*\(7pt\)/i.test(tag));
+      if (isSingleSelectLike && !hasScaleTag) {
+        const responseCodes = Array.isArray(q?.responseCodes) ? q.responseCodes : [];
+        const responseOptions = responseCodes.map((c: any, idx: number) => ({
+          code: String(c?.code ?? idx + 1),
+          text: String(c?.text ?? c?.label ?? c?.code ?? idx + 1),
+        }));
+        const detection = detect7ptScale(responseOptions);
+        if (detection.hasScale) {
+          tags.push('Scale (7pt)');
+        }
+      }
+
+      return tags;
+    };
+  }, []);
 
   // Never trigger parent state updates during render.
   // If we have a questionnaire + uploaded file but no datamap yet, load it here.
@@ -221,7 +273,15 @@ export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
     };
   }, [selectedQuestionnaire?.id]);
 
+  // Seed uploaded file info from parent (e.g., list view) to avoid disabled tabs while fetching
+  useEffect(() => {
+    if (uploadedFileInfo) return;
+    if (!initialUploadedFileInfo) return;
+    setUploadedFileInfo(initialUploadedFileInfo);
+  }, [initialUploadedFileInfo, uploadedFileInfo]);
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.debug('[DQ-UPLOAD] handleFileUpload called');
     const file = e.target.files?.[0];
     if (!file || !selectedQuestionnaire) return;
 
@@ -229,6 +289,7 @@ export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
 
     try {
       setUploadingFile(true);
+      console.debug('[DQ-UPLOAD] Starting local header parse', { fileName: file.name });
 
       // Parse headers locally first (same behavior as Tabs)
       await new Promise<string[]>((resolve, reject) => {
@@ -269,12 +330,14 @@ export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
         if (isCSV) reader.readAsText(file);
         else reader.readAsArrayBuffer(file);
       });
+      console.debug('[DQ-UPLOAD] Finished local header parse');
 
       // Upload to server (questionnaire-backed)
       const formData = new FormData();
       formData.append('file', file);
       formData.append('questionnaireId', selectedQuestionnaire.id);
 
+      console.debug('[DQ-UPLOAD] Uploading to server', { questionnaireId: selectedQuestionnaire.id, fileName: file.name });
       const response = await fetch(`${API_BASE_URL}/api/questionnaire/upload-data-file`, {
         method: 'POST',
         headers: {
@@ -285,6 +348,7 @@ export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
 
       if (response.ok) {
         const result = await response.json();
+        console.debug('[DQ-UPLOAD] Upload success', { fileName: result.originalFileName || result.fileName || file.name });
         setUploadedFileInfo({
           fileName: result.originalFileName || result.fileName || file.name,
           uploadedAt: new Date().toISOString(),
@@ -310,9 +374,11 @@ export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
         } catch {}
 
         // Kick off the upstream loads (raw data + datamap). Keep the spinner up until they finish.
+        console.debug('[DQ-UPLOAD] Calling onDataUploaded');
         await Promise.resolve(onDataUploaded?.());
         // Fallback: if caller didn't implement onDataUploaded, at least refresh the datamap.
         if (!onDataUploaded) {
+          console.debug('[DQ-UPLOAD] No onDataUploaded handler, triggering loadDatamap');
           onLoadDatamap?.(true);
         }
         // Stay on Data Map (do not auto-switch to Raw Data)
@@ -320,6 +386,7 @@ export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
 
         // Keep the loading UI up until both sources are finished (or we time out).
         const waitForPostUploadLoads = async (timeoutMs: number) => {
+          console.debug('[DQ-UPLOAD] Waiting for datamap/raw data to finish loading');
           const start = Date.now();
           // Wait for loading flags to settle.
           while (Date.now() - start < timeoutMs) {
@@ -330,16 +397,19 @@ export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
           }
         };
         await waitForPostUploadLoads(120_000);
+        console.debug('[DQ-UPLOAD] Post-upload loads finished or timed out');
       } else {
         const error = await response.json().catch(() => ({}));
+        console.error('[DQ-UPLOAD] Failed to upload file', error);
         alert(`Failed to upload file: ${error.error || 'Unknown error'}`);
       }
     } catch (error: any) {
-      console.error('Error uploading file:', error);
+      console.error('[DQ-UPLOAD] Error uploading file:', error);
       alert(`Failed to upload file: ${error?.message || 'Unknown error'}`);
     } finally {
       setUploadingFile(false);
       isUploadingNewFileRef.current = false;
+      console.debug('[DQ-UPLOAD] Upload flow complete (finally)');
       if (e.target) {
         e.target.value = '';
       }
@@ -400,8 +470,9 @@ export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
   };
 
   const canShowDataViews = !!uploadedFileInfo;
-  const canShowResultsTab = true;
-  const canClickResultsTab = canShowDataViews && Array.isArray(dqv2Results) && dqv2Results.length > 0;
+  const hasResults = Array.isArray(dqv2Results) && dqv2Results.length > 0;
+  const canShowResultsTab = hasResults;
+  const canClickResultsTab = hasResults;
   const columnHeaders = fullRawData?.columns || [];
 
   const flagCountStats = useMemo(() => {
@@ -414,6 +485,12 @@ export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
     return { mean, stdDev: Number.isFinite(stdDev) ? stdDev : null };
   }, [dqv2Results]);
 
+  useEffect(() => {
+    if (dataTabView === 'results' && !hasResults) {
+      setDataTabView('qualityPlan');
+    }
+  }, [dataTabView, hasResults]);
+
   const isFlagCountOutlier = (flagCount: unknown) => {
     const n = Number(flagCount);
     const mean = flagCountStats.mean;
@@ -422,75 +499,125 @@ export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
     return Math.abs(n - mean) >= 2 * sd;
   };
 
+
+  const groupedResults = useMemo(() => {
+    const rows = Array.isArray(dqv2Results) ? [...dqv2Results] : [];
+    rows.sort((a, b) => Number(b?.score || 0) - Number(a?.score || 0));
+    const buckets: Record<'bad' | 'moderate' | 'good', DQV2RespondentResult[]> = {
+      bad: [],
+      moderate: [],
+      good: [],
+    };
+    rows.forEach((r) => {
+      const s = Number(r?.score || 0);
+      const flaggedOutlier = isFlagCountOutlier(r.flagCount);
+      if (s >= 41) buckets.bad.push(r);
+      else if (s >= 21) buckets.moderate.push(r);
+      else if (flaggedOutlier) buckets.moderate.push(r);
+      else buckets.good.push(r);
+    });
+    return buckets;
+  }, [dqv2Results, isFlagCountOutlier]);
+
   const ensureRawDataIfNeeded = (force?: boolean) => {
     if (loadingFullRawData) return;
     if (fullRawData && Array.isArray(fullRawData.rows) && fullRawData.rows.length > 0) return;
     onEnsureRawData?.(force);
   };
 
+  useImperativeHandle(ref, () => ({
+    openUploadPicker: () => {
+      console.debug('[DQ] openUploadPicker invoked');
+      fileInputRef.current?.click();
+    }
+  }), []);
+
   return (
-    <div className="p-6">
-      <div className="mt-0">
-        <div className="flex items-center gap-3 mb-3">
-          <button
-            onClick={() => canShowDataViews && setDataTabView('datamap')}
-            disabled={!canShowDataViews}
-            className={`flex-1 text-center text-sm font-semibold px-3 py-1.5 rounded transition-colors ${!canShowDataViews
-              ? 'text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed'
-              : dataTabView === 'datamap'
-              ? 'text-white cursor-pointer'
-              : 'text-gray-900 bg-white border border-gray-300 hover:bg-gray-50 cursor-pointer'
-            }`}
-            style={dataTabView === 'datamap' && canShowDataViews ? { backgroundColor: BRAND_ORANGE } : {}}
-          >
-            Data Map
-          </button>
-          <button
-            onClick={() => {
-              if (!canShowDataViews) return;
-              ensureRawDataIfNeeded(false);
-              setDataTabView('qualityPlan');
-            }}
-            disabled={!canShowDataViews}
-            className={`flex-1 text-center text-sm font-semibold px-3 py-1.5 rounded transition-colors ${!canShowDataViews
-              ? 'text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed'
-              : dataTabView === 'qualityPlan'
-              ? 'text-white cursor-pointer'
-              : 'text-gray-900 bg-white border border-gray-300 hover:bg-gray-50 cursor-pointer'
-            }`}
-            style={dataTabView === 'qualityPlan' && canShowDataViews ? { backgroundColor: BRAND_ORANGE } : {}}
-          >
-            Quality Plan
-          </button>
-          {canShowResultsTab && (
+    <div className="p-6 pt-0 h-full flex flex-col min-h-0">
+      {/* Always keep the file input mounted for programmatic picker opens */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        id="dqv2-data-file-upload"
+        accept=".xlsx,.xls,.csv"
+        onChange={handleFileUpload}
+        className="hidden"
+      />
+
+      <div className="mt-0 mb-3 sticky top-0 z-30 py-2" style={{ backgroundColor: '#f8f9fb' }}>
+        <div className="flex items-center justify-between">
+          <nav className="-mb-px flex space-x-8 items-center">
             <button
               onClick={() => {
-                if (!canClickResultsTab) return;
-                ensureRawDataIfNeeded(false);
-                setDataTabView('results');
+                if (!canShowDataViews) return;
+                setDataTabView('datamap');
               }}
-              disabled={!canClickResultsTab}
-              className={`flex-1 text-center text-sm font-semibold px-3 py-1.5 rounded transition-colors ${!canClickResultsTab
-                ? 'text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed'
-                : dataTabView === 'results'
-                ? 'text-white cursor-pointer'
-                : 'text-gray-900 bg-white border border-gray-300 hover:bg-gray-50 cursor-pointer'
-              }`}
-              style={dataTabView === 'results' && canClickResultsTab ? { backgroundColor: BRAND_ORANGE } : {}}
-              title={!canShowDataViews ? 'Upload a data file first' : (!canClickResultsTab ? 'Run Quality Check to see results' : 'View results')}
+              disabled={!canShowDataViews}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                dataTabView === 'datamap'
+                  ? 'text-white'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              } ${!canShowDataViews ? 'cursor-not-allowed text-gray-400' : ''}`}
+              style={dataTabView === 'datamap' && canShowDataViews ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
             >
-              Results
+              Data Map
+            </button>
+            <button
+              onClick={() => {
+                if (!canShowDataViews) return;
+                ensureRawDataIfNeeded(false);
+                setDataTabView('qualityPlan');
+              }}
+              disabled={!canShowDataViews}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                dataTabView === 'qualityPlan'
+                  ? 'text-white'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              } ${!canShowDataViews ? 'cursor-not-allowed text-gray-400' : ''}`}
+              style={dataTabView === 'qualityPlan' && canShowDataViews ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
+            >
+              Quality Plan
+            </button>
+            {canShowResultsTab && (
+              <button
+                onClick={() => {
+                  if (!canClickResultsTab) return;
+                  ensureRawDataIfNeeded(false);
+                  setDataTabView('results');
+                }}
+                disabled={!canClickResultsTab}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  dataTabView === 'results'
+                    ? 'text-white'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } ${!canClickResultsTab ? 'cursor-not-allowed text-gray-400' : ''}`}
+                style={dataTabView === 'results' && canClickResultsTab ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
+                title={!canShowDataViews ? 'Upload a data file first' : (!canClickResultsTab ? 'Run Quality Check to see results' : 'View results')}
+              >
+                Results
+              </button>
+            )}
+          </nav>
+          {showBackButton && onBackToFiles && (
+            <button
+              onClick={onBackToFiles}
+              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-1 rounded-lg transition-colors"
+            >
+              <ArrowLeftIcon className="h-4 w-4" />
+              Back to data files
             </button>
           )}
         </div>
+        <div className="border-b border-gray-200"></div>
+      </div>
 
         {dataTabView === 'datamap' && (
-          <div>
-            {/* Data File box (only shown in Data Map view) */}
-            <div className="mb-6">
-              <div className="flex items-center gap-3 mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Data File</h3>
-                {!uploadedFileInfo && (
+          <div className="flex-1 min-h-0 flex flex-col gap-3">
+            {/* Data File box (only when no file is uploaded) */}
+            {!uploadedFileInfo && !hideUploadBox && (
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Data File</h3>
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploadingFile || !selectedProject}
@@ -500,76 +627,29 @@ export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
                     <CloudArrowUpIcon className="h-3.5 w-3.5" />
                     {uploadingFile ? 'Uploading...' : 'Upload Data File'}
                   </button>
-                )}
-              </div>
+                </div>
 
-              {uploadingFile && (
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="p-8 text-center">
-                    <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-[#D14A2D]"></div>
-                    <p className="text-sm text-gray-700">Uploading and processing data file...</p>
+                {uploadingFile && (
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="p-8 text-center">
+                      <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-[#D14A2D]"></div>
+                      <p className="text-sm text-gray-700">Uploading and processing data file...</p>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {!uploadedFileInfo && !uploadingFile && (
-                <div className="text-left mb-4">
-                  <p className="text-sm text-gray-500">No data file uploaded</p>
-                  <p className="text-xs text-gray-400 mt-2">Click the \"Upload Data File\" button to get started</p>
-                </div>
-              )}
+                {!uploadingFile && (
+                  <div className="text-left mb-4">
+                    <p className="text-sm text-gray-500">No data file uploaded</p>
+                    <p className="text-xs text-gray-400 mt-2">Click the "Upload Data File" button to get started</p>
+                  </div>
+                )}
 
-              {uploadedFileInfo && !uploadingFile && (
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <table className="w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File Name</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Uploaded</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Respondents</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      <tr>
-                        <td className="px-4 py-3 text-sm text-gray-500 truncate" title={uploadedFileInfo.fileName}>
-                          {uploadedFileInfo.fileName}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-500">
-                          {new Date(uploadedFileInfo.uploadedAt).toLocaleDateString()} {new Date(uploadedFileInfo.uploadedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-500">
-                          {loadingFullRawData && !fullRawData ? 'Loading...' : validRespondentCount}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={handleDeleteFile}
-                              className="flex items-center justify-center p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
-                              title="Delete data file permanently from server"
-                            >
-                              <TrashIcon className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                id="dqv2-data-file-upload"
-                accept=".xlsx,.xls,.csv"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </div>
+              </div>
+            )}
 
             {!uploadingFile && !!uploadedFileInfo && (
-              <div className="mb-3 flex items-center gap-3">
+              <div className="flex items-center gap-3">
                 <div className="relative flex-1">
                   <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <input
@@ -585,9 +665,9 @@ export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
               </div>
             )}
 
-            <div>
+            <div className="flex-1 min-h-0">
               {(() => {
-                if (loadingDatamap) {
+                if (loadingDatamap && !datamapData) {
                   // While uploading, the upload box is the only loading UI we want to show here.
                   if (uploadingFile) return null;
                   return <div className="text-center py-8 text-gray-500">Loading datamap...</div>;
@@ -625,230 +705,143 @@ export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
                     })
                   : (datamapData.parsedQuestions || []);
 
-                const getQuestionType = (type: string): string => {
-                  const lowerType = type.toLowerCase();
-                  if (lowerType.includes('open text')) return 'Open end';
-                  if (lowerType.includes('open numeric')) return 'Numeric';
-                  if (lowerType.match(/values?:\s*0\s*-\s*1/i)) return 'Multi-select';
-                  const valuesMatch = lowerType.match(/values?:\s*(\d+)\s*-\s*(\d+)/i);
-                  if (valuesMatch) {
-                    const min = parseInt(valuesMatch[1]);
-                    const max = parseInt(valuesMatch[2]);
-                    if (min >= 1 && max <= 99) return 'Single select';
-                    return 'Numeric';
-                  }
-                  const singleValueMatch = lowerType.match(/values?:\s*(\d+)/i);
-                  if (singleValueMatch) {
-                    const value = parseInt(singleValueMatch[1]);
-                    if (value >= 1 && value <= 99) return 'Single select';
-                    return 'Numeric';
-                  }
-                  return 'Unknown';
-                };
-
-                const getResponseTypeStyle = (type: string) => {
-                  const lowerType = type.toLowerCase();
-                  if (lowerType.includes('open numeric')) return 'bg-blue-100 text-blue-800';
-                  if (lowerType.includes('open text')) return 'bg-cyan-100 text-cyan-800';
-                  if (lowerType.match(/values?:\s*0\s*-\s*1/i)) return 'bg-green-100 text-green-800';
-                  if (lowerType.includes('values:')) return 'bg-orange-100 text-orange-800';
-                  return 'bg-gray-100 text-gray-800';
-                };
-
-                const extractColumnHeadersFromResponseCodes = (responseCodes: any[]): string[] => {
-                  const extracted: string[] = [];
-                  responseCodes.forEach((codeItem: any) => {
-                    const codeStr = String(codeItem.code || '').trim();
-                    const patterns = [/\[([^\]]+)\]/g, /\(([^)]+)\)/g];
-                    patterns.forEach((pattern) => {
-                      let match;
-                      pattern.lastIndex = 0;
-                      while ((match = pattern.exec(codeStr)) !== null) {
-                        extracted.push(match[1].trim());
-                      }
-                    });
-                  });
-                  return extracted;
-                };
-
-                const hasBracketsInResponseCodes = (responseCodes: any[]): boolean => {
-                  return responseCodes.some((codeItem: any) => {
-                    const codeStr = String(codeItem.code || '').trim();
-                    return /\[([^\]]+)\]|\(([^)]+)\)/.test(codeStr);
-                  });
-                };
+                const visibleQuestions = showHiddenRows
+                  ? filteredQuestions
+                  : filteredQuestions.filter((q: any) => !isHiddenQuestionNumber(String(q.questionNumber || '').trim()));
 
                 return (
-                  <div className="overflow-auto border border-gray-200 rounded-lg" style={{ maxHeight: '600px' }}>
-                    <table className="w-full table-fixed divide-y divide-gray-200">
-                      <thead className="bg-gray-50 sticky top-0">
+                  <div className="h-full overflow-y-auto overflow-x-hidden border border-gray-200 rounded-lg bg-white">
+                    <table className="w-full table-fixed text-sm">
+                      <colgroup>
+                        <col style={{ width: '7%' }} />
+                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '8%' }} />
+                        <col style={{ width: '20%' }} />
+                        <col style={{ width: '20%' }} />
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '7%' }} />
+                      </colgroup>
+                      <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '12%' }}>
-                            Question #
-                          </th>
-                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '8%' }}>
-                            Hidden
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '22%' }}>
-                            Description
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '14%' }}>
-                            Response Type
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '12%' }}>
-                            Q Type
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '20%' }}>
-                            Response Codes
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '12%' }}>
-                            Column headers
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Q#</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">Response value</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">Question type</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Tags</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Text</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">Response options</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Statements</th>
+                          <th
+                            className="px-3 py-2 text-center text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer select-none"
+                            style={{ width: '70px' }}
+                            onClick={() => setShowHiddenRows((prev) => !prev)}
+                            title={showHiddenRows ? 'Hide hidden rows' : 'Show hidden rows'}
+                          >
+                            <div className="leading-tight">
+                              <div>Hidden</div>
+                              <div className="text-[10px] font-normal text-gray-500">
+                                {showHiddenRows ? 'Showing' : 'Filtered'}
+                              </div>
+                            </div>
                           </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredQuestions.map((question: any, idx: number) => {
-                          const responseType = question.responseType || 'Unknown';
-                          let questionType = getQuestionType(responseType);
-
+                        {visibleQuestions.map((question: any, idx: number) => {
                           const questionNumberRaw = String(question.questionNumber || '').trim();
+                          const questionNumberDisplay = questionNumberRaw;
                           const isHidden = isHiddenQuestionNumber(questionNumberRaw);
+                          const responseType = question.responseType || 'Unknown';
+                          const questionType = classifyDatamapQuestionType(question || {});
+                          const tags = generateTagsForQuestion(question || {});
 
-                          if (questionType === 'Numeric' && question.responseCodes && question.responseCodes.length > 0) {
-                            questionType = 'Numeric grid';
-                          }
+                          const rawOptions =
+                            (Array.isArray(question?.responseCodes) && question.responseCodes) ||
+                            (Array.isArray(question?.responseOptions) && question.responseOptions) ||
+                            (Array.isArray(question?.statementOptions) && question.statementOptions) ||
+                            [];
 
-                          if (questionType === 'Single select' &&
-                            question.responseCodes &&
-                            question.responseCodes.length > 0 &&
-                            responseType &&
-                            responseType.toLowerCase().match(/values?:\s*\d+/i) &&
-                            hasBracketsInResponseCodes(question.responseCodes)) {
-                            questionType = 'Single select grid';
-                          }
+                          const normalizedOptions: Array<{ code: string; label: string }> = rawOptions
+                            .map((opt: any, optIdx: number) => {
+                              if (opt == null) return null;
+                              if (typeof opt === 'string' || typeof opt === 'number') {
+                                return { code: String(opt), label: '' };
+                              }
+                              const code = opt.code ?? opt.value ?? optIdx + 1;
+                              const label = opt.label ?? opt.text ?? opt.name ?? '';
+                              return { code: String(code), label: String(label) };
+                            })
+                            .filter(Boolean) as Array<{ code: string; label: string }>;
 
-                          let matchingColumns: string[] = [];
-                          const isMultiSelect = questionType === 'Multi-select' ||
-                            (responseType && responseType.toLowerCase().match(/values?:\s*0\s*-\s*1/i));
+                          const previewOptions = normalizedOptions.slice(0, 6);
+                          const remainingOptions = Math.max(0, normalizedOptions.length - previewOptions.length);
 
-                          if ((isMultiSelect || questionType === 'Numeric grid' || questionType === 'Single select grid') && question.responseCodes && question.responseCodes.length > 0) {
-                            matchingColumns = extractColumnHeadersFromResponseCodes(question.responseCodes);
-                          } else {
-                            const qNum = question.questionNumber || '';
-                            const isOpenText = responseType && responseType.toLowerCase().includes('open text');
-                            const isOpenEnd = questionType === 'Open end' || questionType === 'Numeric';
-                            const columnsToCheck = datamapData.columnDefinitions || [];
-
-                            matchingColumns = columnsToCheck
-                              ?.filter((def: any) => {
-                                if (!def.columnName) return false;
-                                const colNameLower = String(def.columnName).toLowerCase();
-                                const qNumLower = String(qNum).toLowerCase();
-
-                                if (isOpenText) {
-                                  const qNumWithQ = qNumLower.startsWith('q') ? qNumLower : 'q' + qNumLower;
-                                  const qNumWithoutQ = qNumLower.startsWith('q') ? qNumLower.substring(1) : qNumLower;
-
-                                  if (colNameLower === qNumLower || colNameLower === qNumWithQ || colNameLower === qNumWithoutQ) return true;
-                                  if (colNameLower.startsWith(qNumWithQ) || colNameLower.startsWith(qNumWithoutQ)) return true;
-                                  return false;
-                                }
-
-                                if (colNameLower === qNumLower) return true;
-                                const qNumWithQ = qNumLower.startsWith('q') ? qNumLower : 'q' + qNumLower;
-                                const qNumWithoutQ = qNumLower.startsWith('q') ? qNumLower.substring(1) : qNumLower;
-                                if (colNameLower === qNumWithQ || colNameLower === qNumWithoutQ) return true;
-
-                                if (isOpenEnd) {
-                                  if (colNameLower.startsWith(qNumWithQ) || colNameLower.startsWith(qNumWithoutQ)) return true;
-                                }
-
-                                return (
-                                  colNameLower.startsWith(qNumLower + 'r') ||
-                                  colNameLower.startsWith(qNumLower + 'c') ||
-                                  colNameLower.startsWith(qNumLower + '_r') ||
-                                  colNameLower.startsWith(qNumLower + '_c') ||
-                                  colNameLower.startsWith(qNumLower + '-') ||
-                                  colNameLower.startsWith(qNumWithQ + 'r') ||
-                                  colNameLower.startsWith(qNumWithQ + 'c') ||
-                                  colNameLower.startsWith(qNumWithQ + '_r') ||
-                                  colNameLower.startsWith(qNumWithQ + '_c') ||
-                                  colNameLower.startsWith(qNumWithQ + '-')
-                                );
-                              })
-                              .map((def: any) => def.columnName) || [];
-
-                            if (isOpenText && matchingColumns.length === 0 && qNum) {
-                              matchingColumns = [qNum];
-                            }
-                          }
-
-                          const isExpanded = expandedDatamapRows.has(idx);
-                          const toggleExpand = () => {
-                            setExpandedDatamapRows(prev => {
-                              const next = new Set(prev);
-                              if (next.has(idx)) next.delete(idx);
-                              else next.add(idx);
-                              return next;
-                            });
-                          };
-
+                          const notes = Array.isArray(question?.notes) ? question.notes : [];
                           return (
                             <tr
                               key={idx}
-                              className="hover:bg-yellow-50 cursor-pointer"
-                              onClick={toggleExpand}
+                              className="border-b border-gray-100 align-top"
                             >
-                              <td className="px-4 py-2 text-xs text-gray-700" style={isExpanded ? {} : { maxHeight: '3rem', overflow: 'hidden' }}>
-                                <div style={isExpanded ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                  {question.questionNumber}
-                                </div>
+                              <td className="px-3 py-2 text-xs text-gray-900 font-medium">
+                                <div className="truncate" title={questionNumberDisplay}>{questionNumberDisplay}</div>
                               </td>
-                              <td className="px-4 py-2 text-center">
-                                {isHidden ? (
-                                  <CheckCircleIcon className="h-5 w-5 text-green-500 mx-auto" title="Hidden (not Q / contains Term / contains HID)" />
-                                ) : (
-                                  <span className="text-gray-300">-</span>
-                                )}
+                              <td className="px-3 py-2 text-xs text-gray-700">
+                                <div className="truncate" title={responseType}>{responseType}</div>
                               </td>
-                              <td className="px-4 py-2 text-xs text-gray-700" style={isExpanded ? {} : { maxHeight: '3rem', overflow: 'hidden' }}>
-                                <div style={isExpanded ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                  {question.description || '-'}
-                                </div>
-                              </td>
-                              <td className="px-4 py-2 text-xs text-gray-700" style={isExpanded ? {} : { maxHeight: '3rem', overflow: 'hidden' }}>
-                                <div style={isExpanded ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                  <span className={`px-2 py-1 rounded text-xs font-medium ${getResponseTypeStyle(responseType)}`}>
-                                    {responseType}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-4 py-2 text-xs text-gray-700" style={isExpanded ? {} : { maxHeight: '3rem', overflow: 'hidden' }}>
-                                <div style={isExpanded ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                  {questionType}
-                                </div>
-                              </td>
-                              <td className="px-4 py-2 text-xs text-gray-600" style={isExpanded ? {} : { maxHeight: '3rem', overflow: 'hidden' }}>
-                                {question.responseCodes && question.responseCodes.length > 0 ? (
-                                  <div style={isExpanded ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                    {question.responseCodes.map((codeItem: any, codeIdx: number) => (
-                                      <span key={codeIdx}>
-                                        {codeItem.code}: {codeItem.text || codeItem.label}
-                                        {codeIdx < question.responseCodes.length - 1 ? ', ' : ''}
+                          <td className="px-3 py-2 text-xs text-gray-700">
+                            <div className="truncate" title={questionType}>{questionType}</div>
+                          </td>
+                              <td className="px-3 py-2 text-xs text-gray-700">
+                                {tags.length ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {tags.map((tag, tIdx) => (
+                                      <span key={`${tag}-${tIdx}`} className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] bg-blue-100 text-blue-800 whitespace-nowrap">
+                                        {tag}
                                       </span>
                                     ))}
                                   </div>
                                 ) : (
-                                  <span className="text-gray-400 italic">-</span>
+                                  <span className="text-gray-300">-</span>
                                 )}
                               </td>
-                              <td className="px-4 py-2 text-xs text-gray-600" style={isExpanded ? {} : { maxHeight: '3rem', overflow: 'hidden' }}>
-                                {matchingColumns.length > 0 ? (
-                                  <div style={isExpanded ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                    {matchingColumns.join(', ')}
+                              <td className="px-3 py-2 text-xs text-gray-700">
+                                <div className="line-clamp-3" title={question.description || '-'}>
+                                  {question.description || '-'}
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 text-xs text-gray-700">
+                                {normalizedOptions.length ? (
+                                  <div className="space-y-0.5 overflow-hidden" title={normalizedOptions.map((o) => (o.label ? `${o.code}: ${o.label}` : `${o.code}`)).join('\n')}>
+                                    {previewOptions.map((o, oIdx) => (
+                                      <div key={`${o.code}-${oIdx}`} className="truncate">
+                                        {o.label ? `${o.code}: ${o.label}` : `${o.code}`}
+                                      </div>
+                                    ))}
+                                    {remainingOptions > 0 ? <div className="text-gray-400 truncate">+{remainingOptions} more</div> : null}
                                   </div>
                                 ) : (
-                                  <span className="text-gray-400 italic">-</span>
+                                  <span className="text-gray-300">-</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-xs text-gray-700">
+                                {notes.length ? (
+                                  <div className="space-y-0.5 overflow-hidden" title={notes.join('\n')}>
+                                    {notes.slice(0, 4).map((n: string, nIdx: number) => (
+                                      <div key={`${nIdx}-${n}`} className="truncate">
+                                        {n}
+                                      </div>
+                                    ))}
+                                    {notes.length > 4 ? <div className="text-gray-400 truncate">+{notes.length - 4} more</div> : null}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-300">-</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                {isHidden ? (
+                                  <CheckCircleIcon className="h-5 w-5 text-green-500 mx-auto" title="Hidden (not Q / contains Term / contains HID)" />
+                                ) : (
+                                  <span className="text-gray-300">-</span>
                                 )}
                               </td>
                             </tr>
@@ -896,79 +889,77 @@ export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
         )}
 
         {dataTabView === 'results' && (
-          <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
-            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-              <div className="text-sm font-semibold text-gray-900">Quality Check Results</div>
-              <div className="text-xs text-gray-500">Sorted by score (highest first)</div>
-            </div>
+          <div className="bg-gray-50">
             {!dqv2Results ? (
               <div className="p-6 text-sm text-gray-500">No results yet. Run Quality Check from the Quality Plan tab.</div>
             ) : dqv2Results.length === 0 ? (
               <div className="p-6 text-sm text-gray-500">No respondents found.</div>
             ) : (
-              <div className="overflow-auto" style={{ maxHeight: '650px' }}>
-                <table className="w-full table-auto divide-y divide-gray-200">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap w-[120px]">record</th>
-                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap w-[120px]">Quality</th>
-                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap w-[120px]">Score</th>
-                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap w-[120px]">Flags</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">Flags Triggered</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-100">
-                    {dqv2Results.map((r) => (
-                      <tr
-                        key={`${r.respondentId}-${r.rowIndex}`}
-                        className={[
-                          'cursor-pointer',
-                          'hover:bg-gray-50',
-                        ].join(' ')}
-                        onClick={() => {
-                          setSelectedResult(r);
-                          setExpandedResultRuleIds(new Set());
-                        }}
-                        title="Click for details"
-                      >
-                        <td className="px-3 py-2 text-sm text-gray-700 truncate" title={r.respondentId}>{r.respondentId}</td>
-                        <td className="px-3 py-2 text-sm whitespace-nowrap text-center">
-                          <span
-                            className={[
-                              'inline-flex items-center justify-center w-[110px] px-2 py-0.5 rounded-full text-xs font-semibold',
-                              r.score >= 41
-                                ? 'bg-red-200 text-red-900'
-                                : r.score >= 21
-                                  ? 'bg-yellow-100 text-yellow-900'
-                                  : 'bg-green-200 text-green-900',
-                            ].join(' ')}
-                          >
-                            {r.score >= 41 ? 'BAD' : r.score >= 21 ? 'MODERATE' : 'GOOD'}
-                          </span>
-                        </td>
-                        <td
-                          className={[
-                            'px-3 py-2 text-sm font-medium text-center tabular-nums text-gray-900',
-                          ].join(' ')}
-                        >
-                          {Number.isFinite(Number(r.score)) ? Number(r.score).toFixed(1) : String(r.score ?? '')}
-                        </td>
-                        <td
-                          className={[
-                            'px-3 py-2 text-sm text-center tabular-nums',
-                            isFlagCountOutlier(r.flagCount) ? 'text-red-700 font-bold' : 'text-gray-700',
-                          ].join(' ')}
-                        >
-                          {r.flagCount}
-                          {isFlagCountOutlier(r.flagCount) ? '*' : ''}
-                        </td>
-                        <td className="px-3 py-2 text-sm text-gray-700 truncate" title={(r.flagNames || []).join(', ')}>
-                          {(r.flagNames || []).join(', ') || '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-4 p-0">
+                {[
+                  { id: 'bad', label: 'Bad (Remove)', headerClass: 'bg-red-100 text-red-900 border-b border-red-200', chip: 'bg-red-200 text-red-900' },
+                  { id: 'moderate', label: 'Moderate (Review)', headerClass: 'bg-yellow-100 text-yellow-900 border-b border-yellow-200', chip: 'bg-yellow-200 text-yellow-900' },
+                  { id: 'good', label: 'Good', headerClass: 'bg-green-100 text-green-900 border-b border-green-200', chip: 'bg-green-200 text-green-900' },
+                ].map((group) => {
+                  const items = (groupedResults as any)[group.id] || [];
+                  return (
+                    <div key={group.id} className="rounded-lg border border-gray-200 bg-white">
+                      <div className={`px-3 py-2 flex items-center justify-between ${group.headerClass}`}>
+                        <div className="text-sm font-semibold">{group.label}</div>
+                        <div className="text-xs text-gray-600">{items.length} respondent(s)</div>
+                      </div>
+                      {items.length === 0 ? (
+                        <div className="px-3 py-4 text-sm text-gray-500">None</div>
+                      ) : (
+                        <div className="max-h-64 overflow-y-auto divide-y divide-gray-200/70">
+                          <div className="sticky top-0 bg-white border-b border-gray-200/70 px-3 py-1">
+                            <div className="grid grid-cols-[1fr_auto_auto] gap-3 text-[11px] font-semibold text-gray-700 uppercase tracking-wide">
+                              <div className="text-left">Record</div>
+                              <div className="text-center w-[70px]">Flags</div>
+                              <div className="text-center w-[70px]">Score</div>
+                            </div>
+                          </div>
+                          {items.map((r: DQV2RespondentResult) => (
+                            <div
+                              key={`${r.respondentId}-${r.rowIndex}`}
+                              className="px-3 py-2 cursor-pointer grid grid-cols-[1fr_auto_auto] gap-3 items-center"
+                              onClick={() => {
+                                setSelectedResult(r);
+                                setExpandedResultRuleIds(new Set());
+                              }}
+                              title="Click for details"
+                            >
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium text-gray-900 truncate">{r.respondentId}</div>
+                                <div className="text-xs text-gray-600 truncate">
+                                  {(r.flagNames || []).join(', ') || '—'}
+                                </div>
+                              </div>
+                          <div className={`text-sm tabular-nums text-center w-[70px] ${isFlagCountOutlier(r.flagCount) ? 'text-red-700 font-bold' : 'text-gray-700'}`}>
+                            {r.flagCount}
+                            {isFlagCountOutlier(r.flagCount) ? '*' : ''}
+                          </div>
+                          <div className="flex justify-center w-[70px]">
+                            <span
+                              className={[
+                                'inline-flex items-center justify-center min-w-[70px] px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums',
+                                Number(r.score) >= 41
+                                  ? 'bg-red-200 text-red-900'
+                                  : Number(r.score) >= 21
+                                    ? 'bg-yellow-200 text-yellow-900'
+                                    : 'bg-green-200 text-green-900',
+                              ].join(' ')}
+                            >
+                              {Number.isFinite(Number(r.score)) ? Number(r.score).toFixed(1) : String(r.score ?? '')}
+                            </span>
+                          </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -994,10 +985,13 @@ export const DataQualityV2DataTab: React.FC<DataQualityV2DataTabProps> = ({
             }}
           />
         )}
-      </div>
     </div>
   );
 };
+
+export const DataQualityV2DataTab = forwardRef<DataQualityV2UploadHandle, DataQualityV2DataTabProps>(DataQualityV2DataTabComponent);
+
+export default DataQualityV2DataTab;
 
 function ResultsDetailModal({
   result,
@@ -1682,18 +1676,38 @@ function ResultsDetailModal({
     return counts;
   }, [ruleRows]);
 
+  const FlagCountRow = ({
+    label,
+    value,
+    color,
+    icon: Icon,
+    iconColor,
+  }: { label: string; value: number; color: string; icon?: React.ComponentType<{ className?: string }>; iconColor?: string }) => (
+    <div className={`flex items-center justify-between rounded px-2 py-1 ${color}`}>
+      <span className="text-sm flex items-center gap-2">
+        {Icon && <Icon className="w-4 h-4" style={{ color: iconColor || '#374151' }} />}
+        {label}
+      </span>
+      <span className="font-semibold tabular-nums">{value}</span>
+    </div>
+  );
+
   const RuleTableSection = ({
     title,
     items,
     showHeader = true,
     icon: Icon,
     color,
+    headerIconBg,
+    headerIconBorder,
   }: {
     title: string;
     items: any[];
     showHeader?: boolean;
     icon?: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
     color?: string;
+    headerIconBg?: string;
+    headerIconBorder?: string;
   }) => {
     const [showAll, setShowAll] = useState(false);
 
@@ -1725,7 +1739,21 @@ function ResultsDetailModal({
         >
           <div className="flex items-center gap-2 min-w-0">
             {Icon && (
-              <Icon className="w-4 h-4 flex-shrink-0" style={color ? { color } : { color: '#6B7280' }} />
+              <span
+                className={`inline-flex items-center justify-center h-7 w-7 rounded-full ${
+                  title === 'Speeding'
+                    ? 'bg-red-100 border border-red-200'
+                    : title === 'Repeat Numerics'
+                      ? 'bg-orange-100 border border-orange-200'
+                      : title === 'Straight-Lining'
+                        ? 'bg-amber-100 border border-amber-200'
+                        : title === 'Open-End Quality'
+                          ? 'bg-purple-100 border border-purple-200'
+                          : 'bg-gray-100 border border-gray-200'
+                }`}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" style={{ color: color || '#4B5563' }} />
+              </span>
             )}
             <div className="text-sm font-semibold text-gray-900 truncate">{title}</div>
           </div>
@@ -2028,32 +2056,14 @@ function ResultsDetailModal({
           ) : (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="border border-gray-200 rounded-lg bg-white p-3">
-                  <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Flags by check</div>
-                  <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                    <div className="flex items-center justify-between border border-gray-100 rounded px-2 py-1">
-                      <span className="text-gray-700">Speeding</span>
-                      <span className="font-semibold text-gray-900 tabular-nums">{flagCountsByCategory.speeding}</span>
-                    </div>
-                    <div className="flex items-center justify-between border border-gray-100 rounded px-2 py-1">
-                      <span className="text-gray-700">Open-End</span>
-                      <span className="font-semibold text-gray-900 tabular-nums">{flagCountsByCategory.open_end}</span>
-                    </div>
-                    <div className="flex items-center justify-between border border-gray-100 rounded px-2 py-1">
-                      <span className="text-gray-700">Straight-Lining</span>
-                      <span className="font-semibold text-gray-900 tabular-nums">{flagCountsByCategory.straightlining}</span>
-                    </div>
-                    <div className="flex items-center justify-between border border-gray-100 rounded px-2 py-1">
-                      <span className="text-gray-700">Repeat Numerics</span>
-                      <span className="font-semibold text-gray-900 tabular-nums">{flagCountsByCategory.repeat_numerics}</span>
-                    </div>
-                    {!!flagCountsByCategory.other && (
-                      <div className="flex items-center justify-between border border-gray-100 rounded px-2 py-1 col-span-2">
-                        <span className="text-gray-700">Other</span>
-                        <span className="font-semibold text-gray-900 tabular-nums">{flagCountsByCategory.other}</span>
-                      </div>
-                    )}
-                  </div>
+                <div className="mt-1 flex flex-col gap-2 text-sm">
+                  <FlagCountRow label="Speeding" value={flagCountsByCategory.speeding} color="bg-red-100 text-red-900 border border-red-200" icon={ClockIcon} iconColor="#EF4444" />
+                  <FlagCountRow label="Open-End" value={flagCountsByCategory.open_end} color="bg-purple-100 text-purple-900 border border-purple-200" icon={ChatBubbleBottomCenterTextIcon} iconColor="#8B5CF6" />
+                  <FlagCountRow label="Straight-Lining" value={flagCountsByCategory.straightlining} color="bg-amber-100 text-amber-900 border border-amber-200" icon={Bars3Icon} iconColor="#F59E0B" />
+                  <FlagCountRow label="Repeat Numerics" value={flagCountsByCategory.repeat_numerics} color="bg-orange-100 text-orange-900 border border-orange-200" icon={CalculatorIcon} iconColor={BRAND_ORANGE} />
+                  {!!flagCountsByCategory.other && (
+                    <FlagCountRow label="Other" value={flagCountsByCategory.other} color="bg-gray-100 text-gray-900 border border-gray-200" />
+                  )}
                 </div>
 
                 <div className="border border-gray-200 rounded-lg bg-white p-3">
@@ -2095,24 +2105,28 @@ function ResultsDetailModal({
                 items={(groupedRuleRows as any).speeding || []}
                 icon={ClockIcon}
                 color="#EF4444"
+                headerIconBg="bg-red-100 border border-red-200"
               />
               <RuleTableSection
                 title="Repeat Numerics"
                 items={(groupedRuleRows as any).repeat_numerics || []}
                 icon={CalculatorIcon}
                 color={BRAND_ORANGE}
+                headerIconBg="bg-orange-100 border border-orange-200"
               />
               <RuleTableSection
                 title="Straight-Lining"
                 items={(groupedRuleRows as any).straightlining || []}
                 icon={Bars3Icon}
                 color="#F59E0B"
+                headerIconBg="bg-amber-100 border border-amber-200"
               />
               <RuleTableSection
                 title="Open-End Quality"
                 items={(groupedRuleRows as any).open_end || []}
                 icon={ChatBubbleBottomCenterTextIcon}
                 color="#8B5CF6"
+                headerIconBg="bg-purple-100 border border-purple-200"
               />
               {!!((groupedRuleRows as any).other || []).length && (
                 <RuleTableSection title="Other" items={(groupedRuleRows as any).other || []} />
@@ -2124,9 +2138,3 @@ function ResultsDetailModal({
     </div>
   );
 }
-
-
-
-
-
-

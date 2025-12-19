@@ -4,7 +4,7 @@
   "name": "test",
   "sourceType": "raw",
   "createdAt": "2025-12-18T16:06:33.905Z",
-  "updatedAt": "2025-12-18T18:05:18.968Z",
+  "updatedAt": "2025-12-19T19:39:01.643Z",
   "specs": {
     "variableTableSelections": {
       "QS1": [
@@ -15,9 +15,6 @@
       ],
       "QS3": [
         "QS3"
-      ],
-      "Region": [
-        "Region"
       ],
       "QS4": [
         "QS4_MeanSummaryTable",
@@ -76,9 +73,6 @@
       ],
       "QS12": [
         "QS12"
-      ],
-      "noanswer": [
-        "noanswer"
       ],
       "QS13": [
         "QS13_r1",
@@ -587,9 +581,6 @@
       ],
       "PMAssist5": [
         "PMAssist5"
-      ],
-      "conditions": [
-        "conditions"
       ]
     },
     "variableStatsSelections": {
