@@ -180,7 +180,7 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
               <p className="text-gray-500">Please select a questionnaire to view table specifications</p>
             </div>
           ) : (
-            <div className="relative min-h-[400px] overflow-x-auto max-h-[600px]">
+            <div className="relative overflow-x-auto max-h-[calc(100vh-280px)]">
               <table key={specsResetKey} className="min-w-full text-sm border-collapse">
                 <thead className="sticky top-0 z-10">
                   <tr className="border-b-2 border-gray-300">

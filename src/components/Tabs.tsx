@@ -119,7 +119,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   const [selectedProject, setSelectedProject] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [archivedProjects, setArchivedProjects] = useState<any[]>([]);
-  const [qnrViewMode, setQnrViewMode] = useState<'tabSpecs' | 'variables' | 'data'>('tabSpecs');
+  const [qnrViewMode, setQnrViewMode] = useState<'tabSpecs' | 'variables' | 'data'>('variables');
   const [tabSpecsTypeFilter, setTabSpecsTypeFilter] = useState<string>('all');
   const [tabSpecsSubView, setTabSpecsSubView] = useState<'tables' | 'banners'>('tables');
   const [specsResetKey, setSpecsResetKey] = useState(0);
@@ -866,7 +866,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
       projectId: selectedProject?.id,
     } as any);
 
-    setQnrViewMode('tabSpecs');
+    setQnrViewMode('variables');
     setViewMode('qnr');
 
     setLoadingFullRawData(true);
@@ -1205,6 +1205,13 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
       });
     }
   }, [variablesNoOe, questionnaireQuestions, setVariableTableSelections, setVariableStatsSelections]);
+
+  // Auto-select the first table when opening the variables view
+  useEffect(() => {
+    if (qnrViewMode === 'variables' && !selectedVariable && filteredVariablesWithSelectedTables.length > 0) {
+      setSelectedVariable(filteredVariablesWithSelectedTables[0].name);
+    }
+  }, [qnrViewMode, selectedVariable, filteredVariablesWithSelectedTables, setSelectedVariable]);
 
   useEffect(() => {
     if (!pendingSpecsResetRef.current) return;
@@ -1698,17 +1705,6 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
               <div className="flex items-center justify-between">
                 <nav className="-mb-px flex space-x-8 items-center">
                   <button
-                    onClick={() => setQnrViewMode('tabSpecs')}
-                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                      qnrViewMode === 'tabSpecs'
-                        ? 'text-white'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                    style={qnrViewMode === 'tabSpecs' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
-                  >
-                    Specs
-                  </button>
-                  <button
                     onClick={() => setQnrViewMode('variables')}
                     className={`py-2 px-1 border-b-2 font-medium text-sm ${
                       qnrViewMode === 'variables'
@@ -1718,6 +1714,17 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                     style={qnrViewMode === 'variables' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
                   >
                     Tables
+                  </button>
+                  <button
+                    onClick={() => setQnrViewMode('tabSpecs')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      qnrViewMode === 'tabSpecs'
+                        ? 'text-white'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                    style={qnrViewMode === 'tabSpecs' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
+                  >
+                    Specs
                   </button>
                   <button
                     onClick={() => setQnrViewMode('data')}
