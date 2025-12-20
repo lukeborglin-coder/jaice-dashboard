@@ -1650,6 +1650,8 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       return lower.startsWith('c') ? lower : `c${lower}`;
     };
     const selectedColumnCode = extractColumnCodeFromId(option.id);
+    const columnFromVarMatch = variableName.match(/c\d+/i);
+    const columnFromVar = columnFromVarMatch ? normalizeCol(columnFromVarMatch[0]) : null;
     
     // Calculate total responding (anyone who answered at least one statement)
     let totalResponding = 0;
@@ -1717,12 +1719,19 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
         }
       });
     }
-    const normalizedColumns = columnCodesRaw.map(normalizeCol).filter(Boolean);
+    let normalizedColumns = columnCodesRaw.map(normalizeCol).filter(Boolean);
+    if (columnFromVar && !normalizedColumns.includes(columnFromVar)) {
+      normalizedColumns = [...normalizedColumns, columnFromVar];
+    }
     const columnCodes = normalizedColumns;
-    const columnsToUse =
-      selectedColumnCode && normalizedColumns.some(col => col === normalizeCol(selectedColumnCode))
-        ? normalizedColumns.filter(col => col === normalizeCol(selectedColumnCode))
-        : normalizedColumns;
+    let columnsToUse: string[] = normalizedColumns;
+    if (selectedColumnCode && normalizedColumns.some(col => col === normalizeCol(selectedColumnCode))) {
+      columnsToUse = normalizedColumns.filter(col => col === normalizeCol(selectedColumnCode));
+    } else if (columnFromVar && normalizedColumns.some(col => col === columnFromVar)) {
+      columnsToUse = normalizedColumns.filter(col => col === columnFromVar);
+    } else if (columnFromVar) {
+      columnsToUse = [columnFromVar];
+    }
 
     // Calculate summary values for each statement and each column
     const statementSummaries = statements.map(stmt => {
@@ -1955,7 +1964,12 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
                       {/* Statement row */}
                       <tr className="border-b border-gray-200 hover:bg-gray-50">
                         <td className="px-4 py-2 text-sm text-gray-900 border-r border-gray-200">
-                          {stmt.text}
+                          <div className="flex flex-col">
+                            <span>{stmt.text}</span>
+                            {columnsToUse.length === 1 && variableName ? (
+                              <span className="text-[11px] text-gray-500">col: {variableName}</span>
+                            ) : null}
+                          </div>
                         </td>
                         {columnsToUse.map((colCode, colIdx) => {
                           const displayValue = formatNumber((stmt.columnValues[colCode] || 0).toFixed(2));
@@ -2004,7 +2018,12 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
                         {/* Statement row */}
                         <tr className="border-b border-gray-200 hover:bg-gray-50">
                           <td className="px-4 py-2 text-sm text-gray-900 border-r border-gray-200">
-                            {stmt.text}
+                            <div className="flex flex-col">
+                              <span>{stmt.text}</span>
+                              {columnsToUse.length === 1 && variableName ? (
+                                <span className="text-[11px] text-gray-500">col: {variableName}</span>
+                              ) : null}
+                            </div>
                           </td>
                           {columnsToUse.map((colCode, colIdx) => {
                             const columnValue = stmt.columnValues[colCode] || 0;
