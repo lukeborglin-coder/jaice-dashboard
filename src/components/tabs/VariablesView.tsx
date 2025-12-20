@@ -1,9 +1,11 @@
 import React from 'react';
 import { VariableListSidebar } from './VariableListSidebar';
 import { VariableTablePlaceholders } from './VariableTablePlaceholders';
+import { GridNumericCrosstabTables } from './GridNumericCrosstabTables';
 import { Variable } from '../../utils/tabs/types';
 import { getTableOptionsForVariable } from '../../utils/tabs/tableOptions';
 import { getBaseQuestionNumber, detect7ptScale } from '../../utils/tabs/questionHelpers';
+import { buildNumericGridSummaryModel, type NumericGridSummaryType } from '../../utils/tabs/gridNumericSummary';
 import {
   buildResponseValueMap,
   countCheckedForItemColumn,
@@ -262,7 +264,7 @@ export const VariablesView: React.FC<VariablesViewProps> = ({
       return [];
     }
     const baseNormalized = baseQuestionNumber.replace(/^Q/i, '').toLowerCase();
-    const statementsMap = new Map<string, { code: string; text: string }>();
+    const statementsMap = new Map<string, { code: string; text: string; headerCode?: string }>();
 
     matchingQuestion.notes.forEach((note: any) => {
       if (!note || typeof note !== 'string') return;
@@ -287,6 +289,7 @@ export const VariablesView: React.FC<VariablesViewProps> = ({
         statementsMap.set(rowCode, {
           code: rowCode,
           text: text || rowCode,
+          headerCode: match[1],
         });
       }
     });
@@ -300,6 +303,17 @@ export const VariablesView: React.FC<VariablesViewProps> = ({
       return a.code.localeCompare(b.code);
     });
   }, [matchingQuestion, columnCode, baseQuestionNumber]);
+
+  // Map row code -> raw header code (parsed from data map notes like [QS11r1c1] ...)
+  const statementHeaderHints = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    columnStatementsFromNotes.forEach((row) => {
+      if (row.code && row.headerCode) {
+        map[row.code.toLowerCase()] = row.headerCode;
+      }
+    });
+    return map;
+  }, [columnStatementsFromNotes]);
 
   const responseOptions = React.useMemo(() => {
     if (!selectedVar) return [];
@@ -1028,16 +1042,42 @@ export const VariablesView: React.FC<VariablesViewProps> = ({
     if (!crosstabActiveTarget) return null;
     if (!selectedVar || !isCrosstabSupported || !getVariableDataByExpectedHeader) return null;
 
+    console.log('🔵 [CROSSTAB] Starting crosstab calculation', {
+      selectedVariable: selectedVar.name,
+      selectedVarType: selectedVar.type,
+      crosstabTarget: crosstabActiveTarget,
+      isNumericGrid,
+      isSingleSelectGrid,
+      isSingleSelectQuestion
+    });
+
     const targetVar = variables.find((v) => v.name === crosstabActiveTarget);
-    if (!targetVar) return null;
+    if (!targetVar) {
+      console.log('🔴 [CROSSTAB] Target variable not found:', crosstabActiveTarget);
+      return null;
+    }
+    console.log('🔵 [CROSSTAB] Target variable found:', {
+      name: targetVar.name,
+      type: targetVar.type,
+      codes: targetVar.codes,
+      statements: targetVar.statements
+    });
     const typeLowerTarget = targetVar.type?.toLowerCase() || '';
     const targetTags = Array.isArray((targetVar as any).tags) ? (targetVar as any).tags : [];
     const targetHasScaleTag = targetTags.some((t: string) => /scale\s*\(7pt\)/i.test(String(t)));
     const targetEligible =
       (typeLowerTarget.includes('single select') && !typeLowerTarget.includes('grid')) ||
       (typeLowerTarget.includes('single select grid') && targetHasScaleTag);
-    if (!targetEligible) return null;
+    if (!targetEligible) {
+      console.log('🔴 [CROSSTAB] Target variable not eligible for crosstab:', {
+        typeLowerTarget,
+        targetHasScaleTag,
+        reason: 'Must be single select or single select grid with scale tag'
+      });
+      return null;
+    }
     const targetIsScaleGrid = typeLowerTarget.includes('single select grid') && targetHasScaleTag;
+    console.log('🔵 [CROSSTAB] Target is eligible:', { targetIsScaleGrid });
 
     const targetBaseNum = getBaseQuestionNumber(targetVar.name).replace(/^Q/i, '');
     const targetMatchingQuestion = questionnaireQuestions.find((q) => {
@@ -1062,18 +1102,39 @@ export const VariablesView: React.FC<VariablesViewProps> = ({
         targetOptions.push({ code, text });
       });
     }
-    if (targetOptions.length === 0) return null;
+    if (targetOptions.length === 0) {
+      console.log('🔴 [CROSSTAB] No target options found');
+      return null;
+    }
+    console.log('🔵 [CROSSTAB] Target options:', targetOptions);
 
     const targetCodes = targetOptions.map((o) => o.code);
-    const getStatementValues = (stmtCode: string, forSelected: boolean) => {
+
+  const getStatementValues = (
+      stmtCode: string,
+      forSelected: boolean
+    ): { values: any[]; header: string } | null => {
       const baseNum = forSelected
         ? getBaseQuestionNumber(selectedVar.name).replace(/^Q/i, '')
         : targetBaseNum;
       const questionRef = forSelected ? matchingQuestion : targetMatchingQuestion;
       const varName = forSelected ? selectedVar.name : targetVar.name;
-      if (!questionRef) return null;
 
       const columnSuffix = forSelected && selectedVarColumnSuffix ? selectedVarColumnSuffix : '';
+
+      // For numeric grids with column suffixes, questionRef may be null (column is not a separate question)
+      // We can still proceed using the base information we have
+      if (!questionRef && !columnSuffix) {
+        console.log(`🔴 [CROSSTAB] No matching question found for statement "${stmtCode}":`, {
+          forSelected,
+          varName,
+          baseNum,
+          matchingQuestion: forSelected ? matchingQuestion : targetMatchingQuestion,
+          selectedVarName: selectedVar.name,
+          allQuestions: questionnaireQuestions.map(q => ({ number: q.number, id: q.id }))
+        });
+        return null;
+      }
 
       // Normalize statement code to avoid double-appending base/column
       const basePattern = new RegExp(`^Q?${baseNum}`, 'i');
@@ -1087,9 +1148,18 @@ export const VariablesView: React.FC<VariablesViewProps> = ({
       coreCode = coreCode.replace(/^[_-]+/, '');
 
       const baseWithPrefix = baseNum.toLowerCase().startsWith('q') ? baseNum : `Q${baseNum}`;
-      const questionNum = questionRef.number || questionRef.id || '';
+      const questionNum = questionRef ? (questionRef.number || questionRef.id || '') : baseWithPrefix;
+
+      const stmtCodeLower = stmtCode.toLowerCase();
+      const headerHint = statementHeaderHints[stmtCodeLower];
+      const headerHintWithSuffix =
+        headerHint && selectedVarColumnSuffix
+          ? headerHint.replace(/c\d+/i, selectedVarColumnSuffix)
+          : '';
 
       const candidates: string[] = [
+        headerHintWithSuffix || '',
+        headerHint || '',
         stmtCode,
         coreCode,
         `${baseWithPrefix}${coreCode}`,
@@ -1115,17 +1185,37 @@ export const VariablesView: React.FC<VariablesViewProps> = ({
         );
       }
 
-      for (const header of candidates) {
+      console.log(`🔍 [CROSSTAB] Looking for statement values:`, {
+        stmtCode,
+        forSelected,
+        varName,
+        candidatesCount: candidates.length,
+        firstFewCandidates: candidates.slice(0, 5)
+      });
+
+      for (const header of candidates.filter(Boolean)) {
         const data = getVariableDataByExpectedHeader(header);
         if (data && Array.isArray(data.values) && data.values.length > 0) {
-          return data.values;
+          console.log(`✅ [CROSSTAB] Found statement data for "${stmtCode}" at header "${header}":`, {
+            valueCount: data.values.length,
+            firstFewValues: data.values.slice(0, 5)
+          });
+          return { values: data.values, header };
         }
       }
+      console.log(`❌ [CROSSTAB] No data found for statement "${stmtCode}", tried ${candidates.length} headers`);
       return null;
     };
 
     const targetData = getVariableDataByExpectedHeader(targetVar.name);
     let targetValues = Array.isArray(targetData?.values) ? targetData.values : [];
+    console.log('🔵 [CROSSTAB] Target variable data:', {
+      targetVarName: targetVar.name,
+      hasData: !!targetData,
+      targetValuesCount: targetValues.length,
+      firstFewTargetValues: targetValues.slice(0, 10),
+      uniqueTargetValues: [...new Set(targetValues.filter(v => v !== null && v !== undefined))]
+    });
 
     // Fallback/override for scale grids: build respondent-level values by averaging numeric responses across statements
     const buildTargetGridValues = (): any[] | null => {
@@ -1192,167 +1282,131 @@ export const VariablesView: React.FC<VariablesViewProps> = ({
       }
     }
 
-    if (targetValues.length === 0) return null;
+    if (targetValues.length === 0) {
+      console.log('🔴 [CROSSTAB] No target values found, cannot build crosstab');
+      return null;
+    }
+
+    // Build respondent index sets for each cut (by target code)
+    const indicesByCutCode: Record<string, Set<number>> = {};
+    targetOptions.forEach((opt) => {
+      indicesByCutCode[opt.code] = new Set<number>();
+    });
+    for (let i = 0; i < targetValues.length; i++) {
+      const tRaw = targetValues[i];
+      if (tRaw === null || tRaw === undefined || tRaw === '') continue;
+      const rawCode = targetIsScaleGrid ? getScaleBucketCode(tRaw) : String(tRaw).trim();
+      if (!rawCode) continue;
+
+      if (indicesByCutCode[rawCode]) {
+        indicesByCutCode[rawCode].add(i);
+        continue;
+      }
+
+      // Be forgiving about whether codes are stored like "1" vs "c1"
+      const altCode = rawCode.toLowerCase().startsWith('c') ? rawCode.replace(/^c/i, '') : `c${rawCode}`;
+      if (indicesByCutCode[altCode]) {
+        indicesByCutCode[altCode].add(i);
+      }
+    }
 
     // Numeric grid crosstab: build tables aligned with numeric grid summaries
     if (isNumericGrid) {
       const statements = multiSelectGridStatements;
       if (!statements.length) return null;
 
-      // Build column bases from target responses
-      const columnBases: Record<string, number> = {};
-      targetValues.forEach((tRaw) => {
-        if (tRaw === null || tRaw === undefined) return;
-        const code = targetIsScaleGrid ? getScaleBucketCode(tRaw) : String(tRaw).trim();
-        if (!code) return;
-        columnBases[code] = (columnBases[code] || 0) + 1;
-      });
+      // Only show cut columns with base > 0 (same UX as other crosstabs)
+      let activeCuts = targetOptions.filter((opt) => (indicesByCutCode[opt.code]?.size || 0) > 0);
+      if (activeCuts.length === 0) activeCuts = targetOptions;
 
-      let activeColumns = targetOptions.filter((col) => (columnBases[col.code] || 0) > 0);
-      if (activeColumns.length === 0) activeColumns = targetOptions;
-
-      const hasMeanSelection = Array.from(selectedVarTableSelections || []).some((id) =>
-        /MeanSummaryTable/i.test(id || '')
-      );
-      const valueType = isNumericGridPercentTag && hasMeanSelection ? 'mean' : 'sum';
-
-      let rows: Array<{
-        key: string;
-        label: string;
-        cells: Record<string, { value: number; base: number; pct: number }>;
-        totalValue: number;
-        totalBase: number;
-      }> = statements.map((stmt, idx) => {
-        const stmtValues = getStatementValues(stmt.code, true);
-        if (!stmtValues) return null;
-        const len = Math.min(stmtValues.length, targetValues.length);
-        const cells: Record<string, { value: number; base: number; pct: number }> = {};
-        activeColumns.forEach((col) => {
-          cells[col.code] = { value: 0, base: 0, pct: 0 };
-        });
-
-        // Total metrics for the statement (all respondents)
-        let totalValueAgg = 0;
-        let totalBaseAgg = 0;
-        for (let i = 0; i < stmtValues.length; i++) {
-          const val = stmtValues[i];
-          if (val === null || val === undefined || val === '') continue;
-          const num = Number(val);
-          if (Number.isNaN(num)) continue;
-          totalValueAgg += num;
-          totalBaseAgg += 1;
-        }
-
-        for (let i = 0; i < len; i++) {
-          const tRaw = targetValues[i];
-          const sRaw = stmtValues[i];
-          if (tRaw === null || tRaw === undefined || sRaw === null || sRaw === undefined || sRaw === '') continue;
-          const tCode = targetIsScaleGrid ? getScaleBucketCode(tRaw) : String(tRaw).trim();
-          if (!tCode || !cells[tCode]) continue;
-          const num = Number(sRaw);
-          if (Number.isNaN(num)) continue;
-          cells[tCode].base += 1;
-          cells[tCode].value += num;
-        }
-
-        // Finalize values
-        activeColumns.forEach((col) => {
-          const cell = cells[col.code];
-          if (isNumericGridPercentTag) {
-            cell.value = cell.base > 0 ? cell.value / cell.base : 0;
-          }
-        });
-
-        const totalValue = isNumericGridPercentTag
-          ? totalBaseAgg > 0
-            ? totalValueAgg / totalBaseAgg
-            : 0
-          : totalValueAgg;
-
-        const hasAny =
-          totalBaseAgg > 0 ||
-          activeColumns.some((col) => {
-            const c = cells[col.code];
-            return c && (c.base > 0 || c.value !== 0);
-          });
-        if (!hasAny) return null;
-
-        return {
-          key: stmt.code || `row-${idx}`,
-          label: stmt.text || stmt.code || `Row ${idx + 1}`,
-          cells,
-          totalValue,
-          totalBase: totalBaseAgg,
-        };
-      }).filter(Boolean) as Array<{
-        key: string;
-        label: string;
-        cells: Record<string, { value: number; base: number; pct: number }>;
-        totalValue: number;
-        totalBase: number;
-      }>;
-
-      if (!rows.length) {
-        rows = statements.map((stmt, idx) => {
-          const stmtValues = getStatementValues(stmt.code, true);
-          let totalValueAgg = 0;
-          let totalBaseAgg = 0;
-          if (stmtValues) {
-            stmtValues.forEach((v: any) => {
-              if (v === null || v === undefined || v === '') return;
-              const num = Number(v);
-              if (!Number.isNaN(num)) {
-                totalValueAgg += num;
-                totalBaseAgg += 1;
-              }
-            });
-          }
-          const totalValue = isNumericGridPercentTag
-            ? totalBaseAgg > 0
-              ? totalValueAgg / totalBaseAgg
-              : 0
-            : totalValueAgg;
-          const cells: Record<string, { value: number; base: number; pct: number }> = {};
-          activeColumns.forEach((col) => {
-            cells[col.code] = { value: 0, base: 0, pct: 0 };
-          });
-          return {
-            key: stmt.code || `row-${idx}`,
-            label: stmt.text || stmt.code || `Row ${idx + 1}`,
-            cells,
-            totalValue,
-            totalBase: totalBaseAgg,
-          };
-        });
-      }
-
-      // Column totals for percentage rows (number tag)
-      const columnValueTotals: Record<string, number> = {};
-      activeColumns.forEach((col) => {
-        columnValueTotals[col.code] = rows.reduce((sum, row) => sum + (row.cells[col.code]?.value || 0), 0);
-      });
-      const totalValueAll = rows.reduce((sum, row) => sum + row.totalValue, 0);
-
-      rows.forEach((row) => {
-        activeColumns.forEach((col) => {
-          const cell = row.cells[col.code];
-          const colTotal = columnValueTotals[col.code] || 0;
-          cell.pct = isNumericGridNumberTag && colTotal > 0 ? (cell.value / colTotal) * 100 : 0;
-        });
-        (row as any).totalPct =
-          isNumericGridNumberTag && totalValueAll > 0 ? (row.totalValue / totalValueAll) * 100 : 0;
-      });
-
-      return {
-        target: crosstabActiveTarget,
-        columns: activeColumns,
-        mode: 'numeric-grid',
-        valueType,
-        rows,
-        columnBases: columnBases,
-        columnValueTotals,
-        totalValueAll,
+      const numericGridSummaryTypeFromOptionId = (id: string): NumericGridSummaryType | null => {
+        const ends = (suffix: string) => id.endsWith(suffix);
+        if (ends('_MeanSummaryTable') && !ends('_MeanNoOutliersSummaryTable')) return 'mean';
+        if (ends('_SumSummaryTable') && !ends('_SumNoOutliersSummaryTable')) return 'sum';
+        if (ends('_MeanNoOutliersSummaryTable')) return 'meanNoOutliers';
+        if (ends('_SumNoOutliersSummaryTable')) return 'sumNoOutliers';
+        return null;
       };
+
+      const selectedIds = Array.from(selectedVarTableSelections || []);
+      const selectedSummaryOptions = tableOptions.filter((opt) => opt.type === 'summary' && selectedIds.includes(opt.id));
+      let summaryOptionsToUse = selectedSummaryOptions.filter((opt) => numericGridSummaryTypeFromOptionId(opt.id));
+      if (summaryOptionsToUse.length === 0) {
+        // Fallback: match prior behavior (at least show Sum Summary)
+        const fallback =
+          tableOptions.find((opt) => opt.type === 'summary' && /_SumSummaryTable$/i.test(opt.id)) ||
+          tableOptions.find((opt) => opt.type === 'summary' && /SummaryTable$/i.test(opt.id));
+        summaryOptionsToUse = fallback ? [fallback] : [];
+      }
+      if (summaryOptionsToUse.length === 0) return null;
+
+      // Sorting/hold settings should match Tables view (use variable name or base key)
+      const baseKey = getBaseQuestionNumber(selectedVar.name);
+      const sortKey = variableSortByFrequency[selectedVar.name] !== undefined ? selectedVar.name : baseKey;
+      const holdKey = variableHoldResponseCodes[selectedVar.name] !== undefined ? selectedVar.name : baseKey;
+      const sortState = variableSortByFrequency[sortKey];
+      const isSortedByFrequency = sortState !== undefined ? sortState : false;
+      const holdCodes = variableHoldResponseCodes[holdKey] || [];
+
+      const cuts = [{ code: 'total', text: 'TOTAL', isTotal: true }, ...activeCuts.map((c) => ({ ...c, isTotal: false }))];
+
+      const tables = summaryOptionsToUse
+        .map((opt) => {
+          const summaryType = numericGridSummaryTypeFromOptionId(opt.id);
+          if (!summaryType) return null;
+
+          const totalModel = buildNumericGridSummaryModel({
+            variable: selectedVar,
+            variableName: selectedVar.name,
+            optionId: opt.id,
+            summaryType,
+            statements,
+            responseOptions,
+            getVariableDataByExpectedHeader,
+            respondentFilter: null,
+            sortByFrequency: isSortedByFrequency,
+            holdCodes,
+          });
+
+          const modelsByCutCode: Record<string, any> = { total: totalModel };
+          activeCuts.forEach((cut) => {
+            modelsByCutCode[cut.code] = buildNumericGridSummaryModel({
+              variable: selectedVar,
+              variableName: selectedVar.name,
+              optionId: opt.id,
+              summaryType,
+              statements,
+              responseOptions,
+              getVariableDataByExpectedHeader,
+              respondentFilter: indicesByCutCode[cut.code] || new Set<number>(),
+              sortByFrequency: false,
+              holdCodes: [],
+            });
+          });
+
+          return {
+            optionId: opt.id,
+            summaryType,
+            tableName: totalModel.tableName,
+            isMeanSummaryTable: totalModel.isMeanSummaryTable,
+            allBasesEqual: totalModel.allBasesEqual,
+            gridColumns: totalModel.columnsToUse.map((code) => ({
+              code,
+              text: totalModel.columnLabels[code] || code,
+            })),
+            cuts,
+            rowOrder: totalModel.rows.map((r) => r.code),
+            rowTextByCode: totalModel.rows.reduce((acc: Record<string, string>, r) => {
+              acc[r.code] = r.text;
+              return acc;
+            }, {}),
+            modelsByCutCode,
+          };
+        })
+        .filter(Boolean);
+
+      if (tables.length === 0) return null;
+      return { mode: 'numeric-grid-crosstab', target: crosstabActiveTarget, tables };
     }
 
     // If using scale buckets for single-select grid 7pt: build bucket tables per statement
@@ -1366,7 +1420,8 @@ export const VariablesView: React.FC<VariablesViewProps> = ({
       }> = scaleBucketOptions.map((b) => ({ code: b.code, text: b.text, rows: [], colTotals: {} }));
 
       statements.forEach((stmt) => {
-      const stmtValues = getStatementValues(stmt.code, true);
+      const stmtData = getStatementValues(stmt.code, true);
+      const stmtValues = stmtData?.values;
       const targetVals = targetValues as any[];
       if (!stmtValues || !targetVals || targetVals.length === 0) return;
       const len = Math.min(stmtValues.length, targetVals.length);
@@ -1512,16 +1567,217 @@ export const VariablesView: React.FC<VariablesViewProps> = ({
     isNumericGridPercentTag,
     selectedVarTableSelections,
     multiSelectGridStatements,
+    statementHeaderHints,
+    selectedVarColumnSuffix,
   ]);
 
   const crosstabSigSummary = React.useMemo(() => {
     if (!crosstabSummary) return [];
     if ((crosstabSummary as any).bucketTables) return [];
+
+    if ((crosstabSummary as any).mode === 'numeric-grid-crosstab') {
+      const tables = (crosstabSummary as any).tables || [];
+      const summaries: Array<{ row: string; col: string; colPct: number; targets: Array<{ text: string; pct: number }> }> = [];
+
+      tables.forEach((t: any) => {
+        const isMean = !!t.isMeanSummaryTable;
+        const cuts: Array<{ code: string; text: string }> = Array.isArray(t.cuts) ? t.cuts : [];
+        const nonTotalCuts = cuts.filter((c) => c.code !== 'total');
+        const modelsByCutCode: Record<string, any> = t.modelsByCutCode || {};
+        const rowOrder: string[] = Array.isArray(t.rowOrder) ? t.rowOrder : [];
+        const rowTextByCode: Record<string, string> = t.rowTextByCode || {};
+        const gridCols: Array<{ code: string; text: string }> = Array.isArray(t.gridColumns) ? t.gridColumns : [];
+
+        const letterByCutCode = nonTotalCuts.reduce((acc: Record<string, string>, c, idx) => {
+          acc[c.code] = String.fromCharCode(65 + idx);
+          return acc;
+        }, {});
+
+        const getRowForCut = (cutCode: string, rowCode: string) => {
+          const model = modelsByCutCode[cutCode];
+          return model?.rows?.find((r: any) => r.code === rowCode) || null;
+        };
+
+        rowOrder.forEach((rowCode) => {
+          gridCols.forEach((gc) => {
+            nonTotalCuts.forEach((cut1) => {
+              const row1 = getRowForCut(cut1.code, rowCode);
+              const v1 = Number(row1?.columnValues?.[gc.code] || 0);
+              const n1 = Number(row1?.columnBases?.[gc.code] || 0) || Number(row1?.base || 0);
+              const sd1 = Number(row1?.columnStdDevs?.[gc.code] || 0);
+
+              const targets: Array<{ text: string; pct: number }> = [];
+
+              nonTotalCuts.forEach((cut2) => {
+                if (cut2.code === cut1.code) return;
+                const row2 = getRowForCut(cut2.code, rowCode);
+                const v2 = Number(row2?.columnValues?.[gc.code] || 0);
+                const n2 = Number(row2?.columnBases?.[gc.code] || 0) || Number(row2?.base || 0);
+                const sd2 = Number(row2?.columnStdDevs?.[gc.code] || 0);
+
+                let isSignificant = false;
+                if (isMean) {
+                  if (n1 > 1 && n2 > 1 && (sd1 > 0 || sd2 > 0)) {
+                    const se = Math.sqrt((sd1 * sd1) / n1 + (sd2 * sd2) / n2);
+                    if (se > 0) {
+                      const test = (v1 - v2) / se;
+                      isSignificant = test >= 1.96;
+                    }
+                  }
+                } else {
+                  const totals1 = modelsByCutCode[cut1.code]?.totalValuesByColumn || {};
+                  const totals2 = modelsByCutCode[cut2.code]?.totalValuesByColumn || {};
+                  const denom1 = Number(totals1?.[gc.code] || 0);
+                  const denom2 = Number(totals2?.[gc.code] || 0);
+                  const p1 = denom1 > 0 ? v1 / denom1 : 0;
+                  const p2 = denom2 > 0 ? v2 / denom2 : 0;
+                  if (n1 > 0 && n2 > 0) {
+                    const zDen = Math.sqrt((p1 * (1 - p1)) / n1 + (p2 * (1 - p2)) / n2);
+                    if (zDen > 0) {
+                      const z = (p1 - p2) / zDen;
+                      isSignificant = z >= 1.96;
+                    }
+                  }
+                }
+
+                if (isSignificant) {
+                  if (isMean) {
+                    targets.push({ text: cut2.text, pct: v2 });
+                  } else {
+                    const denom2 = Number((modelsByCutCode[cut2.code]?.totalValuesByColumn || {})?.[gc.code] || 0);
+                    const pct2 = denom2 > 0 ? (v2 / denom2) * 100 : 0;
+                    targets.push({ text: cut2.text, pct: pct2 });
+                  }
+                }
+              });
+
+              if (targets.length === 0) return;
+
+              const rowText = rowTextByCode[rowCode] || rowCode;
+              const gridSuffix = gridCols.length > 1 ? ` - ${gc.text || gc.code}` : '';
+              const rowLabel = `${rowText}${gridSuffix} (${t.summaryType || (isMean ? 'mean' : 'sum')})`;
+
+              const colPct = isMean
+                ? v1
+                : (() => {
+                    const denom1 = Number((modelsByCutCode[cut1.code]?.totalValuesByColumn || {})?.[gc.code] || 0);
+                    return denom1 > 0 ? (v1 / denom1) * 100 : 0;
+                  })();
+
+              // Only include columns that have stat letters (non-total cuts)
+              if (!letterByCutCode[cut1.code]) return;
+
+              summaries.push({
+                row: rowLabel,
+                col: cut1.text,
+                colPct,
+                targets,
+              });
+            });
+          });
+        });
+      });
+
+      return summaries;
+    }
+
+    // Handle multi-table mode
+    if ((crosstabSummary as any).mode === 'numeric-grid-multi') {
+      const tables = (crosstabSummary as any).tables || [];
+      // Apply sig testing to all tables (both mean and sum)
+      const allSummaries: Array<{ row: string; col: string; colPct: number; targets: Array<{ text: string; pct: number }> }> = [];
+
+      tables.forEach((ng: any) => {
+        const columns = ng.columns || [];
+        const bases: Record<string, number> = ng.columnBases || {};
+        const isMeanMode = ng.valueType === 'mean';
+        const letterToCol: Record<string, { code: string; text: string }> = {};
+        columns.forEach((col: any, idx: number) => {
+          letterToCol[String.fromCharCode(65 + idx)] = { code: col.code, text: col.text };
+        });
+        ng.rows.forEach((row: any) => {
+          const lettersMap: Record<string, string> = {};
+          columns.forEach((col: any, colIdx: number) => {
+            const base = bases[col.code] || 0;
+            const cell = row.cells[col.code] || { value: 0, base: 0, pct: 0, stdDev: 0 };
+            const lettersArr: string[] = [];
+
+            if (base > 0 && cell.base > 0) {
+              columns.forEach((compareCol: any, compareIdx: number) => {
+                if (compareCol.code === col.code) return;
+                const base2 = bases[compareCol.code] || 0;
+                const cell2 = row.cells[compareCol.code] || { value: 0, base: 0, pct: 0, stdDev: 0 };
+                if (base2 <= 0 || cell2.base <= 0) return;
+
+                let isSignificant = false;
+                if (isMeanMode) {
+                  // T-test for comparing means
+                  const mean1 = cell.value;
+                  const mean2 = cell2.value;
+                  const n1 = cell.base;
+                  const n2 = cell2.base;
+                  const sd1 = cell.stdDev || 0;
+                  const sd2 = cell2.stdDev || 0;
+
+                  if (n1 > 1 && n2 > 1 && (sd1 > 0 || sd2 > 0)) {
+                    const se = Math.sqrt((sd1 * sd1) / n1 + (sd2 * sd2) / n2);
+                    if (se > 0) {
+                      const t = Math.abs(mean1 - mean2) / se;
+                      isSignificant = t >= 1.96;
+                    }
+                  }
+                } else {
+                  // Proportion test for sum mode
+                  const p1 = ((cell.pct || 0) as number) / 100;
+                  const p2 = ((cell2.pct || 0) as number) / 100;
+                  const zDen = Math.sqrt((p1 * (1 - p1)) / base + (p2 * (1 - p2)) / base2);
+                  if (zDen > 0) {
+                    const z = (p1 - p2) / zDen;
+                    isSignificant = z >= 1.96;
+                  }
+                }
+
+                if (isSignificant) {
+                  lettersArr.push(String.fromCharCode(65 + compareIdx));
+                }
+              });
+            }
+            lettersMap[col.code] = lettersArr.join('');
+          });
+          Object.entries(lettersMap).forEach(([colCode, letters]) => {
+            if (!letters) return;
+            const letterArr = letters.split('');
+            const col = columns.find((c: any) => c.code === colCode);
+            if (!col) return;
+            const cell = row.cells[colCode] || { value: 0, pct: 0 };
+            const displayValue = isMeanMode ? cell.value : cell.pct;
+            const targets = letterArr
+              .map((l) => {
+                const mapping = letterToCol[l];
+                if (!mapping) return null;
+                const targetCell = row.cells[mapping.code] || { value: 0, pct: 0 };
+                const targetValue = isMeanMode ? targetCell.value : targetCell.pct;
+                return { text: mapping.text, pct: targetValue };
+              })
+              .filter(Boolean) as Array<{ text: string; pct: number }>;
+            allSummaries.push({
+              row: `${row.label} (${ng.valueType})`,
+              col: col.text,
+              colPct: displayValue,
+              targets,
+            });
+          });
+        });
+      });
+      return allSummaries;
+    }
+
+    // Handle single numeric-grid mode
     if ((crosstabSummary as any).mode === 'numeric-grid') {
       const ng: any = crosstabSummary;
-      if (ng.valueType === 'mean') return [];
       const columns = ng.columns || [];
       const bases: Record<string, number> = ng.columnBases || {};
+      const isMeanMode = ng.valueType === 'mean';
       const letterToCol: Record<string, { code: string; text: string }> = {};
       columns.forEach((col: any, idx: number) => {
         letterToCol[String.fromCharCode(65 + idx)] = { code: col.code, text: col.text };
@@ -1531,20 +1787,46 @@ export const VariablesView: React.FC<VariablesViewProps> = ({
         const lettersMap: Record<string, string> = {};
         columns.forEach((col: any, colIdx: number) => {
           const base = bases[col.code] || 0;
+          const cell = row.cells[col.code] || { value: 0, base: 0, pct: 0, stdDev: 0 };
           const lettersArr: string[] = [];
-          if (base > 0) {
-            const p1 = ((row.cells[col.code]?.pct || 0) as number) / 100;
+
+          if (base > 0 && cell.base > 0) {
             columns.forEach((compareCol: any, compareIdx: number) => {
               if (compareCol.code === col.code) return;
               const base2 = bases[compareCol.code] || 0;
-              if (base2 <= 0) return;
-              const p2 = ((row.cells[compareCol.code]?.pct || 0) as number) / 100;
-              const zDen = Math.sqrt((p1 * (1 - p1)) / base + (p2 * (1 - p2)) / base2);
-              if (zDen > 0) {
-                const z = (p1 - p2) / zDen;
-                if (z >= 1.96) {
-                  lettersArr.push(String.fromCharCode(65 + compareIdx));
+              const cell2 = row.cells[compareCol.code] || { value: 0, base: 0, pct: 0, stdDev: 0 };
+              if (base2 <= 0 || cell2.base <= 0) return;
+
+              let isSignificant = false;
+              if (isMeanMode) {
+                // T-test for comparing means
+                const mean1 = cell.value;
+                const mean2 = cell2.value;
+                const n1 = cell.base;
+                const n2 = cell2.base;
+                const sd1 = cell.stdDev || 0;
+                const sd2 = cell2.stdDev || 0;
+
+                if (n1 > 1 && n2 > 1 && (sd1 > 0 || sd2 > 0)) {
+                  const se = Math.sqrt((sd1 * sd1) / n1 + (sd2 * sd2) / n2);
+                  if (se > 0) {
+                    const t = Math.abs(mean1 - mean2) / se;
+                    isSignificant = t >= 1.96;
+                  }
                 }
+              } else {
+                // Proportion test for sum mode
+                const p1 = ((cell.pct || 0) as number) / 100;
+                const p2 = ((cell2.pct || 0) as number) / 100;
+                const zDen = Math.sqrt((p1 * (1 - p1)) / base + (p2 * (1 - p2)) / base2);
+                if (zDen > 0) {
+                  const z = (p1 - p2) / zDen;
+                  isSignificant = z >= 1.96;
+                }
+              }
+
+              if (isSignificant) {
+                lettersArr.push(String.fromCharCode(65 + compareIdx));
               }
             });
           }
@@ -1555,25 +1837,28 @@ export const VariablesView: React.FC<VariablesViewProps> = ({
           const letterArr = letters.split('');
           const col = columns.find((c: any) => c.code === colCode);
           if (!col) return;
-          const pct = row.cells[colCode]?.pct ?? 0;
+          const cell = row.cells[colCode] || { value: 0, pct: 0 };
+          const displayValue = isMeanMode ? cell.value : cell.pct;
           const targets = letterArr
             .map((l) => {
               const mapping = letterToCol[l];
               if (!mapping) return null;
-              const pct2 = row.cells[mapping.code]?.pct ?? 0;
-              return { text: mapping.text, pct: pct2 };
+              const targetCell = row.cells[mapping.code] || { value: 0, pct: 0 };
+              const targetValue = isMeanMode ? targetCell.value : targetCell.pct;
+              return { text: mapping.text, pct: targetValue };
             })
             .filter(Boolean) as Array<{ text: string; pct: number }>;
           summaries.push({
             row: row.label,
             col: col.text,
-            colPct: pct,
+            colPct: displayValue,
             targets,
           });
         });
       });
       return summaries;
     }
+
     const columns = crosstabSummary.columns;
     const colTotals = crosstabSummary.colTotals || {};
     const letterToCol: Record<string, { code: string; text: string }> = {};
@@ -2269,177 +2554,11 @@ export const VariablesView: React.FC<VariablesViewProps> = ({
                       </div>
                     </div>
 
-                    {(crosstabSummary as any).mode === 'numeric-grid' ? (
-                      (() => {
-                        const ng = crosstabSummary as any;
-                        const isMeanMode = ng.valueType === 'mean';
-                        const totalBaseRow = ng.columns.reduce(
-                          (sum: number, col: any) => sum + (ng.columnBases?.[col.code] || 0),
-                          0
-                        );
-                        const formatTop = (val: number) =>
-                          isMeanMode ? `${(val ?? 0).toFixed(1)}` : Number(val || 0).toLocaleString();
-                        const formatBottom = (cell: { base?: number; pct?: number }) =>
-                          isMeanMode ? '' : `${((cell.pct ?? 0) as number).toFixed(1)}%`;
-                        return (
-                          <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
-                            <table className="min-w-full table-fixed">
-                              <thead className="bg-[#D14A2D]">
-                                <tr>
-                                  <th className="px-4 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-[#D14A2D] whitespace-nowrap">
-                                    <div className="flex items-center gap-2">
-                                      <span>{isMeanMode ? 'Mean Summary' : 'Sum Summary'}</span>
-                                      {!isMeanMode && ng.columns.length > 0 && (
-                                        <button
-                                          type="button"
-                                          className="text-[11px] px-2 py-0.5 rounded border border-white/60 text-white hover:bg-white/10 transition"
-                                          onClick={() => setShowCrosstabSummary(true)}
-                                        >
-                                          View Summary
-                                        </button>
-                                      )}
-                                    </div>
-                                  </th>
-                                  <th className="px-3 py-2 text-center text-xs font-semibold text-white uppercase tracking-wider border-l border-[#D14A2D] whitespace-nowrap w-28 max-w-[7.5rem] overflow-hidden text-ellipsis">
-                                    Total
-                                  </th>
-                                  {ng.columns.map((col: any) => (
-                                    <th
-                                      key={col.code}
-                                      className="px-3 py-2 text-center text-xs font-semibold text-white uppercase tracking-wider border-l border-[#D14A2D] whitespace-nowrap w-28 max-w-[7.5rem] overflow-hidden text-ellipsis"
-                                    >
-                                      {col.text}
-                                    </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-gray-200">
-                                <tr className="bg-[#D14A2D]">
-                                  <td className="px-4 py-2 border-r border-[#D14A2D]"></td>
-                                  <td className="px-4 py-2 text-xs text-white text-center border-l border-[#D14A2D] font-semibold"></td>
-                                  {ng.columns.map((col: any, idx: number) => (
-                                    <td key={col.code} className="px-4 py-2 text-xs text-white text-center border-l border-[#D14A2D] font-semibold">
-                                      ({String.fromCharCode(65 + idx)})
-                                    </td>
-                                  ))}
-                                </tr>
-                                <tr className="bg-gray-100">
-                                  <td className="px-4 py-2 text-sm font-medium text-gray-900 border-r border-gray-200">Base (Total responding)</td>
-                                  <td className="px-4 py-2 text-sm text-gray-900 text-center border-l border-gray-200">
-                                    {totalBaseRow.toLocaleString()}
-                                  </td>
-                                  {ng.columns.map((col: any) => {
-                                    const base = ng.columnBases?.[col.code] || 0;
-                                    return (
-                                      <td key={col.code} className="px-4 py-2 text-sm text-gray-900 text-center border-l border-gray-200">
-                                        {base.toLocaleString()}
-                                        {base > 0 && base < 15 ? <span className="text-red-600 font-semibold">*</span> : null}
-                                      </td>
-                                    );
-                                  })}
-                                </tr>
-                                {ng.rows.map((row: any, idx: number) => {
-                                  const rowBg = 'bg-white';
-                                  const lettersMap: Record<string, string> = {};
-                                  let hasLetters = false;
-                                  if (!isMeanMode) {
-                                    ng.columns.forEach((col: any, colIdx: number) => {
-                                      const base = ng.columnBases?.[col.code] || 0;
-                                      const lettersArr: string[] = [];
-                                      if (base > 0) {
-                                        const p1 = (row.cells[col.code]?.pct || 0) / 100;
-                                        ng.columns.forEach((compareCol: any, compareIdx: number) => {
-                                          if (compareCol.code === col.code) return;
-                                          const base2 = ng.columnBases?.[compareCol.code] || 0;
-                                          if (base2 <= 0) return;
-                                          const p2 = (row.cells[compareCol.code]?.pct || 0) / 100;
-                                          const zDen = Math.sqrt((p1 * (1 - p1)) / base + (p2 * (1 - p2)) / base2);
-                                          if (zDen > 0) {
-                                            const z = (p1 - p2) / zDen;
-                                            if (z >= 1.96) {
-                                              lettersArr.push(String.fromCharCode(65 + compareIdx));
-                                            }
-                                          }
-                                        });
-                                      }
-                                      const trimmed = lettersArr.join('');
-                                      if (trimmed) hasLetters = true;
-                                      lettersMap[col.code] = trimmed;
-                                    });
-                                  }
-                                  return (
-                                    <React.Fragment key={row.key || idx}>
-                                      <tr className={rowBg}>
-                                        <td className="px-4 py-2 text-sm font-medium text-gray-900 border-r border-gray-200" rowSpan={isMeanMode ? 1 : hasLetters ? 3 : 2}>
-                                          <div className="flex flex-col">
-                                            <span>{row.label}</span>
-                                            {selectedVar?.name ? (
-                                              <span className="text-[11px] text-gray-500">col: {selectedVar.name}</span>
-                                            ) : null}
-                                          </div>
-                                        </td>
-                                        <td className="px-4 py-2 text-sm text-gray-900 text-center border-l border-gray-200">
-                                          {formatTop(row.totalValue)}
-                                        </td>
-                                        {ng.columns.map((col: any) => {
-                                          const cell = row.cells?.[col.code] || { value: 0, base: 0, pct: 0 };
-                                          return (
-                                            <td
-                                              key={col.code}
-                                              className="px-4 py-2 text-sm text-gray-900 text-center border-l border-gray-200"
-                                              style={{ backgroundColor: lettersMap[col.code] ? '#e0f2ff' : 'transparent' }}
-                                            >
-                                              {formatTop(cell.value)}
-                                            </td>
-                                          );
-                                        })}
-                                      </tr>
-                                      {!isMeanMode && (
-                                        <>
-                                          <tr className={rowBg}>
-                                            <td className="px-4 py-2 text-xs text-gray-900 text-center border-l border-gray-200">
-                                              {(row.totalPct || 0).toFixed(1)}%
-                                            </td>
-                                            {ng.columns.map((col: any) => {
-                                              const cell = row.cells?.[col.code] || { value: 0, base: 0, pct: 0 };
-                                              return (
-                                                <td
-                                                  key={col.code}
-                                                  className="px-4 py-2 text-xs text-gray-900 text-center border-l border-gray-200"
-                                                  style={{ backgroundColor: lettersMap[col.code] ? '#e0f2ff' : 'transparent' }}
-                                                >
-                                                  {formatBottom(cell)}
-                                                </td>
-                                              );
-                                            })}
-                                          </tr>
-                                          {hasLetters && (
-                                            <tr className={rowBg}>
-                                              <td className="px-4 py-1 text-[11px] text-gray-700 text-center border-l border-gray-200"></td>
-                                              {ng.columns.map((col: any) => {
-                                                const letters = lettersMap[col.code] || '';
-                                                return (
-                                                  <td
-                                                    key={col.code}
-                                                    className="px-4 py-1 text-[11px] font-semibold text-blue-700 text-center border-l border-gray-200"
-                                                    style={{ backgroundColor: letters ? '#e0f2ff' : 'transparent' }}
-                                                  >
-                                                    {letters}
-                                                  </td>
-                                                );
-                                              })}
-                                            </tr>
-                                          )}
-                                        </>
-                                      )}
-                                    </React.Fragment>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        );
-                      })()
+                    {((crosstabSummary as any).mode === 'numeric-grid-crosstab') ? (
+                      <GridNumericCrosstabTables
+                        tables={(crosstabSummary as any).tables || []}
+                        onViewSummary={() => setShowCrosstabSummary(true)}
+                      />
                     ) : useScaleBuckets && crosstabSummary.bucketTables ? (
                       <div className="space-y-6">
                         {crosstabSummary.bucketTables.map((bucket, bucketIdx) => {

@@ -3,6 +3,7 @@ import { Variable, VariableStatsSelection } from '../../utils/tabs/types';
 import { TableOption } from '../../utils/tabs/tableOptions';
 import { getBaseQuestionNumber } from '../../utils/tabs/questionHelpers';
 import { countRespondentsWithData, countCheckedForItemColumn, getMultiSelectResponseCounts } from '../../utils/tabs/chartHelpers';
+import { buildNumericGridSummaryModel, type NumericGridSummaryType } from '../../utils/tabs/gridNumericSummary';
 const BRAND_ORANGE = '#D14A2D';
 interface VariableTablePlaceholdersProps {
   variable: Variable | null;
@@ -88,6 +89,15 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
   columnHeaderOverrides,
   onTablesNoData,
 }) => {
+  // Early validation - check before any hooks
+  if (!variable || tableOptions.length === 0) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        {variable ? 'No tables available for this variable' : 'Select a variable to view tables'}
+      </div>
+    );
+  }
+
   const variableName = variable?.name || '';
   const typeLower = variable?.type?.toLowerCase() || '';
   const isSingleSelect = typeLower.includes('single select') && !typeLower.includes('grid');
@@ -297,21 +307,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
       return a.code.localeCompare(b.code);
     });
   }, [matchingQuestion, columnCode, baseQuestionNumber]);
-  if (!variable || tableOptions.length === 0) {
-    return (
-      <div className="text-center py-12 text-gray-500">
-        {variable ? 'No tables available for this variable' : 'Select a variable to view tables'}
-      </div>
-    );
-  }
-  // Show numeric grid no-data banner if bases are all 0
-  if (isNumericGrid && !numericGridHasData) {
-    return (
-      <div className="border border-red-200 bg-red-50 text-red-700 px-4 py-3 rounded">
-        No data found for this numeric grid - bases are 0 across all columns/rows. Upload or map data for this question to see tables.
-      </div>
-    );
-  }
   // Get response options for single select variable
   const getResponseOptions = (): Array<{ code: string; text: string }> => {
     if (!variable) return [];
@@ -1548,76 +1543,6 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     
     return counts;
   };
-  // Calculate mean or sum for a numeric grid statement for a SPECIFIC column (with optional outlier removal)
-  const calculateNumericGridSummaryForStatementAndColumn = (
-    statementCode: string,
-    columnCode: string,
-    summaryType: 'mean' | 'sum' | 'meanNoOutliers' | 'sumNoOutliers'
-  ): number => {
-    if (!getVariableDataByExpectedHeader) return 0;
-
-    const baseQuestionNumber = getBaseQuestionNumber(variableName);
-    const allValues: number[] = [];
-
-    // Get data for this specific statement and column combination
-    const possibleVariableNames = [
-      `${baseQuestionNumber}_${statementCode}_${columnCode}`,
-      `${baseQuestionNumber}${statementCode}${columnCode}`,
-      `${baseQuestionNumber}_${statementCode}_${columnCode.replace(/^c/i, '')}`,
-      `${baseQuestionNumber}${statementCode}${columnCode.replace(/^c/i, '')}`,
-    ];
-
-    for (const varName of possibleVariableNames) {
-      const data = getVariableDataByExpectedHeader?.(varName);
-      if (data && data.values) {
-        data.values.forEach((value: any) => {
-          if (value === null || value === undefined || value === '') return;
-          const numValue = parseFloat(String(value));
-          if (!isNaN(numValue)) {
-            allValues.push(numValue);
-          }
-        });
-        break;
-      }
-    }
-
-    if (allValues.length === 0) return 0;
-
-    // For outlier removal, calculate mean and std dev first, then filter
-    if (summaryType === 'meanNoOutliers' || summaryType === 'sumNoOutliers') {
-      const sum = allValues.reduce((acc, val) => acc + val, 0);
-      const mean = sum / allValues.length;
-
-      // Calculate standard deviation
-      const variance = allValues.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / allValues.length;
-      const stdDev = Math.sqrt(variance);
-
-      // Filter values within 2 standard deviations from mean
-      const valuesNoOutliers = allValues.filter(val => Math.abs(val - mean) <= 2 * stdDev);
-
-      if (valuesNoOutliers.length === 0) {
-        // If no values remain, return 0
-        return 0;
-      }
-
-      if (summaryType === 'meanNoOutliers') {
-        const sumNoOutliers = valuesNoOutliers.reduce((acc, val) => acc + val, 0);
-        return sumNoOutliers / valuesNoOutliers.length;
-      } else {
-        // sumNoOutliers
-        return valuesNoOutliers.reduce((acc, val) => acc + val, 0);
-      }
-    }
-
-    // Regular mean or sum
-    if (summaryType === 'mean') {
-      const sum = allValues.reduce((acc, val) => acc + val, 0);
-      return sum / allValues.length;
-    } else {
-      // sum
-      return allValues.reduce((acc, val) => acc + val, 0);
-    }
-  };
   // Render actual table for numeric grid mean/sum summary tables
   const renderNumericGridSummaryTable = (option: TableOption) => {
     if (option.type !== 'summary' || !isNumericGrid) {
@@ -1632,266 +1557,46 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
     
     if (!isMeanSummary && !isSumSummary && !isMeanNoOutliersSummary && !isSumNoOutliersSummary) return null;
     
-    const summaryType = isMeanSummary ? 'mean' : 
-                       isSumSummary ? 'sum' :
-                       isMeanNoOutliersSummary ? 'meanNoOutliers' : 'sumNoOutliers';
+    const summaryType: NumericGridSummaryType = isMeanSummary
+      ? 'mean'
+      : isSumSummary
+        ? 'sum'
+        : isMeanNoOutliersSummary
+          ? 'meanNoOutliers'
+          : 'sumNoOutliers';
+
     const statements = getStatements();
     if (statements.length === 0) return null;
-    // Determine if this summary option targets a specific column (for multi-column grids)
-    const extractColumnCodeFromId = (id: string): string | null => {
-      const match = id.match(/_(c\d+)[^_]*SummaryTable$/i);
-      if (match && match[1]) return match[1].toLowerCase();
-      return null;
-    };
-    const normalizeCol = (code: string) => {
-      const trimmed = String(code || '').trim();
-      if (!trimmed) return '';
-      const lower = trimmed.toLowerCase();
-      return lower.startsWith('c') ? lower : `c${lower}`;
-    };
-    const selectedColumnCode = extractColumnCodeFromId(option.id);
-    const columnFromVarMatch = variableName.match(/c\d+/i);
-    const columnFromVar = columnFromVarMatch ? normalizeCol(columnFromVarMatch[0]) : null;
-    
-    // Calculate total responding (anyone who answered at least one statement)
-    let totalResponding = 0;
-    const respondentSet = new Set<number>();
-    
-    statements.forEach(stmt => {
-      const baseQuestionNumber = getBaseQuestionNumber(variableName);
-      const columnCodesRaw: string[] = [];
-      if (variable && variable.codes && Object.keys(variable.codes).length > 0) {
-        columnCodesRaw.push(...Object.keys(variable.codes));
-      } else {
-        const responseOptions = getResponseOptions();
-        responseOptions.forEach(opt => {
-          if (opt.code.startsWith('c') || /^\d+$/.test(opt.code)) {
-            columnCodesRaw.push(opt.code);
-          }
-        });
-      }
-      const normalizedColumns = columnCodesRaw.map(normalizeCol).filter(Boolean);
-      const columnsToUse =
-        selectedColumnCode && normalizedColumns.some(col => col === normalizeCol(selectedColumnCode))
-          ? normalizedColumns.filter(col => col === normalizeCol(selectedColumnCode))
-          : normalizedColumns;
-      
-      columnsToUse.forEach(columnCode => {
-        const possibleVariableNames = [
-          `${baseQuestionNumber}_${stmt.code}_${columnCode}`,
-          `${baseQuestionNumber}${stmt.code}${columnCode}`,
-          `${baseQuestionNumber}_${stmt.code}_${columnCode.replace(/^c/i, '')}`,
-          `${baseQuestionNumber}${stmt.code}${columnCode.replace(/^c/i, '')}`,
-        ];
-        
-        for (const varName of possibleVariableNames) {
-          const data = getVariableDataByExpectedHeader?.(varName);
-          if (data && data.values) {
-            data.values.forEach((value: any, idx: number) => {
-              if (value === null || value === undefined || value === '') return;
-              const numValue = parseFloat(String(value));
-              if (!isNaN(numValue)) {
-                respondentSet.add(idx);
-              }
-            });
-            break;
-          }
-        }
-      });
-    });
-    
-    totalResponding = respondentSet.size;
+    if (!getVariableDataByExpectedHeader) return null;
 
-    // Get column codes and labels
-    const columnCodesRaw: string[] = [];
-    const columnLabels: Record<string, string> = {};
-    if (variable && variable.codes && Object.keys(variable.codes).length > 0) {
-      Object.entries(variable.codes).forEach(([code, label]) => {
-        columnCodesRaw.push(code);
-        columnLabels[normalizeCol(code)] = String(label || code);
-      });
-    } else {
-      const responseOptions = getResponseOptions();
-      responseOptions.forEach(opt => {
-        if (opt.code.startsWith('c') || /^\d+$/.test(opt.code)) {
-          columnCodesRaw.push(opt.code);
-          columnLabels[normalizeCol(opt.code)] = opt.text;
-        }
-      });
-    }
-    let normalizedColumns = columnCodesRaw.map(normalizeCol).filter(Boolean);
-    if (columnFromVar && !normalizedColumns.includes(columnFromVar)) {
-      normalizedColumns = [...normalizedColumns, columnFromVar];
-    }
-    const columnCodes = normalizedColumns;
-    let columnsToUse: string[] = normalizedColumns;
-    if (selectedColumnCode && normalizedColumns.some(col => col === normalizeCol(selectedColumnCode))) {
-      columnsToUse = normalizedColumns.filter(col => col === normalizeCol(selectedColumnCode));
-    } else if (columnFromVar && normalizedColumns.some(col => col === columnFromVar)) {
-      columnsToUse = normalizedColumns.filter(col => col === columnFromVar);
-    } else if (columnFromVar) {
-      columnsToUse = [columnFromVar];
-    }
-
-    // Calculate summary values for each statement and each column
-    const statementSummaries = statements.map(stmt => {
-      const baseQuestionNumber = getBaseQuestionNumber(variableName);
-
-      // Calculate base for this statement (anyone who answered any column for this statement)
-      let statementBase = 0;
-      let adjustedBase = 0;
-      
-      // For outlier-removed tables, we need to calculate which respondents have outliers
-      if (summaryType === 'meanNoOutliers' || summaryType === 'sumNoOutliers') {
-        // First, collect all values for this statement across all columns
-        const allValuesForStatement: Array<{ value: number; respondentIndex: number }> = [];
-        
-        columnsToUse.forEach(columnCode => {
-          const possibleVariableNames = [
-            `${baseQuestionNumber}_${stmt.code}_${columnCode}`,
-            `${baseQuestionNumber}${stmt.code}${columnCode}`,
-            `${baseQuestionNumber}_${stmt.code}_${columnCode.replace(/^c/i, '')}`,
-            `${baseQuestionNumber}${stmt.code}${columnCode.replace(/^c/i, '')}`,
-          ];
-          
-          for (const varName of possibleVariableNames) {
-            const data = getVariableDataByExpectedHeader?.(varName);
-            if (data && data.values) {
-              data.values.forEach((value: any, idx: number) => {
-                if (value === null || value === undefined || value === '') return;
-                const numValue = parseFloat(String(value));
-                if (!isNaN(numValue)) {
-                  allValuesForStatement.push({ value: numValue, respondentIndex: idx });
-                }
-              });
-              break;
-            }
-          }
-        });
-        
-        if (allValuesForStatement.length > 0) {
-          // Calculate mean and std dev for this statement
-          const values = allValuesForStatement.map(item => item.value);
-          const sum = values.reduce((acc, val) => acc + val, 0);
-          const mean = sum / values.length;
-          const variance = values.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / values.length;
-          const stdDev = Math.sqrt(variance);
-          
-          // Find respondents who have at least one non-outlier value
-          const respondentsWithNonOutliers = new Set<number>();
-          allValuesForStatement.forEach(({ value, respondentIndex }) => {
-            if (Math.abs(value - mean) <= 2 * stdDev) {
-              respondentsWithNonOutliers.add(respondentIndex);
-            }
-          });
-          
-          statementBase = new Set(allValuesForStatement.map(item => item.respondentIndex)).size;
-          adjustedBase = respondentsWithNonOutliers.size;
-        } else {
-          statementBase = 0;
-          adjustedBase = 0;
-        }
-      } else {
-        // For regular tables, use the original base calculation
-        const statementRespondentSet = new Set<number>();
-        
-        columnsToUse.forEach(columnCode => {
-          const possibleVariableNames = [
-            `${baseQuestionNumber}_${stmt.code}_${columnCode}`,
-            `${baseQuestionNumber}${stmt.code}${columnCode}`,
-            `${baseQuestionNumber}_${stmt.code}_${columnCode.replace(/^c/i, '')}`,
-            `${baseQuestionNumber}${stmt.code}${columnCode.replace(/^c/i, '')}`,
-          ];
-          
-          for (const varName of possibleVariableNames) {
-            const data = getVariableDataByExpectedHeader?.(varName);
-            if (data && data.values) {
-              data.values.forEach((value: any, idx: number) => {
-                if (value === null || value === undefined || value === '') return;
-                const numValue = parseFloat(String(value));
-                if (!isNaN(numValue)) {
-                  statementRespondentSet.add(idx);
-                }
-              });
-              break;
-            }
-          }
-        });
-        
-        statementBase = statementRespondentSet.size;
-        adjustedBase = statementBase;
-      }
-      
-      // Calculate values for each column
-      const columnValues: Record<string, number> = {};
-      columnsToUse.forEach(colCode => {
-        columnValues[colCode] = calculateNumericGridSummaryForStatementAndColumn(stmt.code, colCode, summaryType);
-      });
-
-      return {
-        code: stmt.code,
-        text: stmt.text,
-        columnValues: columnValues,
-        base: adjustedBase, // Use adjusted base for outlier-removed tables, original base for others
-      };
-    });
-    
-    // Calculate total of all values for each column for percentage calculation (only used for sum tables)
-    const totalValuesByColumn: Record<string, number> = {};
-    columnsToUse.forEach(colCode => {
-      totalValuesByColumn[colCode] = statementSummaries.reduce((sum, stmt) => sum + (stmt.columnValues[colCode] || 0), 0);
-    });
-    const noDataNotice = statementSummaries.length > 0 && statementSummaries.every(stmt => stmt.base === 0)
-      ? renderNoDataBanner(option.id)
-      : null;
-    markTableData(statementSummaries.some(stmt => stmt.base > 0));
-
-    // Check if all bases are equal
-    const allBasesEqual = statementSummaries.length > 0 &&
-      statementSummaries.every(stmt => stmt.base === statementSummaries[0].base);
-
-    // Check if this is a mean summary table (mean or meanNoOutliers)
-    const isMeanSummaryTable = summaryType === 'mean' || summaryType === 'meanNoOutliers';
-
-    // Check if sort by frequency is enabled (numeric grids don't default to sort)
+    const responseOptions = getResponseOptions();
     const sortState = variableSortByFrequency[variableName];
     const isSortedByFrequency = sortState !== undefined ? sortState : false;
+    const holdCodes = variableHoldResponseCodes[variableName] || [];
 
-    // Sort statements by first column value (descending) if sort by frequency is enabled
-    let sortedStatements = isSortedByFrequency && columnsToUse.length > 0
-      ? [...statementSummaries].sort((a, b) => (b.columnValues[columnsToUse[0]] || 0) - (a.columnValues[columnsToUse[0]] || 0))
-      : statementSummaries;
-    
-    // Apply hold ordering if hold codes are selected
-    if (isSortedByFrequency && variableHoldResponseCodes[variableName] && variableHoldResponseCodes[variableName].length > 0) {
-      const holdList = variableHoldResponseCodes[variableName];
-      const holdSet = new Set(holdList);
-      const remaining: typeof statementSummaries = [];
-      const held: typeof statementSummaries = [];
-      
-      sortedStatements.forEach(stmt => {
-        if (holdSet.has(stmt.code)) {
-          held.push(stmt);
-        } else {
-          remaining.push(stmt);
-        }
-      });
-      
-      // Held items go at the bottom, maintaining their order from holdList
-      const heldOrdered: typeof statementSummaries = [];
-      holdList.forEach(code => {
-        const match = held.find(stmt => stmt.code === code);
-        if (match) {
-          heldOrdered.push(match);
-        }
-      });
-      
-      sortedStatements = [...remaining, ...heldOrdered];
-    }
-    const tableName = summaryType === 'mean' ? 'Mean Summary' :
-                     summaryType === 'sum' ? 'Sum Summary' :
-                     summaryType === 'meanNoOutliers' ? 'Mean (Outliers Removed) Summary' :
-                     'Sum (Outliers Removed) Summary';
+    const model = buildNumericGridSummaryModel({
+      variable,
+      variableName,
+      optionId: option.id,
+      summaryType,
+      statements,
+      responseOptions,
+      getVariableDataByExpectedHeader,
+      sortByFrequency: isSortedByFrequency,
+      holdCodes,
+    });
+
+    const noDataNotice =
+      model.rows.length > 0 && model.rows.every((stmt) => stmt.base === 0) ? renderNoDataBanner(option.id) : null;
+    markTableData(model.rows.some((stmt) => stmt.base > 0));
+
+    const columnsToUse = model.columnsToUse;
+    const columnLabels = model.columnLabels;
+    const totalValuesByColumn = model.totalValuesByColumn;
+    const allBasesEqual = model.allBasesEqual;
+    const isMeanSummaryTable = model.isMeanSummaryTable;
+    const tableName = model.tableName;
+    const sortedStatements = model.rows;
 
     // If there are multiple columns, show a column for each data column
     const hasMultipleColumns = columnsToUse.length > 1;
@@ -1923,7 +1628,9 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
                     <th
                       className={`px-2 py-2 text-center text-xs font-semibold text-white uppercase tracking-wider ${!isMeanSummaryTable ? 'border-r border-gray-200' : (idx < columnsToUse.length - 1 ? 'border-r border-gray-200' : '')}`}
                     >
-                      {hasMultipleColumns ? (columnLabels[colCode] || colCode) : (isMeanSummaryTable ? '' : 'Sum')}
+                      {hasMultipleColumns
+                        ? (columnLabels[colCode] || colCode)
+                        : (isMeanSummaryTable ? 'Total' : 'Sum')}
                     </th>
                     {!isMeanSummaryTable && (
                       <th className={`px-2 py-2 text-center text-xs font-semibold text-white uppercase tracking-wider ${idx < columnsToUse.length - 1 ? 'border-r border-gray-200' : ''}`}>
@@ -1964,12 +1671,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
                       {/* Statement row */}
                       <tr className="border-b border-gray-200 hover:bg-gray-50">
                         <td className="px-4 py-2 text-sm text-gray-900 border-r border-gray-200">
-                          <div className="flex flex-col">
-                            <span>{stmt.text}</span>
-                            {columnsToUse.length === 1 && variableName ? (
-                              <span className="text-[11px] text-gray-500">col: {variableName}</span>
-                            ) : null}
-                          </div>
+                          {stmt.text}
                         </td>
                         {columnsToUse.map((colCode, colIdx) => {
                           const displayValue = formatNumber((stmt.columnValues[colCode] || 0).toFixed(2));
@@ -2018,12 +1720,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
                         {/* Statement row */}
                         <tr className="border-b border-gray-200 hover:bg-gray-50">
                           <td className="px-4 py-2 text-sm text-gray-900 border-r border-gray-200">
-                            <div className="flex flex-col">
-                              <span>{stmt.text}</span>
-                              {columnsToUse.length === 1 && variableName ? (
-                                <span className="text-[11px] text-gray-500">col: {variableName}</span>
-                              ) : null}
-                            </div>
+                            {stmt.text}
                           </td>
                           {columnsToUse.map((colCode, colIdx) => {
                             const columnValue = stmt.columnValues[colCode] || 0;
@@ -2459,7 +2156,7 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
                   Mean Summary
                 </th>
                 <th className="px-2 py-2 text-center text-xs font-semibold text-white uppercase tracking-wider">
-                  {/* Intentionally blank to avoid repeating MEAN */}
+                  Total
                 </th>
               </tr>
             </thead>
@@ -3536,6 +3233,15 @@ export const VariableTablePlaceholders: React.FC<VariableTablePlaceholdersProps>
 
   if (noDataAcrossTables) {
     return renderNoDataBanner(undefined, 'No data found for these tables - bases are 0 across all rows/columns. Upload or map data for this question to see tables.');
+  }
+
+  // Show numeric grid no-data banner if bases are all 0
+  if (isNumericGrid && !numericGridHasData) {
+    return (
+      <div className="border border-red-200 bg-red-50 text-red-700 px-4 py-3 rounded">
+        No data found for this numeric grid - bases are 0 across all columns/rows. Upload or map data for this question to see tables.
+      </div>
+    );
   }
 
   return (
