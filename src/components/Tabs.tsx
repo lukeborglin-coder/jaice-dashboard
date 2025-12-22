@@ -119,9 +119,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   const [selectedProject, setSelectedProject] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [archivedProjects, setArchivedProjects] = useState<any[]>([]);
-  const [qnrViewMode, setQnrViewMode] = useState<'tabSpecs' | 'variables' | 'data'>('variables');
+  const [qnrViewMode, setQnrViewMode] = useState<'variables' | 'tableSpecs' | 'bannerSpecs' | 'data'>('variables');
   const [tabSpecsTypeFilter, setTabSpecsTypeFilter] = useState<string>('all');
-  const [tabSpecsSubView, setTabSpecsSubView] = useState<'tables' | 'banners'>('tables');
   const [specsResetKey, setSpecsResetKey] = useState(0);
   const [showSettingsPopup, setShowSettingsPopup] = useState(false);
   const [significanceLevel, setSignificanceLevel] = useState<95 | 90>(95);
@@ -150,6 +149,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
 
   const [activeTabPlan, setActiveTabPlan] = useState<TabPlan | null>(null);
   const [showCreateTabPlanWizard, setShowCreateTabPlanWizard] = useState(false);
+  const [exportingBannerId, setExportingBannerId] = useState<string | null>(null);
 
   // Initialize hooks that don't depend on others first
   const questionnaireHook = useQuestionnaire({
@@ -256,6 +256,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     selectedQuestionnaire,
     variables,
     storageKey: tabSpecsStorageKey || undefined,
+    isRawPlan: activeTabPlan?.sourceType === 'raw',
+    projectName: selectedProject?.name || activeTabPlan?.name,
   });
   const summaryNetsHook = useSummaryNets();
   const tableSelectionsHook = useTableSelections({ selectedQuestionnaireId: selectedQuestionnaire?.id, storageKey: tabSpecsStorageKey || undefined });
@@ -357,6 +359,14 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     setPreviewDebugInfo,
     setVariableRenderedTableCounts,
   } = previewHook;
+
+  // Helper function to get selected tables for a variable
+  const getTablesForVariable = useCallback((variable: Variable): string[] => {
+    const varName = variable.name;
+    const selections = variableTableSelections[varName];
+    if (!selections || selections.size === 0) return [];
+    return Array.from(selections);
+  }, [variableTableSelections]);
 
   // --- Tab Plan persistence (server) ---
   const isPlanScoped = !!activeTabPlan?.id;
@@ -818,6 +828,263 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     });
   }, [showMyProjectsOnly, user]);
 
+  // Export banner tables to Excel
+  const handleExportBannerToExcel = useCallback(async (bannerId: string) => {
+    const bannerGroup = newBannerGroups.find(b => b.id === bannerId);
+    if (!bannerGroup) {
+      alert('Selected banner group not found.');
+      return;
+    }
+
+    if (!fullRawData || !fullRawData.rows || fullRawData.rows.length === 0) {
+      alert('No data available to export');
+      return;
+    }
+
+    if (!getTablesForVariable || !variableTableSelections) {
+      alert('Table selection data not available');
+      return;
+    }
+
+    setExportingBannerId(bannerId);
+
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const workbook = new ExcelJS.Workbook();
+
+      // Helper to get column header from variable name
+      const getColumnHeader = (varName: string): string | null => {
+        const variations = [
+          varName,
+          varName.startsWith('Q') ? varName : `Q${varName}`,
+          varName.startsWith('Q') ? varName.substring(1) : varName
+        ];
+
+        for (const variation of variations) {
+          if (columnMapping && columnMapping[variation]) {
+            return columnMapping[variation];
+          }
+          const matchingKey = columnMapping ? Object.keys(columnMapping).find(
+            key => key.toLowerCase() === variation.toLowerCase()
+          ) : undefined;
+          if (matchingKey && columnMapping) {
+            return columnMapping[matchingKey];
+          }
+        }
+
+        if (fullRawData.columns) {
+          for (const variation of variations) {
+            const directMatch = fullRawData.columns.find(
+              col => col.toLowerCase() === variation.toLowerCase()
+            );
+            if (directMatch) {
+              return directMatch;
+            }
+          }
+        }
+
+        return null;
+      };
+
+      // Build banner columns structure
+      const bannerCols: Array<{ title: string; predicate: (row: any) => boolean }> = [];
+      const subGroups = bannerGroup.groups || [];
+
+      subGroups.forEach(sg => {
+        sg.cuts.forEach(cut => {
+          const cutTitle = `${sg.title ? sg.title + ' - ' : ''}${cut.title || 'Untitled'}`;
+          const cutVarName = cut.variableName;
+          const cutCodes = Array.isArray(cut.codes) ? cut.codes : [];
+
+          bannerCols.push({
+            title: cutTitle,
+            predicate: (row: any) => {
+              if (!cutVarName || cutCodes.length === 0) return false;
+              const header = getColumnHeader(cutVarName);
+              if (!header) return false;
+              const value = row[header];
+              if (value === null || value === undefined || value === '') return false;
+              const valueStr = String(value).trim();
+              return cutCodes.some(code => {
+                if (valueStr === code) return true;
+                const codeNoC = code.replace(/^c/i, '');
+                if (valueStr === codeNoC) return true;
+                const numVal = Number(valueStr);
+                if (!isNaN(numVal) && String(numVal) === codeNoC) return true;
+                return false;
+              });
+            }
+          });
+        });
+      });
+
+      // Create Table of Contents worksheet
+      const tocWorksheet = workbook.addWorksheet('Table of Contents');
+
+      // Create Data Cuts worksheet
+      const dataCutsWorksheet = workbook.addWorksheet('Data Cuts');
+      let currentRow = 1;
+      const tablePositions: Array<{ tableNumber: number; tableName: string; rowNumber: number; variable: any }> = [];
+      let tableNumber = 0;
+
+      // Process each variable
+      for (const variable of variables) {
+        const tables = getTablesForVariable(variable);
+
+        if (!tables || tables.length === 0) continue;
+
+        for (const tableName of tables) {
+          tableNumber++;
+
+          // Add spacing between tables
+          if (tableNumber > 1) {
+            currentRow += 3;
+          }
+
+          const tableStartRow = currentRow;
+          tablePositions.push({ tableNumber, tableName, rowNumber: currentRow, variable });
+
+          // Table title
+          const tableTitle = `Table ${tableNumber}: ${variable.name}`;
+          const titleRow = dataCutsWorksheet.getRow(currentRow++);
+          titleRow.getCell(2).value = tableTitle;
+          titleRow.getCell(2).font = { bold: true, size: 12 };
+
+          // Question text
+          const questionRow = dataCutsWorksheet.getRow(currentRow++);
+          questionRow.getCell(2).value = variable.description || variable.name;
+          questionRow.getCell(2).font = { size: 11 };
+
+          // Build header row
+          const headerRow = dataCutsWorksheet.getRow(currentRow++);
+          let col = 2;
+
+          // Row label column
+          headerRow.getCell(col).value = '';
+          headerRow.getCell(col).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+          headerRow.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+          headerRow.getCell(col).border = { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} };
+          dataCutsWorksheet.getColumn(col).width = 40;
+          col++;
+
+          // Total column
+          if (bannerGroup.includeTotal !== false) {
+            headerRow.getCell(col).value = 'Total';
+            headerRow.getCell(col).alignment = { horizontal: 'center', vertical: 'middle' };
+            headerRow.getCell(col).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            headerRow.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+            headerRow.getCell(col).border = { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} };
+            dataCutsWorksheet.getColumn(col).width = 12;
+            col++;
+          }
+
+          // Banner columns
+          bannerCols.forEach((bannerCol) => {
+            headerRow.getCell(col).value = bannerCol.title;
+            headerRow.getCell(col).alignment = { horizontal: 'center', vertical: 'middle' };
+            headerRow.getCell(col).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            headerRow.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+            headerRow.getCell(col).border = { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} };
+            dataCutsWorksheet.getColumn(col).width = 12;
+            col++;
+          });
+
+          // Build rows based on variable type
+          const varCodes = variable.codes || {};
+          const codeEntries = Object.entries(varCodes);
+
+          for (const [code, label] of codeEntries) {
+            const dataRow = dataCutsWorksheet.getRow(currentRow++);
+            let dataCol = 2;
+
+            // Row label
+            dataRow.getCell(dataCol).value = String(label);
+            dataRow.getCell(dataCol).border = { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} };
+            dataCol++;
+
+            // Get column header for this variable
+            const varHeader = getColumnHeader(variable.name);
+
+            // Total column
+            if (bannerGroup.includeTotal !== false) {
+              const totalCount = varHeader ? fullRawData.rows.filter((row: any) => {
+                const val = row[varHeader];
+                if (val === null || val === undefined || val === '') return false;
+                const valStr = String(val).trim();
+                if (valStr === code) return true;
+                const codeNoC = code.replace(/^c/i, '');
+                if (valStr === codeNoC) return true;
+                const numVal = Number(valStr);
+                if (!isNaN(numVal) && String(numVal) === codeNoC) return true;
+                return false;
+              }).length : 0;
+              dataRow.getCell(dataCol).value = totalCount;
+              dataRow.getCell(dataCol).alignment = { horizontal: 'center' };
+              dataRow.getCell(dataCol).border = { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} };
+              dataCol++;
+            }
+
+            // Banner columns
+            bannerCols.forEach((bannerCol) => {
+              const count = varHeader ? fullRawData.rows.filter((row: any) => {
+                if (!bannerCol.predicate(row)) return false;
+                const val = row[varHeader];
+                if (val === null || val === undefined || val === '') return false;
+                const valStr = String(val).trim();
+                if (valStr === code) return true;
+                const codeNoC = code.replace(/^c/i, '');
+                if (valStr === codeNoC) return true;
+                const numVal = Number(valStr);
+                if (!isNaN(numVal) && String(numVal) === codeNoC) return true;
+                return false;
+              }).length : 0;
+              dataRow.getCell(dataCol).value = count;
+              dataRow.getCell(dataCol).alignment = { horizontal: 'center' };
+              dataRow.getCell(dataCol).border = { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} };
+              dataCol++;
+            });
+          }
+        }
+      }
+
+      // Fill TOC
+      tocWorksheet.getColumn(1).width = 10;
+      tocWorksheet.getColumn(2).width = 60;
+      tocWorksheet.getColumn(3).width = 15;
+
+      const tocHeaderRow = tocWorksheet.getRow(1);
+      tocHeaderRow.getCell(1).value = 'Table #';
+      tocHeaderRow.getCell(2).value = 'Table Name';
+      tocHeaderRow.getCell(3).value = 'Row #';
+      tocHeaderRow.font = { bold: true };
+
+      let tocRow = 2;
+      for (const pos of tablePositions) {
+        const row = tocWorksheet.getRow(tocRow++);
+        row.getCell(1).value = pos.tableNumber;
+        row.getCell(2).value = `${pos.variable.name}: ${pos.variable.description || pos.variable.name}`;
+        row.getCell(3).value = pos.rowNumber;
+      }
+
+      // Generate and download the file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${bannerGroup.title.replace(/[^a-zA-Z0-9]/g, '_')}_Banner.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting banner:', error);
+      alert(`Failed to export banner: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setExportingBannerId(null);
+    }
+  }, [newBannerGroups, fullRawData, columnMapping, variables, getTablesForVariable, variableTableSelections]);
+
   const filteredActiveProjects = useMemo(() => filterProjectsByUser(quantActiveProjects), [filterProjectsByUser, quantActiveProjects]);
   const filteredArchivedProjects = useMemo(() => filterProjectsByUser(quantArchivedProjects), [filterProjectsByUser, quantArchivedProjects]);
   const displayProjects = activeTab === 'active' ? filteredActiveProjects : filteredArchivedProjects;
@@ -1134,6 +1401,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
 
     const newTableSelections: Record<string, Set<string>> = {};
     const newStatsSelections: Record<string, any> = {};
+    const newNetSummaryTableSelectedCodes: Record<string, Array<{ name: string; codes: string[] }>> = {};
 
     variablesNoOe.forEach(variable => {
       const variableName = variable.name;
@@ -1159,8 +1427,85 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
         newStatsSelections[variableName] = defaultStats;
       }
 
+      // Create default 7pt scale nets for single select grids with "Scale (7pt)" tag
+      const varTypeLower = variable.type?.toLowerCase() || '';
+      const isSingleSelectGrid = varTypeLower.includes('single select grid');
+
+      if (isSingleSelectGrid) {
+        const varTags = (variable as any)?.tags || [];
+        const hasScale7ptTag = varTags.some((tag: string) => /Scale\s*\(7pt\)/i.test(tag));
+
+        if (hasScale7ptTag) {
+          // Get response options for this variable
+          const varResponseOptions: Array<{ code: string; text: string }> = [];
+
+          const varBaseQuestionNumber = variableName.replace(/^Q/i, '').split('_')[0];
+          const varMatchingQuestion = questionnaireQuestions.find(question => {
+            const qNum = question.number || question.id;
+            if (!qNum) return false;
+            const qNumStr = String(qNum);
+            const normalizedQNum = qNumStr.replace(/^Q/i, '');
+            const normalizedBase = varBaseQuestionNumber.replace(/^Q/i, '');
+            return (
+              qNumStr === varBaseQuestionNumber ||
+              normalizedQNum === normalizedBase ||
+              `Q${normalizedQNum}` === varBaseQuestionNumber
+            );
+          });
+
+          if (varMatchingQuestion && Array.isArray(varMatchingQuestion.responseOptions)) {
+            varMatchingQuestion.responseOptions.forEach((opt: any, idx: number) => {
+              if (typeof opt === 'string') {
+                varResponseOptions.push({ code: `c${idx + 1}`, text: opt });
+              } else {
+                varResponseOptions.push({
+                  code: opt.code || `c${idx + 1}`,
+                  text: opt.text || opt.label || opt.value || opt.code || `Option ${idx + 1}`,
+                });
+              }
+            });
+          }
+
+          if (varResponseOptions.length >= 7) {
+            const getCodeForIndex = (index: number): string => {
+              if (varResponseOptions[index]) {
+                return varResponseOptions[index].code;
+              }
+              const numericCode = String(index + 1);
+              const found = varResponseOptions.find(opt => {
+                const optCode = String(opt.code).replace(/^[rc]/i, '');
+                return optCode === numericCode;
+              });
+              return found ? found.code : numericCode;
+            };
+
+            const top2BoxCodes = [getCodeForIndex(5), getCodeForIndex(6)];
+            const middle3BoxCodes = [getCodeForIndex(2), getCodeForIndex(3), getCodeForIndex(4)];
+            const bottom2BoxCodes = [getCodeForIndex(0), getCodeForIndex(1)];
+
+            newNetSummaryTableSelectedCodes[variableName] = [
+              { name: 'Top 2 Box', codes: top2BoxCodes },
+              { name: 'Middle 3 Box', codes: middle3BoxCodes },
+              { name: 'Bottom 2 Box', codes: bottom2BoxCodes },
+            ];
+
+            const netTableIds = [
+              `${variableName}_NetSummaryTable_0`,
+              `${variableName}_NetSummaryTable_1`,
+              `${variableName}_NetSummaryTable_2`,
+            ];
+            netTableIds.forEach(id => {
+              if (!newTableSelections[variableName]) {
+                newTableSelections[variableName] = new Set<string>();
+              }
+              newTableSelections[variableName].add(id);
+            });
+          }
+        }
+      }
+
       // Mark as initialized
-      if (defaultTableSelections.size > 0 || hasDefaultStats) {
+      if (defaultTableSelections.size > 0 || hasDefaultStats || newTableSelections[variableName]?.size > 0) {
         defaultSelectionsInitializedRef.current.add(variableName);
       }
     });
@@ -1204,7 +1549,27 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
         };
       });
     }
-  }, [variablesNoOe, questionnaireQuestions, setVariableTableSelections, setVariableStatsSelections]);
+
+    // Apply all default net summary table codes at once
+    if (Object.keys(newNetSummaryTableSelectedCodes).length > 0) {
+      setNetSummaryTableSelectedCodes(prev => {
+        // Only add if the variable doesn't already have net codes
+        const finalNetCodes: Record<string, Array<{ name: string; codes: string[] }>> = {};
+        Object.entries(newNetSummaryTableSelectedCodes).forEach(([varName, nets]) => {
+          if (!prev[varName] || prev[varName].length === 0) {
+            finalNetCodes[varName] = nets;
+          }
+        });
+
+        if (Object.keys(finalNetCodes).length === 0) return prev;
+
+        return {
+          ...prev,
+          ...finalNetCodes,
+        };
+      });
+    }
+  }, [variablesNoOe, questionnaireQuestions, setVariableTableSelections, setVariableStatsSelections, setNetSummaryTableSelectedCodes]);
 
   // Auto-select the first table when opening the variables view
   useEffect(() => {
@@ -1716,15 +2081,26 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                     Tables
                   </button>
                   <button
-                    onClick={() => setQnrViewMode('tabSpecs')}
+                    onClick={() => setQnrViewMode('tableSpecs')}
                     className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                      qnrViewMode === 'tabSpecs'
+                      qnrViewMode === 'tableSpecs'
                         ? 'text-white'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
-                    style={qnrViewMode === 'tabSpecs' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
+                    style={qnrViewMode === 'tableSpecs' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
                   >
-                    Specs
+                    Table Specs
+                  </button>
+                  <button
+                    onClick={() => setQnrViewMode('bannerSpecs')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      qnrViewMode === 'bannerSpecs'
+                        ? 'text-white'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                    style={qnrViewMode === 'bannerSpecs' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
+                  >
+                    Banner Specs
                   </button>
                   <button
                     onClick={() => setQnrViewMode('data')}
@@ -1750,10 +2126,9 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
             </div>
 
             <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
-              {qnrViewMode === 'tabSpecs' && (
+              {qnrViewMode === 'tableSpecs' && (
                 <TabSpecsView
-                  tabSpecsSubView={tabSpecsSubView}
-                  onTabSpecsSubViewChange={setTabSpecsSubView}
+                  viewType="tables"
                   tabSpecsTypeFilter={tabSpecsTypeFilter}
                   onTabSpecsTypeFilterChange={setTabSpecsTypeFilter}
                   tabSpecsTypeOptions={tabSpecsTypeOptions}
@@ -1827,6 +2202,93 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                   }}
                   onBannerCancel={handleBannerCancel}
                   onBannerFilterConditionsChange={setBannerFilterConditions}
+                  getTablesForVariable={getTablesForVariable}
+                  projectName={selectedProject?.name || activeTabPlan?.name}
+                  onBannerExport={handleExportBannerToExcel}
+                  exportingBannerId={exportingBannerId}
+                />
+              )}
+
+              {qnrViewMode === 'bannerSpecs' && (
+                <TabSpecsView
+                  viewType="banners"
+                  tabSpecsTypeFilter={tabSpecsTypeFilter}
+                  onTabSpecsTypeFilterChange={setTabSpecsTypeFilter}
+                  tabSpecsTypeOptions={tabSpecsTypeOptions}
+                  specsResetKey={specsResetKey}
+                  onBackToTabPlans={() => setViewMode('project')}
+                  selectedQuestionnaire={selectedQuestionnaire}
+                  questionnaireQuestions={questionnaireQuestionsNoOe}
+                  variables={variablesNoOe}
+                  variableTableSelections={variableTableSelections}
+                  showIncludedQuestions={showIncludedQuestions}
+                  onQuestionClick={(question, displayVariable) => {
+                    if (displayVariable) {
+                      setConfigPopupVariable(displayVariable);
+                    } else {
+                                  const qNum = question.number || question.id;
+                                  const qNumStr = String(qNum);
+                                  const tags = question.tags || [];
+                                  const questionText = question.text || question.question || question.description || qNumStr;
+                                  const questionType = question.type || 'Unknown';
+                                          const tempVariable: Variable = {
+                                            name: qNumStr,
+                                            description: questionText,
+                                            type: questionType,
+                                            codes: question.responseOptions ? Object.fromEntries(
+                                              question.responseOptions.map((opt: any, idx: number) => {
+                                                const code = typeof opt === 'string' ? `c${idx + 1}` : (opt.code || `c${idx + 1}`);
+                                                const text = typeof opt === 'string' ? opt : (opt.text || opt.label || code);
+                                                return [code, text];
+                                              })
+                                            ) : undefined,
+                                            statements: question.statementOptions ? Object.fromEntries(
+                                              question.statementOptions.map((stmt: any, idx: number) => {
+                                                const code = typeof stmt === 'string' ? `r${idx + 1}` : (stmt.code || `r${idx + 1}`);
+                                                const text = typeof stmt === 'string' ? stmt : (stmt.text || stmt.label || code);
+                                                return [code, text];
+                                              })
+                                            ) : undefined,
+                                            tags: tags,
+                                          };
+                                          setConfigPopupVariable(tempVariable);
+                                        }
+                                        setShowConfigPopup(true);
+                                      }}
+                  onShowSettingsPopup={() => setShowSettingsPopup(true)}
+                  showBannerBuilder={showBannerBuilder}
+                  selectedNewBannerGroupId={selectedNewBannerGroupId}
+                  editingBannerGroup={editingBannerGroup}
+                  newBannerGroups={newBannerGroups}
+                  bannerFilterConditions={bannerFilterConditions}
+                  fullRawData={fullRawData}
+                          columnMapping={columnMapping}
+                  getExpectedHeadersForQuestion={getExpectedHeadersForQuestion}
+                  bannerSettingsOpenRef={bannerSettingsOpenRef}
+                  bannerSpecsFileInputRef={bannerSpecsFileInputRef}
+                  onBannerSpecsFileChange={handleBannerSpecsFileChange}
+                  onHandleClickImportBannerSpecs={handleClickImportBannerSpecs}
+                  onBannerEdit={(group) => {
+                              setEditingBannerGroup(group);
+                              setShowBannerBuilder(true);
+                            }}
+                  onBannerDelete={(groupId) => {
+                              if (window.confirm('Are you sure you want to delete this banner group?')) {
+                                setNewBannerGroups(prev => prev.filter(g => g.id !== groupId));
+                              }
+                            }}
+                  onBannerChange={handleBannerChange}
+                  onBannerSave={() => {
+                    if (editingBannerGroup) {
+                      handleBannerSave(editingBannerGroup);
+                    }
+                  }}
+                  onBannerCancel={handleBannerCancel}
+                  onBannerFilterConditionsChange={setBannerFilterConditions}
+                  getTablesForVariable={getTablesForVariable}
+                  projectName={selectedProject?.name || activeTabPlan?.name}
+                  onBannerExport={handleExportBannerToExcel}
+                  exportingBannerId={exportingBannerId}
                 />
               )}
 

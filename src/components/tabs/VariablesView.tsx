@@ -986,50 +986,7 @@ export const VariablesView: React.FC<VariablesViewProps> = ({
     }
 
     if (isSingleSelectGrid) {
-      // For 7pt scale grids, crosstabs show a frequency-style table per statement.
-      const statements = singleSelectGridStatements;
-      if (!statements.length) return 'Crosstab disabled: base < 2.';
-
-      const isValidValue = (v: any) =>
-        v !== null && v !== undefined && v !== '' && !(typeof v === 'string' && v.trim() === '');
-
-      const baseNum = getBaseQuestionNumber(selectedVar.name).replace(/^Q/i, '');
-      const baseWithPrefix = baseNum ? `Q${baseNum}` : '';
-      const basePattern = baseNum ? new RegExp(`^Q?${baseNum}`, 'i') : null;
-
-      const getStatementValuesForSelected = (stmtCode: string): any[] | null => {
-        const stmtCodeLower = String(stmtCode || '').toLowerCase();
-        const headerHint = statementHeaderHints[stmtCodeLower];
-
-        let coreCode = String(stmtCode || '');
-        if (basePattern) coreCode = coreCode.replace(basePattern, '');
-        coreCode = coreCode.replace(/_?c\d+$/i, '');
-        coreCode = coreCode.replace(/^[_-]+/, '');
-
-        const candidates: string[] = [
-          headerHint || '',
-          stmtCode,
-          coreCode,
-          baseWithPrefix ? `${baseWithPrefix}${coreCode}` : '',
-          baseWithPrefix ? `${baseWithPrefix}_${coreCode}` : '',
-          baseNum ? `${baseNum}${coreCode}` : '',
-          baseNum ? `${baseNum}_${coreCode}` : '',
-          `${selectedVar.name}${coreCode}`,
-          `${selectedVar.name}_${coreCode}`,
-        ];
-
-        for (const header of candidates.filter(Boolean)) {
-          const data = getVariableDataByExpectedHeader(header);
-          if (data && Array.isArray(data.values) && data.values.length > 0) return data.values;
-        }
-        return null;
-      };
-
-      for (const stmt of statements) {
-        const values = getStatementValuesForSelected(stmt.code);
-        const base = Array.isArray(values) ? values.filter(isValidValue).length : 0;
-        if (base < 2) return 'Crosstab disabled: base < 2.';
-      }
+      // For single select grids, always allow crosstabs regardless of base size
       return null;
     }
 
@@ -1210,7 +1167,8 @@ export const VariablesView: React.FC<VariablesViewProps> = ({
       const isSsgScale = typeLowerVar.includes('single select grid') && hasScale;
       if (!isSs && !isSsgScale) return;
 
-      const reason = isSs ? computeSingleSelectDegenerateReason(v) : computeScaleGridDegenerateReason(v);
+      // For single select grids, always allow as crosstab target
+      const reason = isSs ? computeSingleSelectDegenerateReason(v) : null;
       out[v.name] = reason;
     });
     return out;
@@ -2865,12 +2823,11 @@ export const VariablesView: React.FC<VariablesViewProps> = ({
                       })()}
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {isChartSupported && chartStatus !== 'chart' && !crosstabActiveTarget && !showCrosstabModal && !crosstabLoading && (
+                      {isChartSupported && chartStatus !== 'chart' && chartStatus !== 'loading' && !crosstabActiveTarget && !showCrosstabModal && !crosstabLoading && (
                         <button
                           type="button"
                           onClick={startChartGeneration}
-                          className="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-200 disabled:text-blue-500 transition"
-                          disabled={chartStatus === 'loading'}
+                          className="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
                         >
                           {cachedCharts[selectedVariable || ''] ? 'View chart' : 'Generate chart'}
                         </button>
@@ -2884,28 +2841,28 @@ export const VariablesView: React.FC<VariablesViewProps> = ({
                           View tables
                         </button>
                       )}
-                      {isCrosstabSupported && isChartSupported && chartStatus !== 'chart' && !showCrosstabModal && !crosstabLoading && (
+                      {isCrosstabSupported && isChartSupported && chartStatus !== 'chart' && chartStatus !== 'loading' && !showCrosstabModal && !crosstabLoading && (
                         <button
                           type="button"
                           className={
-                            (chartStatus === 'loading' || !!crosstabDisabledReason)
+                            !!crosstabDisabledReason
                               ? 'text-xs px-3 py-1 rounded bg-gray-200 text-gray-500 border border-gray-300 cursor-not-allowed'
                               : crosstabActiveTarget
                                 ? 'text-xs px-3 py-1 rounded border border-gray-300 text-gray-800 bg-white hover:bg-gray-100 transition'
                                 : 'text-xs px-3 py-1 rounded bg-[#D14A2D] text-white hover:bg-[#bf4329] transition'
                           }
                           onClick={handleCrosstabButtonClick}
-                          disabled={chartStatus === 'loading' || !!crosstabDisabledReason}
+                          disabled={!!crosstabDisabledReason}
                           title={crosstabDisabledReason || undefined}
                         >
                           {crosstabActiveTarget ? 'View tables' : 'Run crosstab'}
                         </button>
                       )}
-                      {isCrosstabSupported && isChartSupported && chartStatus === 'table' && crosstabActiveTarget && (
+                      {isCrosstabSupported && isChartSupported && chartStatus === 'table' && chartStatus !== 'loading' && crosstabActiveTarget && (
                         <button
                           type="button"
                           className={
-                            (chartStatus === 'loading' || !!crosstabDisabledReason)
+                            !!crosstabDisabledReason
                               ? 'text-xs px-3 py-1 rounded bg-gray-200 text-gray-500 border border-gray-300 cursor-not-allowed'
                               : 'text-xs px-3 py-1 rounded bg-[#D14A2D] text-white hover:bg-[#bf4329] transition'
                           }
@@ -2920,7 +2877,7 @@ export const VariablesView: React.FC<VariablesViewProps> = ({
                             setShowCrosstabSummary(false);
                             setShowCrosstabModal(true);
                           }}
-                          disabled={chartStatus === 'loading' || !!crosstabDisabledReason}
+                          disabled={!!crosstabDisabledReason}
                           title={crosstabDisabledReason || undefined}
                         >
                           Run New Crosstab

@@ -8,10 +8,12 @@ interface UseBannersProps {
   selectedQuestionnaire?: any | null;
   variables?: Variable[];
   storageKey?: string;
+  isRawPlan?: boolean;
+  projectName?: string;
 }
 
 export const useBanners = (props?: UseBannersProps) => {
-  const { selectedQuestionnaire, variables = [], storageKey } = props || {};
+  const { selectedQuestionnaire, variables = [], storageKey, isRawPlan = false, projectName } = props || {};
   const keyBase = storageKey || selectedQuestionnaire?.id;
   
   const [newBannerGroups, setNewBannerGroups] = useState<BannerGroup[]>([]);
@@ -176,12 +178,24 @@ export const useBanners = (props?: UseBannersProps) => {
           setNewBannerGroups([]);
         }
       } else {
-        setNewBannerGroups([]);
+        // No stored banners - create default banner with Total for raw plans
+        if (isRawPlan) {
+          const defaultBannerName = projectName ? `${projectName}_B1` : 'Total';
+          const defaultBanner: BannerGroup = {
+            id: `default_${Date.now()}`,
+            title: defaultBannerName,
+            groups: [],
+            includeTotal: true,
+          };
+          setNewBannerGroups([defaultBanner]);
+        } else {
+          setNewBannerGroups([]);
+        }
       }
     } else {
       setNewBannerGroups([]);
     }
-  }, [keyBase]);
+  }, [keyBase, isRawPlan, projectName]);
 
   // Save new banner groups to localStorage when they change
   useEffect(() => {

@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { XMarkIcon, PlusIcon, TrashIcon, PencilIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, PlusIcon, TrashIcon, PencilIcon, Cog6ToothIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import { type BannerGroup, type BannerCut, type BannerSubGroup, type BannerCondition, type BannerConditionGroup, type BannerSumCondition } from '../types/dataTabulation';
 import { API_BASE_URL } from '../config';
+import ExcelJS from 'exceljs';
 
 const BRAND_ORANGE = '#D14A2D';
 
@@ -51,6 +52,9 @@ interface BannerBuilderProps {
   settingsOpenRef?: React.MutableRefObject<(() => void) | null>;
   questionnaireId?: string;
   expectedHeaders?: string[];
+  variableTableSelections?: Record<string, Set<string>>;
+  getTablesForVariable?: (variable: any) => string[];
+  projectName?: string;
 }
 
 interface PopupProps {
@@ -1777,10 +1781,11 @@ const OldCutConditionsEditor: React.FC<CutConditionsEditorProps> = ({
   );
 };
 
-const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChange, onCancel, editingGroup, existingBannerCount = 0, rawData, columnMapping, settingsOpenRef, questionnaireId, expectedHeaders }) => {
+const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChange, onCancel, editingGroup, existingBannerCount = 0, rawData, columnMapping, settingsOpenRef, questionnaireId, expectedHeaders, variableTableSelections, getTablesForVariable, projectName }) => {
   const [confidenceLevel, setConfidenceLevel] = useState<95 | 90 | 80>(editingGroup?.confidenceLevel || 95);
   const [includeTotal, setIncludeTotal] = useState<boolean>(editingGroup?.includeTotal !== false);
-  const [bannerTitle, setBannerTitle] = useState<string>(editingGroup?.title || `Banner ${existingBannerCount + 1}`);
+  const defaultBannerName = projectName ? `${projectName}_B${existingBannerCount + 1}` : `Banner ${existingBannerCount + 1}`;
+  const [bannerTitle, setBannerTitle] = useState<string>(editingGroup?.title || defaultBannerName);
   const [subGroups, setSubGroups] = useState<BannerSubGroup[]>(
     editingGroup?.groups || [
       {
@@ -1798,6 +1803,7 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
   const [showSettingsPopup, setShowSettingsPopup] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [aiConfiguring, setAiConfiguring] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   // Expose settings opener to parent so the top-level header button can open it
   useEffect(() => {
     if (settingsOpenRef) {
@@ -2291,6 +2297,331 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
     return refs.current[key];
   };
 
+  const handleExportBanner = async () => {
+    if (!rawData || !rawData.rows || rawData.rows.length === 0) {
+      alert('No data available to export');
+      return;
+    }
+
+    if (!getTablesForVariable || !variableTableSelections) {
+      alert('Table selection data not available');
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const workbook = new ExcelJS.Workbook();
+
+      // Helper to get column header from variable name
+      const getColumnHeader = (varName: string): string | null => {
+        const variations = [
+          varName,
+          varName.startsWith('Q') ? varName : `Q${varName}`,
+          varName.startsWith('Q') ? varName.substring(1) : varName
+        ];
+
+        for (const variation of variations) {
+          if (columnMapping && columnMapping[variation]) {
+            return columnMapping[variation];
+          }
+          const matchingKey = columnMapping ? Object.keys(columnMapping).find(
+            key => key.toLowerCase() === variation.toLowerCase()
+          ) : undefined;
+          if (matchingKey && columnMapping) {
+            return columnMapping[matchingKey];
+          }
+        }
+
+        if (rawData.columns) {
+          for (const variation of variations) {
+            const directMatch = rawData.columns.find(
+              col => col.toLowerCase() === variation.toLowerCase()
+            );
+            if (directMatch) {
+              return directMatch;
+            }
+          }
+        }
+
+        return null;
+      };
+
+      // Build banner columns structure
+      const bannerCols: Array<{ title: string; predicate: (row: any) => boolean }> = [];
+
+      subGroups.forEach(sg => {
+        sg.cuts.forEach(cut => {
+          const cutTitle = `${sg.title ? sg.title + ' - ' : ''}${cut.title || 'Untitled'}`;
+          const cutVarName = cut.variableName;
+          const cutCodes = Array.isArray(cut.codes) ? cut.codes : [];
+
+          bannerCols.push({
+            title: cutTitle,
+            predicate: (row: any) => {
+              if (!cutVarName || cutCodes.length === 0) return false;
+              const header = getColumnHeader(cutVarName);
+              if (!header) return false;
+              const value = row[header];
+              if (value === null || value === undefined || value === '') return false;
+              const valueStr = String(value).trim();
+              return cutCodes.some(code => {
+                if (valueStr === code) return true;
+                const codeNoC = code.replace(/^c/i, '');
+                if (valueStr === codeNoC) return true;
+                const numVal = Number(valueStr);
+                if (!isNaN(numVal) && String(numVal) === codeNoC) return true;
+                return false;
+              });
+            }
+          });
+        });
+      });
+
+      // Create Table of Contents worksheet
+      const tocWorksheet = workbook.addWorksheet('Table of Contents');
+
+      // Create Data Cuts worksheet
+      const dataCutsWorksheet = workbook.addWorksheet('Data Cuts');
+      let currentRow = 1;
+      const tablePositions: Array<{ tableNumber: number; tableName: string; rowNumber: number; variable: any }> = [];
+      let tableNumber = 0;
+
+      // Process each variable
+      for (const variable of variables) {
+        const tables = getTablesForVariable(variable);
+
+        if (!tables || tables.length === 0) continue;
+
+        for (const tableName of tables) {
+          tableNumber++;
+
+          // Add spacing between tables
+          if (tableNumber > 1) {
+            currentRow += 3;
+          }
+
+          const tableStartRow = currentRow;
+          tablePositions.push({ tableNumber, tableName, rowNumber: currentRow, variable });
+
+          // Table title
+          const tableTitle = `Table ${tableNumber}: ${variable.name}`;
+          const titleRow = dataCutsWorksheet.getRow(currentRow++);
+          titleRow.getCell(2).value = tableTitle;
+          titleRow.getCell(2).font = { bold: true, size: 12 };
+
+          // Question text
+          const questionRow = dataCutsWorksheet.getRow(currentRow++);
+          questionRow.getCell(2).value = variable.description || variable.name;
+          questionRow.getCell(2).font = { size: 11 };
+
+          // Build header row
+          const headerRow = dataCutsWorksheet.getRow(currentRow++);
+          let col = 2;
+
+          // Row label column
+          headerRow.getCell(col).value = '';
+          headerRow.getCell(col).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+          headerRow.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+          headerRow.getCell(col).border = { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} };
+          dataCutsWorksheet.getColumn(col).width = 40;
+          col++;
+
+          // Total column
+          if (includeTotal) {
+            headerRow.getCell(col).value = 'Total';
+            headerRow.getCell(col).alignment = { horizontal: 'center', vertical: 'middle' };
+            headerRow.getCell(col).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            headerRow.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+            headerRow.getCell(col).border = { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} };
+            dataCutsWorksheet.getColumn(col).width = 12;
+            col++;
+          }
+
+          // Banner columns
+          bannerCols.forEach((bannerCol) => {
+            headerRow.getCell(col).value = bannerCol.title;
+            headerRow.getCell(col).alignment = { horizontal: 'center', vertical: 'middle' };
+            headerRow.getCell(col).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            headerRow.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+            headerRow.getCell(col).border = { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} };
+            dataCutsWorksheet.getColumn(col).width = 12;
+            col++;
+          });
+
+          // Get variable data
+          const varHeader = getColumnHeader(variable.name);
+          const varData = varHeader ? rawData.rows.map((row: any) => row[varHeader]) : [];
+
+          // Calculate total base
+          const totalBase = varData.filter((v: any) => v !== null && v !== undefined && v !== '').length;
+
+          // Calculate banner bases
+          const bannerBases: number[] = [];
+          bannerCols.forEach((bannerCol) => {
+            const bannerRows = rawData.rows.filter(bannerCol.predicate);
+            const bannerBase = varHeader ? bannerRows.filter((row: any) => {
+              const v = row[varHeader];
+              return v !== null && v !== undefined && v !== '';
+            }).length : 0;
+            bannerBases.push(bannerBase);
+          });
+
+          // Add base row first (italic, not bold)
+          const baseRow = dataCutsWorksheet.getRow(currentRow++);
+          let baseCol = 2;
+          baseRow.getCell(baseCol).value = 'Base';
+          baseRow.getCell(baseCol).font = { italic: true };
+          baseRow.getCell(baseCol).border = { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} };
+          baseCol++;
+
+          if (includeTotal) {
+            baseRow.getCell(baseCol).value = totalBase;
+            baseRow.getCell(baseCol).alignment = { horizontal: 'center' };
+            baseRow.getCell(baseCol).font = { italic: true };
+            baseRow.getCell(baseCol).border = { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} };
+            baseCol++;
+          }
+
+          bannerBases.forEach((bannerBase) => {
+            baseRow.getCell(baseCol).value = bannerBase;
+            baseRow.getCell(baseCol).alignment = { horizontal: 'center' };
+            baseRow.getCell(baseCol).font = { italic: true };
+            baseRow.getCell(baseCol).border = { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} };
+            baseCol++;
+          });
+
+          // Get response options
+          const responseOptions: Array<{ code: string; text: string }> = [];
+          if (variable.codes && Object.keys(variable.codes).length > 0) {
+            Object.entries(variable.codes).forEach(([code, text]) => {
+              responseOptions.push({ code, text: String(text) });
+            });
+          }
+
+          // Build data rows for each response option (count row, then percentage row)
+          responseOptions.forEach((option) => {
+            // Count row
+            const countRow = dataCutsWorksheet.getRow(currentRow++);
+            let col = 2;
+
+            // Row label
+            countRow.getCell(col).value = option.text;
+            countRow.getCell(col).border = { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} };
+            col++;
+
+            // Total column - count
+            if (includeTotal) {
+              const totalCount = varData.filter((v: any) => {
+                if (v === null || v === undefined || v === '') return false;
+                const vStr = String(v).trim();
+                return vStr === option.code || vStr === option.code.replace(/^c/i, '') || vStr === String(Number(option.code.replace(/^c/i, '')));
+              }).length;
+              countRow.getCell(col).value = totalCount;
+              countRow.getCell(col).alignment = { horizontal: 'center' };
+              countRow.getCell(col).border = { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} };
+              col++;
+            }
+
+            // Banner columns - counts
+            bannerCols.forEach((bannerCol, idx) => {
+              const bannerRows = rawData.rows.filter(bannerCol.predicate);
+              const bannerCount = varHeader ? bannerRows.filter((row: any) => {
+                const v = row[varHeader];
+                if (v === null || v === undefined || v === '') return false;
+                const vStr = String(v).trim();
+                return vStr === option.code || vStr === option.code.replace(/^c/i, '') || vStr === String(Number(option.code.replace(/^c/i, '')));
+              }).length : 0;
+
+              countRow.getCell(col).value = bannerCount;
+              countRow.getCell(col).alignment = { horizontal: 'center' };
+              countRow.getCell(col).border = { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} };
+              col++;
+            });
+
+            // Percentage row
+            const pctRow = dataCutsWorksheet.getRow(currentRow++);
+            let pctCol = 2;
+
+            // Empty row label for percentage row
+            pctRow.getCell(pctCol).value = '';
+            pctRow.getCell(pctCol).border = { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} };
+            pctCol++;
+
+            // Total column - percentage
+            if (includeTotal) {
+              const totalCount = varData.filter((v: any) => {
+                if (v === null || v === undefined || v === '') return false;
+                const vStr = String(v).trim();
+                return vStr === option.code || vStr === option.code.replace(/^c/i, '') || vStr === String(Number(option.code.replace(/^c/i, '')));
+              }).length;
+              const totalPct = totalBase > 0 ? ((totalCount / totalBase) * 100).toFixed(1) : '0.0';
+              pctRow.getCell(pctCol).value = `${totalPct}%`;
+              pctRow.getCell(pctCol).alignment = { horizontal: 'center' };
+              pctRow.getCell(pctCol).border = { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} };
+              pctCol++;
+            }
+
+            // Banner columns - percentages
+            bannerCols.forEach((bannerCol, idx) => {
+              const bannerRows = rawData.rows.filter(bannerCol.predicate);
+              const bannerBase = bannerBases[idx];
+              const bannerCount = varHeader ? bannerRows.filter((row: any) => {
+                const v = row[varHeader];
+                if (v === null || v === undefined || v === '') return false;
+                const vStr = String(v).trim();
+                return vStr === option.code || vStr === option.code.replace(/^c/i, '') || vStr === String(Number(option.code.replace(/^c/i, '')));
+              }).length : 0;
+
+              const bannerPct = bannerBase > 0 ? ((bannerCount / bannerBase) * 100).toFixed(1) : '0.0';
+              pctRow.getCell(pctCol).value = `${bannerPct}%`;
+              pctRow.getCell(pctCol).alignment = { horizontal: 'center' };
+              pctRow.getCell(pctCol).border = { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} };
+              pctCol++;
+            });
+          });
+        }
+      }
+
+      // Build Table of Contents
+      tocWorksheet.getColumn(1).width = 15;
+      tocWorksheet.getColumn(2).width = 60;
+      tocWorksheet.getColumn(3).width = 15;
+
+      const tocHeaderRow = tocWorksheet.getRow(1);
+      tocHeaderRow.getCell(1).value = 'Table #';
+      tocHeaderRow.getCell(2).value = 'Description';
+      tocHeaderRow.getCell(3).value = 'Row';
+      tocHeaderRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      tocHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+      tocHeaderRow.alignment = { vertical: 'middle', horizontal: 'left' };
+
+      let tocRow = 2;
+      tablePositions.forEach((pos) => {
+        const row = tocWorksheet.getRow(tocRow++);
+        row.getCell(1).value = pos.tableNumber;
+        row.getCell(2).value = `${pos.variable.name}: ${pos.variable.description || pos.variable.name}`;
+        row.getCell(3).value = pos.rowNumber;
+      });
+
+      // Generate and download the file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${bannerTitle.replace(/[^a-zA-Z0-9]/g, '_')}_Banner.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting banner:', error);
+      alert(`Failed to export banner: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleSave = () => {
     // Auto-generate sub-group titles if not set
     const subGroupsWithTitles = subGroups.map((sg, idx) => ({
@@ -2575,7 +2906,7 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
               onKeyDown={(e) => {
                 if (e.key === 'Enter') setIsEditingTitle(false);
                 if (e.key === 'Escape') {
-                  setBannerTitle(editingGroup?.title || `Banner ${existingBannerCount + 1}`);
+                  setBannerTitle(editingGroup?.title || defaultBannerName);
                   setIsEditingTitle(false);
                 }
               }}
@@ -2596,6 +2927,19 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
           )}
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportBanner}
+            disabled={isExporting || !rawData || !rawData.rows || rawData.rows.length === 0 || !getTablesForVariable}
+            className={`px-3 py-1.5 text-sm rounded-lg transition-colors flex items-center gap-2 ${
+              isExporting || !rawData || !rawData.rows || rawData.rows.length === 0 || !getTablesForVariable
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-gray-700 text-white hover:bg-gray-800'
+            }`}
+            title={!rawData || !rawData.rows || rawData.rows.length === 0 ? 'No data available' : !getTablesForVariable ? 'Table selection not available' : 'Download banner tables'}
+          >
+            <ArrowDownTrayIcon className="h-4 w-4" />
+            {isExporting ? 'Exporting...' : 'Download'}
+          </button>
           <button
             onClick={onCancel}
             className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 rounded-lg"
@@ -2725,6 +3069,22 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
+              {includeTotal && (
+                <tr className="bg-blue-50">
+                  <td className="px-4 py-2 border-r border-gray-100 align-top">
+                    <div className="px-2 py-1 text-sm font-medium text-gray-900">Total</div>
+                  </td>
+                  <td className="px-4 py-2 border-r border-gray-100 align-top">
+                    <div className="px-2 py-1 text-sm text-gray-700">Total</div>
+                  </td>
+                  <td className="px-4 py-2 align-top text-gray-700">
+                    <span className="text-sm">All respondents</span>
+                  </td>
+                  <td className="px-4 py-2 align-top">
+                    <div className="text-xs text-gray-500 italic">Auto-included</div>
+                  </td>
+                </tr>
+              )}
               {subGroups.map((subGroup, subGroupIndex) => {
                 const cutCount = subGroup.cuts.length || 1;
                 return subGroup.cuts.map((cut, cutIndex) => {

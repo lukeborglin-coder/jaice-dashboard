@@ -11,8 +11,7 @@ import { getExpectedColumnHeadersForBase } from '../../utils/tabs/expectedHeader
 const BRAND_ORANGE = '#D14A2D';
 
 interface TabSpecsViewProps {
-  tabSpecsSubView: 'tables' | 'banners';
-  onTabSpecsSubViewChange: (view: 'tables' | 'banners') => void;
+  viewType: 'tables' | 'banners';
   tabSpecsTypeFilter: string;
   onTabSpecsTypeFilterChange: (filter: string) => void;
   tabSpecsTypeOptions: string[];
@@ -46,11 +45,12 @@ interface TabSpecsViewProps {
   onBannerCancel: () => void;
   onBannerFilterConditionsChange: (conditions: any) => void;
   onBackToTabPlans?: () => void;
+  getTablesForVariable?: (variable: Variable) => string[];
+  projectName?: string;
 }
 
 export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
-  tabSpecsSubView,
-  onTabSpecsSubViewChange,
+  viewType,
   tabSpecsTypeFilter,
   onTabSpecsTypeFilterChange,
   tabSpecsTypeOptions,
@@ -83,6 +83,8 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
   onBannerCancel,
   onBannerFilterConditionsChange,
   onBackToTabPlans,
+  getTablesForVariable,
+  projectName,
 }) => {
   const [showLoadingShimmer, setShowLoadingShimmer] = React.useState(false);
   const [showLoadingOverlay, setShowLoadingOverlay] = React.useState(false);
@@ -120,32 +122,8 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
 
   return (
     <div className="p-6">
-      <div className="mb-4 flex items-start justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => onTabSpecsSubViewChange('tables')}
-            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md border transition-colors ${
-              tabSpecsSubView === 'tables'
-                ? 'text-white'
-                : 'text-gray-900 bg-white border-gray-300 hover:bg-gray-50'
-            }`}
-            style={tabSpecsSubView === 'tables' ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
-          >
-            Table Specs
-          </button>
-          <button
-            onClick={() => onTabSpecsSubViewChange('banners')}
-            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md border transition-colors ${
-              tabSpecsSubView === 'banners'
-                ? 'text-white'
-                : 'text-gray-900 bg-white border-gray-300 hover:bg-gray-50'
-            }`}
-            style={tabSpecsSubView === 'banners' ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
-          >
-            Banner Specs
-          </button>
-        </div>
-        {tabSpecsSubView === 'tables' && questionnaireQuestions.length > 0 && (
+      {viewType === 'tables' && questionnaireQuestions.length > 0 && (
+        <div className="mb-4 flex items-end justify-start">
           <div className="flex items-center gap-2">
             <div>
               <label htmlFor="tab-specs-type-select" className="sr-only">Filter questions</label>
@@ -170,9 +148,9 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
               <Cog6ToothIcon className="h-5 w-5 text-gray-600" />
             </button>
           </div>
-        )}
-      </div>
-      {tabSpecsSubView === 'tables' ? (
+        </div>
+      )}
+      {viewType === 'tables' ? (
         <>
           {!selectedQuestionnaire ? (
             <div className="text-center py-12">
@@ -441,6 +419,9 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
               onChange={onBannerChange}
               onSave={onBannerSave}
               onCancel={onBannerCancel}
+              variableTableSelections={variableTableSelections}
+              getTablesForVariable={getTablesForVariable}
+              projectName={projectName}
             />
           ) : selectedNewBannerGroupId ? (
             /* Banner Detail View - to be implemented */
