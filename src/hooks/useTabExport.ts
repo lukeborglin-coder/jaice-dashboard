@@ -828,6 +828,22 @@ export const useTabExport = (props: UseTabExportProps) => {
           });
         }
 
+        // Sort tables for single select grids: summary tables first, then individual statement tables
+        const isSingleSelectGridVariable = variable.type?.toLowerCase().includes('single select grid');
+        if (isSingleSelectGridVariable) {
+          tables = [...tables].sort((a, b) => {
+            const aIsSummary = a.endsWith('_MeanSummaryTable') || a.includes('_NetSummaryTable_');
+            const bIsSummary = b.endsWith('_MeanSummaryTable') || b.includes('_NetSummaryTable_');
+
+            // Summary tables come first
+            if (aIsSummary && !bIsSummary) return -1;
+            if (!aIsSummary && bIsSummary) return 1;
+
+            // Maintain original order within each group
+            return 0;
+          });
+        }
+
         // Debug: Log tables for preview mode (when only one variable is being exported)
         const isPreviewMode = variablesSubset.length === 1 && variablesSubset[0] === variable;
         const isMultiSelectQuestion = variable.type?.toLowerCase().includes('multi-select') && !variable.type?.toLowerCase().includes('grid');
@@ -857,20 +873,629 @@ export const useTabExport = (props: UseTabExportProps) => {
           // Check if this is a NetSummaryTable for single select grid
           const isSingleSelectGrid = variable.type?.toLowerCase().includes('single select grid');
 
-          // TEMPORARY: Skip ALL single select grid tables completely
-          if (isSingleSelectGrid) {
-            console.log('🔴 SKIPPING ALL SSG - Fresh start:', tableName);
-            tableNumber++;
-            continue;
+          // Handle single select grid tables
+          if (isSingleSelectGrid && variable.statements && Object.keys(variable.statements).length > 0) {
+            const baseName = variable.name;
+
+            // Check if this is a Mean Summary Table
+            const isMeanSummaryTable = tableName.endsWith('_MeanSummaryTable');
+
+            // Check if this is a Net Summary Table
+            const netSummaryMatch = tableName.match(/_NetSummaryTable_(\d+)$/);
+            const isNetSummaryTable = netSummaryMatch !== null;
+
+            if (isMeanSummaryTable || isNetSummaryTable) {
+              // Handle Mean or Net Summary Table
+              const baseQuestionNumber = getBaseQuestionNumber(baseName);
+              const statements = Object.entries(variable.statements).map(([code, text]) => ({
+                code,
+                text: String(text)
+              }));
+
+              if (statements.length === 0) {
+                tableNumber++;
+                continue;
+              }
+
+              // Get response options
+              const responseOptions: Array<{ code: string; text: string }> = [];
+              if (variable.codes) {
+                Object.entries(variable.codes).forEach(([code, text]) => {
+                  responseOptions.push({ code, text: String(text || code) });
+                });
+              }
+
+              if (responseOptions.length === 0) {
+                console.log('🟠 SKIP SSG Summary - No response options for:', tableName);
+                tableNumber++;
+                continue;
+              }
+
+              // Helper function to get code value for mean calculation
+              const getCodeValueForMean = (code: string): number | null => {
+                const numericMatch = code.match(/(\d+)$/);
+                if (numericMatch) {
+                  return parseInt(numericMatch[1], 10);
+                }
+                const numericValue = parseFloat(code);
+                if (!isNaN(numericValue)) {
+                  return Math.round(numericValue);
+                }
+                return null;
+              };
+
+              // Helper function to count net respondents
+              const countNetRespondents = (netCodes: string[], responseCounts: Record<string, number>): number => {
+                const matchingCodes = new Set<string>();
+
+                netCodes.forEach(netCode => {
+                  // Exact match
+                  if (responseCounts.hasOwnProperty(netCode)) {
+                    matchingCodes.add(netCode);
+                  }
+
+                  // Case-insensitive match
+                  const matchingOpt = responseOptions.find(
+                    opt => opt.code.toLowerCase() === netCode.toLowerCase()
+                  );
+                  if (matchingOpt) {
+                    matchingCodes.add(matchingOpt.code);
+                  }
+
+                  // Numeric match
+                  const numericMatch = netCode.match(/(\d+)$/);
+                  if (numericMatch) {
+                    const numericPart = numericMatch[1];
+                    const matchingNumericOpt = responseOptions.find(opt => {
+                      const optNumericMatch = opt.code.match(/(\d+)$/);
+                      return optNumericMatch?.[1] === numericPart;
+                    });
+                    if (matchingNumericOpt) {
+                      matchingCodes.add(matchingNumericOpt.code);
+                    }
+                  }
+                });
+
+                let total = 0;
+                matchingCodes.forEach(code => {
+                  total += responseCounts[code] || 0;
+                });
+                return total;
+              };
+
+              // Calculate data for each statement
+              const statementData: Array<{
+                code: string;
+                text: string;
+                base: number;
+                value: number; // mean or net count
+                percentage?: number; // only for net
+              }> = [];
+
+              let allBasesEqual = true;
+              let firstBase: number | null = null;
+
+              for (const stmt of statements) {
+                const baseNumber = baseName.replace(/^Q/, '');
+                const expectedHeader = `Q${baseNumber}${stmt.code}`;
+                const variableData = getVariableDataByExpectedHeader?.(expectedHeader);
+
+                if (!variableData?.values || variableData.values.length === 0) {
+                  continue;
+                }
+
+                // Count responses
+                const responseCounts: Record<string, number> = {};
+                responseOptions.forEach(opt => {
+                  responseCounts[opt.code] = 0;
+                });
+
+                variableData.values.forEach((value: any) => {
+                  if (value === null || value === undefined || value === '') return;
+                  const valueStr = String(value).trim();
+
+                  for (const opt of responseOptions) {
+                    if (valueStr === opt.code || valueStr.toLowerCase() === opt.code.toLowerCase()) {
+                      responseCounts[opt.code]++;
+                      break;
+                    }
+                    const codeNum = opt.code.replace(/^[rc]/i, '');
+                    if (valueStr === codeNum) {
+                      responseCounts[opt.code]++;
+                      break;
+                    }
+                    if (valueStr.toLowerCase() === opt.text.toLowerCase()) {
+                      responseCounts[opt.code]++;
+                      break;
+                    }
+                  }
+                });
+
+                const base = Object.values(responseCounts).reduce((a, b) => a + b, 0);
+
+                if (firstBase === null) {
+                  firstBase = base;
+                } else if (firstBase !== base) {
+                  allBasesEqual = false;
+                }
+
+                let value = 0;
+                let percentage: number | undefined;
+
+                if (isMeanSummaryTable) {
+                  // Calculate mean
+                  let totalSum = 0;
+                  let totalCount = 0;
+
+                  responseOptions.forEach(opt => {
+                    const codeValue = getCodeValueForMean(opt.code);
+                    if (codeValue === null) return;
+
+                    const count = responseCounts[opt.code] || 0;
+                    totalSum += codeValue * count;
+                    totalCount += count;
+                  });
+
+                  value = totalCount > 0 ? totalSum / totalCount : 0;
+                } else if (isNetSummaryTable) {
+                  // Get net definition
+                  const netIndex = parseInt(netSummaryMatch[1], 10);
+                  const netConfigs = netSummaryTableSelectedCodes?.[baseName];
+
+                  if (!netConfigs || !netConfigs[netIndex]) {
+                    console.log('🟠 SKIP SSG Net - No net config for:', tableName);
+                    tableNumber++;
+                    continue;
+                  }
+
+                  const netConfig = netConfigs[netIndex];
+                  value = countNetRespondents(netConfig.codes, responseCounts);
+                  percentage = base > 0 ? (value / base) * 100 : 0;
+                }
+
+                statementData.push({
+                  code: stmt.code,
+                  text: stmt.text,
+                  base,
+                  value,
+                  percentage
+                });
+              }
+
+              if (statementData.length === 0) {
+                console.log('🟠 SKIP SSG Summary - No data for:', tableName);
+                tableNumber++;
+                continue;
+              }
+
+              // Record position for TOC
+              tablePositions.push({
+                tableNumber,
+                tableName,
+                rowNumber: currentRow,
+                variable
+              });
+
+              // Table title
+              let tableTitle = '';
+              if (isMeanSummaryTable) {
+                tableTitle = `Table ${tableNumber}: ${baseQuestionNumber}: Mean Summary Table`;
+              } else if (isNetSummaryTable) {
+                const netIndex = parseInt(netSummaryMatch[1], 10);
+                const netConfigs = netSummaryTableSelectedCodes?.[baseName];
+                const netName = netConfigs?.[netIndex]?.name || `Net ${netIndex + 1}`;
+                tableTitle = `Table ${tableNumber}: ${baseQuestionNumber}: ${netName}`;
+              }
+
+              // Blank row before table title
+              currentRow++;
+
+              const titleRow = dataCutsWorksheet.getRow(currentRow++);
+              titleRow.getCell(2).value = tableTitle;
+              titleRow.getCell(2).font = { bold: true, size: 12 };
+
+              // Question text
+              const questionRow = dataCutsWorksheet.getRow(currentRow++);
+              questionRow.getCell(2).value = variable.description || baseName;
+              questionRow.getCell(2).font = { size: 11 };
+
+              // Header rows (3-row structure)
+              const headerStartRow = currentRow;
+              const headerRow1 = headerStartRow;
+              const headerRow2 = headerStartRow + 1;
+              const headerRow3 = headerStartRow + 2;
+              currentRow += 3;
+
+              // Column B - Row label cell (merged across all 3 rows)
+              const rowLabelCell = dataCutsWorksheet.getRow(headerRow1).getCell(2);
+              rowLabelCell.value = '';
+              rowLabelCell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              dataCutsWorksheet.mergeCells(headerRow1, 2, headerRow3, 2);
+              [headerRow2, headerRow3].forEach(row => {
+                const cell = dataCutsWorksheet.getRow(row).getCell(2);
+                cell.border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+              });
+
+              // Column C - Total header (merged across all 3 rows)
+              const totalCell = dataCutsWorksheet.getRow(headerRow1).getCell(3);
+              totalCell.value = 'Total';
+              totalCell.alignment = { horizontal: 'center', vertical: 'middle' };
+              totalCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+              totalCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+              totalCell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              dataCutsWorksheet.mergeCells(headerRow1, 3, headerRow3, 3);
+              [headerRow2, headerRow3].forEach(row => {
+                const cell = dataCutsWorksheet.getRow(row).getCell(3);
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+                cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                cell.border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+              });
+
+              const STATS_GREY = 'FFE8E8E8';
+
+              // Base row (show if bases not all equal or first row)
+              const showBaseRow = !allBasesEqual || true;
+              if (showBaseRow && statementData.length > 0) {
+                const baseRow = dataCutsWorksheet.getRow(currentRow++);
+                baseRow.getCell(2).value = 'Base (total responding):';
+                baseRow.getCell(2).font = { italic: true, size: 9 };
+                baseRow.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STATS_GREY } };
+                baseRow.getCell(2).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+
+                baseRow.getCell(3).value = statementData[0].base;
+                baseRow.getCell(3).alignment = { horizontal: 'center' };
+                baseRow.getCell(3).font = { italic: true, size: 9 };
+                baseRow.getCell(3).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STATS_GREY } };
+                baseRow.getCell(3).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+              }
+
+              // Statement rows
+              statementData.forEach(stmt => {
+                // Value row (mean or count)
+                const valueRow = dataCutsWorksheet.getRow(currentRow++);
+                valueRow.getCell(2).value = stmt.text;
+                valueRow.getCell(2).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+
+                valueRow.getCell(3).value = stmt.value;
+                if (isMeanSummaryTable) {
+                  valueRow.getCell(3).numFmt = '0.00';
+                }
+                valueRow.getCell(3).alignment = { horizontal: 'center' };
+                valueRow.getCell(3).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+
+                // Percentage row (only for net summary)
+                if (isNetSummaryTable && stmt.percentage !== undefined) {
+                  const pctRow = dataCutsWorksheet.getRow(currentRow++);
+                  pctRow.getCell(2).value = '';
+                  pctRow.getCell(2).border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
+
+                  pctRow.getCell(3).value = stmt.percentage / 100;
+                  pctRow.getCell(3).numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+                  pctRow.getCell(3).alignment = { horizontal: 'center' };
+                  pctRow.getCell(3).border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
+                }
+              });
+
+              tableNumber++;
+              continue;
+            }
+
+            // Check if this is an individual statement table (e.g., "Q8_r1")
+            const statementMatch = tableName.match(/_([^_]+)$/);
+            if (statementMatch) {
+              const statementCode = statementMatch[1];
+              const statementText = variable.statements[statementCode];
+
+              if (!statementText) {
+                tableNumber++;
+                continue;
+              }
+
+              // Build expected header (e.g., "Q8r1")
+              const baseName = variable.name;
+              const baseNumber = baseName.replace(/^Q/, '');
+              const expectedHeader = `Q${baseNumber}${statementCode}`;
+
+              // Get data for this statement
+              const variableData = getVariableDataByExpectedHeader?.(expectedHeader);
+              if (!variableData?.values || variableData.values.length === 0) {
+                console.log('🟠 SKIP SSG - No data for:', tableName);
+                tableNumber++;
+                continue;
+              }
+
+              // Get response options from variable.codes
+              const responseOptions: Array<{ code: string; text: string }> = [];
+              if (variable.codes) {
+                Object.entries(variable.codes).forEach(([code, text]) => {
+                  responseOptions.push({ code, text: String(text || code) });
+                });
+              }
+
+              if (responseOptions.length === 0) {
+                console.log('🟠 SKIP SSG - No response options for:', tableName);
+                tableNumber++;
+                continue;
+              }
+
+              // Count responses
+              const responseCounts: Record<string, number> = {};
+              responseOptions.forEach(opt => {
+                responseCounts[opt.code] = 0;
+              });
+
+              variableData.values.forEach((value: any) => {
+                if (value === null || value === undefined || value === '') return;
+                const valueStr = String(value).trim();
+
+                for (const opt of responseOptions) {
+                  // Exact match
+                  if (valueStr === opt.code || valueStr.toLowerCase() === opt.code.toLowerCase()) {
+                    responseCounts[opt.code]++;
+                    break;
+                  }
+
+                  // Numeric match (e.g., "1" matches "c1")
+                  const codeNum = opt.code.replace(/^[rc]/i, '');
+                  if (valueStr === codeNum) {
+                    responseCounts[opt.code]++;
+                    break;
+                  }
+
+                  // Text match (case-insensitive)
+                  if (valueStr.toLowerCase() === opt.text.toLowerCase()) {
+                    responseCounts[opt.code]++;
+                    break;
+                  }
+                }
+              });
+
+              // Calculate base (total responding)
+              const totalResponding = Object.values(responseCounts).reduce((a, b) => a + b, 0);
+
+              if (totalResponding === 0) {
+                console.log('🟠 SKIP SSG - No responses for:', tableName);
+                tableNumber++;
+                continue;
+              }
+
+              // Apply sorting if enabled
+              const sortState = variableSortByFrequency[baseName];
+              const isSortedByFrequency = sortState !== undefined ? sortState : false;
+
+              let sortedResponseOptions = isSortedByFrequency
+                ? [...responseOptions].sort((a, b) => {
+                    const countA = responseCounts[a.code] || 0;
+                    const countB = responseCounts[b.code] || 0;
+                    return countB - countA; // Descending
+                  })
+                : responseOptions;
+
+              // Apply hold ordering
+              if (isSortedByFrequency && variableHoldResponseCodes[baseName]?.length > 0) {
+                const holdList = variableHoldResponseCodes[baseName];
+                const holdSet = new Set(holdList);
+                const remaining: typeof responseOptions = [];
+                const held: typeof responseOptions = [];
+
+                sortedResponseOptions.forEach(opt => {
+                  if (holdSet.has(opt.code)) {
+                    held.push(opt);
+                  } else {
+                    remaining.push(opt);
+                  }
+                });
+
+                sortedResponseOptions = [...remaining, ...held];
+              }
+
+              // Record position for TOC
+              tablePositions.push({
+                tableNumber,
+                tableName,
+                rowNumber: currentRow,
+                variable
+              });
+
+              // Blank row before table title
+              currentRow++;
+
+              // Table title
+              const baseQuestionNumber = getBaseQuestionNumber(baseName);
+              const tableTitle = `Table ${tableNumber}: ${baseQuestionNumber}_${statementCode} (${statementText})`;
+              const titleRow = dataCutsWorksheet.getRow(currentRow++);
+              titleRow.getCell(2).value = tableTitle;
+              titleRow.getCell(2).font = { bold: true, size: 12 };
+
+              // Question text
+              const questionRow = dataCutsWorksheet.getRow(currentRow++);
+              questionRow.getCell(2).value = variable.description || baseName;
+              questionRow.getCell(2).font = { size: 11 };
+
+              // Header rows (3-row structure)
+              const headerStartRow = currentRow;
+              const headerRow1 = headerStartRow;
+              const headerRow2 = headerStartRow + 1;
+              const headerRow3 = headerStartRow + 2;
+              currentRow += 3;
+
+              // Column B - Row label cell (merged across all 3 rows)
+              const rowLabelCell = dataCutsWorksheet.getRow(headerRow1).getCell(2);
+              rowLabelCell.value = '';
+              rowLabelCell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              dataCutsWorksheet.mergeCells(headerRow1, 2, headerRow3, 2);
+              [headerRow2, headerRow3].forEach(row => {
+                const cell = dataCutsWorksheet.getRow(row).getCell(2);
+                cell.border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+              });
+
+              // Column C - Total header (merged across all 3 rows)
+              const totalCell = dataCutsWorksheet.getRow(headerRow1).getCell(3);
+              totalCell.value = 'Total';
+              totalCell.alignment = { horizontal: 'center', vertical: 'middle' };
+              totalCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+              totalCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+              totalCell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              dataCutsWorksheet.mergeCells(headerRow1, 3, headerRow3, 3);
+              [headerRow2, headerRow3].forEach(row => {
+                const cell = dataCutsWorksheet.getRow(row).getCell(3);
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+                cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                cell.border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+              });
+
+              const STATS_GREY = 'FFE8E8E8';
+
+              // Base row
+              const baseRow = dataCutsWorksheet.getRow(currentRow++);
+              baseRow.getCell(2).value = 'Base (total responding):';
+              baseRow.getCell(2).font = { italic: true, size: 9 };
+              baseRow.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STATS_GREY } };
+              baseRow.getCell(2).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+
+              baseRow.getCell(3).value = totalResponding;
+              baseRow.getCell(3).alignment = { horizontal: 'center' };
+              baseRow.getCell(3).font = { italic: true, size: 9 };
+              baseRow.getCell(3).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STATS_GREY } };
+              baseRow.getCell(3).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+
+              // Response option rows (count + percentage on separate rows)
+              sortedResponseOptions.forEach(opt => {
+                const count = responseCounts[opt.code] || 0;
+                const percentage = totalResponding > 0 ? (count / totalResponding) : 0;
+
+                // Count row
+                const countRow = dataCutsWorksheet.getRow(currentRow++);
+                countRow.getCell(2).value = opt.text;
+                countRow.getCell(2).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+
+                countRow.getCell(3).value = count;
+                countRow.getCell(3).alignment = { horizontal: 'center' };
+                countRow.getCell(3).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+
+                // Percentage row
+                const pctRow = dataCutsWorksheet.getRow(currentRow++);
+                pctRow.getCell(2).value = '';
+                pctRow.getCell(2).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+
+                pctRow.getCell(3).value = percentage;
+                pctRow.getCell(3).numFmt = percentageDecimals === 0 ? '0%' : percentageDecimals === 1 ? '0.0%' : '0.00%';
+                pctRow.getCell(3).alignment = { horizontal: 'center' };
+                pctRow.getCell(3).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+              });
+
+              tableNumber++;
+              continue;
+            } else {
+              // Base SSG variable without statement suffix - skip
+              console.log('🟠 SKIP SSG - Base variable (has statements):', tableName);
+              tableNumber++;
+              continue;
+            }
           }
 
           const isNetSummaryTable = isSingleSelectGrid && tableName.includes('_NetSummaryTable');
           const isVerbatimSummary = tableName.endsWith('_VerbatimSummary');
-          
-          // Add spacing between tables (except for first table)
-          if (tableNumber > 1) {
-            currentRow += 1;
-          }
 
           const tableStartRow = currentRow;
 
@@ -932,6 +1557,10 @@ export const useTabExport = (props: UseTabExportProps) => {
 
             // Record position for TOC
             tablePositions.push({ tableNumber, tableName, rowNumber: currentRow, variable });
+
+            // Blank row before table title
+            currentRow++;
+
             // Title
             const baseQuestionNumber = getBaseQuestionNumber(variable.name);
             const tableTitle = `Table ${tableNumber}: ${baseQuestionNumber}: Verbatim Summary`;
@@ -959,23 +1588,20 @@ export const useTabExport = (props: UseTabExportProps) => {
               cell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
             });
             currentCol++;
-            // Total column
+            // Total column (merged across all 3 rows)
             const totalGroupCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(currentCol);
             totalGroupCell.value = 'Total';
             totalGroupCell.alignment = { horizontal: 'center', vertical: 'middle' };
             totalGroupCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
             totalGroupCell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFD14A2D' } };
             totalGroupCell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
-            dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, cutTitleRow, currentCol);
-            const totalCutCell = dataCutsWorksheet.getRow(cutTitleRow).getCell(currentCol);
-            totalCutCell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFD14A2D' } };
-            totalCutCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-            totalCutCell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
-            const totalStatCell = dataCutsWorksheet.getRow(statLetterRow).getCell(currentCol);
-            totalStatCell.value = '';
-            totalStatCell.alignment = { horizontal:'center', vertical:'middle' };
-            totalStatCell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFD14A2D' } };
-            totalStatCell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+            dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, statLetterRow, currentCol);
+            [cutTitleRow, statLetterRow].forEach(r => {
+              const cell = dataCutsWorksheet.getRow(r).getCell(currentCol);
+              cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFD14A2D' } };
+              cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+              cell.border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+            });
             currentCol++;
             // Banner groups
             groupStructure.forEach((group) => {
@@ -1206,13 +1832,16 @@ export const useTabExport = (props: UseTabExportProps) => {
             variable
           });
 
+            // Blank row before table title
+            currentRow++;
+
             // Table title
             const baseQuestionNumber = getBaseQuestionNumber(variable.name);
             const tableTitle = `Table ${tableNumber}: ${baseQuestionNumber}: ${net.name}`;
             const titleRow = dataCutsWorksheet.getRow(currentRow++);
             titleRow.getCell(2).value = tableTitle;
             titleRow.getCell(2).font = { bold: true, size: 12 };
-            
+
             // Question text
             const questionRow = dataCutsWorksheet.getRow(currentRow++);
             questionRow.getCell(2).value = variable.description || variable.name;
@@ -1286,30 +1915,18 @@ export const useTabExport = (props: UseTabExportProps) => {
               left: { style: 'thin' },
               right: { style: 'thin' }
             };
-            dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, cutTitleRow, currentCol);
-            const totalCutCell = dataCutsWorksheet.getRow(cutTitleRow).getCell(currentCol);
-            totalCutCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
-            totalCutCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-            totalCutCell.border = {
-              top: { style: 'thin' },
-              bottom: { style: 'thin' },
-              left: { style: 'thin' },
-              right: { style: 'thin' }
-            };
-            const totalStatCell = dataCutsWorksheet.getRow(statLetterRow).getCell(currentCol);
-            totalStatCell.value = '';
-            totalStatCell.alignment = { horizontal: 'center', vertical: 'middle' };
-            totalStatCell.fill = {
-              type: 'pattern',
-              pattern: 'solid',
-              fgColor: { argb: 'FFD14A2D' }
-            };
-            totalStatCell.border = {
-              top: { style: 'thin' },
-              bottom: { style: 'thin' },
-              left: { style: 'thin' },
-              right: { style: 'thin' }
-            };
+            dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, statLetterRow, currentCol);
+            [cutTitleRow, statLetterRow].forEach(r => {
+              const cell = dataCutsWorksheet.getRow(r).getCell(currentCol);
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+              cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+              cell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+            });
             currentCol++;
             
             // Banner group titles and cut columns
@@ -1946,11 +2563,14 @@ export const useTabExport = (props: UseTabExportProps) => {
             } else {
               tableTitle = `Table ${tableNumber}: ${baseQuestionNumber}`;
             }
-            
+
+            // Blank row before table title
+            currentRow++;
+
             const titleRow = dataCutsWorksheet.getRow(currentRow++);
             titleRow.getCell(2).value = tableTitle;
             titleRow.getCell(2).font = { bold: true, size: 12 };
-            
+
             // Question text
             const questionRow = dataCutsWorksheet.getRow(currentRow++);
             questionRow.getCell(2).value = variable.description || variable.name;
@@ -2063,6 +2683,10 @@ export const useTabExport = (props: UseTabExportProps) => {
               displayTableName = `${baseQuestionNumber}: Sum (Outliers Removed) Summary Table`;
             }
             const tableTitle = `Table ${tableNumber}: ${displayTableName}`;
+
+            // Blank row before table title
+            currentRow++;
+
             const titleRow = dataCutsWorksheet.getRow(currentRow++);
             titleRow.getCell(2).value = tableTitle;
             titleRow.getCell(2).font = { bold: true, size: 12 };
@@ -2099,7 +2723,7 @@ export const useTabExport = (props: UseTabExportProps) => {
               };
             });
 
-            // Total column (orange, merged across first 2 rows)
+            // Total column (orange, merged across all 3 rows)
             const totalCell = dataCutsWorksheet.getRow(headerRow1).getCell(3);
             totalCell.value = 'Total';
             totalCell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -2115,33 +2739,18 @@ export const useTabExport = (props: UseTabExportProps) => {
               left: { style: 'thin' },
               right: { style: 'thin' }
             };
-            dataCutsWorksheet.mergeCells(headerRow1, 3, headerRow2, 3);
-            // Apply same formatting to row 2
-            const totalCell2 = dataCutsWorksheet.getRow(headerRow2).getCell(3);
-            totalCell2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
-            totalCell2.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-            totalCell2.border = {
-              top: { style: 'thin' },
-              bottom: { style: 'thin' },
-              left: { style: 'thin' },
-              right: { style: 'thin' }
-            };
-
-            // Empty stat letter cell for Total column (row 3)
-            const totalCell3 = dataCutsWorksheet.getRow(headerRow3).getCell(3);
-            totalCell3.value = '';
-            totalCell3.alignment = { horizontal: 'center', vertical: 'middle' };
-            totalCell3.fill = {
-              type: 'pattern',
-              pattern: 'solid',
-              fgColor: { argb: 'FFD14A2D' }
-            };
-            totalCell3.border = {
-              top: { style: 'thin' },
-              bottom: { style: 'thin' },
-              left: { style: 'thin' },
-              right: { style: 'thin' }
-            };
+            dataCutsWorksheet.mergeCells(headerRow1, 3, headerRow3, 3);
+            [headerRow2, headerRow3].forEach(row => {
+              const cell = dataCutsWorksheet.getRow(row).getCell(3);
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+              cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+              cell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+            });
 
             // Response columns (c1, c2, c3, etc.) - orange, merged across all 3 rows
             // Skip the first column (index 0) which is the "#" column
@@ -2583,7 +3192,7 @@ export const useTabExport = (props: UseTabExportProps) => {
           });
           currentCol++;
 
-          // Total column (merged across first 2 rows, with empty stat letter row)
+          // Total column (merged across all 3 rows)
           const totalGroupCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(currentCol);
           totalGroupCell.value = 'Total';
           totalGroupCell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -2599,33 +3208,18 @@ export const useTabExport = (props: UseTabExportProps) => {
             left: { style: 'thin' },
             right: { style: 'thin' }
           };
-          dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, cutTitleRow, currentCol);
-          // Apply same formatting to cut title row
-          const totalCutCell = dataCutsWorksheet.getRow(cutTitleRow).getCell(currentCol);
-          totalCutCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
-          totalCutCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-          totalCutCell.border = {
-            top: { style: 'thin' },
-            bottom: { style: 'thin' },
-            left: { style: 'thin' },
-            right: { style: 'thin' }
-          };
-
-          // Empty stat letter cell for Total column
-          const totalStatCell = dataCutsWorksheet.getRow(statLetterRow).getCell(currentCol);
-          totalStatCell.value = '';
-          totalStatCell.alignment = { horizontal: 'center', vertical: 'middle' };
-          totalStatCell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFD14A2D' }
-          };
-          totalStatCell.border = {
-            top: { style: 'thin' },
-            bottom: { style: 'thin' },
-            left: { style: 'thin' },
-            right: { style: 'thin' }
-          };
+          dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, statLetterRow, currentCol);
+          [cutTitleRow, statLetterRow].forEach(r => {
+            const cell = dataCutsWorksheet.getRow(r).getCell(currentCol);
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+            cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+          });
           currentCol++;
 
           // Banner group titles and cut columns
@@ -4101,7 +4695,10 @@ export const useTabExport = (props: UseTabExportProps) => {
 
             // Record position for TOC
             tablePositions.push({ tableNumber, tableName, rowNumber: currentRow, variable });
-            
+
+            // Blank row before table title
+            currentRow++;
+
             // Table title
             const baseQuestionNumber = getBaseQuestionNumber(variable.name);
             const tableTitle = `Table ${tableNumber}: ${baseQuestionNumber}`;
@@ -4141,7 +4738,7 @@ export const useTabExport = (props: UseTabExportProps) => {
               };
             });
             currentCol++;
-            
+
             // Total column
             const totalGroupCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(currentCol);
             totalGroupCell.value = 'Total';
@@ -4154,26 +4751,18 @@ export const useTabExport = (props: UseTabExportProps) => {
               left: { style: 'thin' },
               right: { style: 'thin' }
             };
-            dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, cutTitleRow, currentCol);
-            const totalCutCell = dataCutsWorksheet.getRow(cutTitleRow).getCell(currentCol);
-            totalCutCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
-            totalCutCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-            totalCutCell.border = {
-              top: { style: 'thin' },
-              bottom: { style: 'thin' },
-              left: { style: 'thin' },
-              right: { style: 'thin' }
-            };
-            const totalStatCell = dataCutsWorksheet.getRow(statLetterRow).getCell(currentCol);
-            totalStatCell.value = '';
-            totalStatCell.alignment = { horizontal: 'center', vertical: 'middle' };
-            totalStatCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
-            totalStatCell.border = {
-              top: { style: 'thin' },
-              bottom: { style: 'thin' },
-              left: { style: 'thin' },
-              right: { style: 'thin' }
-            };
+            dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, statLetterRow, currentCol);
+            [cutTitleRow, statLetterRow].forEach(r => {
+              const cell = dataCutsWorksheet.getRow(r).getCell(currentCol);
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+              cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+              cell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+            });
             currentCol++;
             
             // Banner groups
