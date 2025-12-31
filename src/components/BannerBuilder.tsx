@@ -496,6 +496,8 @@ const ConditionsConfigModal: React.FC<ConditionsConfigModalProps> = ({
   // Debug: log variables only once when modal opens
   React.useEffect(() => {
     console.log('📋 ConditionsConfigModal opened with', selectableVariables.length, 'variables');
+    const numericVars = selectableVariables.filter(v => v.type?.toLowerCase().includes('numeric'));
+    console.log('📋 Numeric variables (all types):', numericVars.map(v => ({ name: v.name, type: v.type, hasCodes: !!v.codes && Object.keys(v.codes).length > 0 })));
     const numericGridCols = selectableVariables.filter(v => v._originalVariable);
     console.log('📋 Numeric grid columns available:', numericGridCols.map(v => v.name));
   }, []);
