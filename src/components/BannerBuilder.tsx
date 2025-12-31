@@ -493,6 +493,13 @@ const ConditionsConfigModal: React.FC<ConditionsConfigModalProps> = ({
   rawData,
   columnMapping
 }) => {
+  // Debug: log variables only once when modal opens
+  React.useEffect(() => {
+    console.log('📋 ConditionsConfigModal opened with', selectableVariables.length, 'variables');
+    const numericGridCols = selectableVariables.filter(v => v._originalVariable);
+    console.log('📋 Numeric grid columns available:', numericGridCols.map(v => v.name));
+  }, []);
+
   const [localConditions, setLocalConditions] = React.useState<BannerCondition[]>(() => {
     if (cut.conditionGroups && cut.conditionGroups.length > 0) {
       return cut.conditionGroups.flatMap(g => g.conditions);
@@ -1896,8 +1903,6 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
       }
     });
 
-    console.log('🔵 selectableVariables created:', result.length, 'total');
-    console.log('🔵 Numeric grid columns:', result.filter(v => v._originalVariable).map(v => ({ name: v.name, originalVariable: v._originalVariable, columnCode: v._columnCode })));
     return result;
   }, [variables]);
 
@@ -2004,9 +2009,6 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
       });
     }
 
-    console.log('🟢 combinedSelectableVariables created:', result.length, 'total');
-    console.log('🟢 Expected headers sample:', headers.slice(0, 10));
-    console.log('🟢 Numeric grid columns in combined:', result.filter(v => v._originalVariable).map(v => ({ name: v.name, originalVariable: v._originalVariable })));
     return result;
   }, [expectedHeaders, selectableVariables, categoricalVariables]);
 
