@@ -1903,10 +1903,14 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
     const dataColumns = rawData?.columns || [];
     const numericGridColumns = new Map<string, { base: string; column: string; description: string }>();
 
+    console.log('🔍 Extracting numeric grid columns from', dataColumns.length, 'data columns');
+
     // Pattern: QS14r1c1, QS14r2c2, etc. -> extract QS14c1, QS14c2
+    let matchCount = 0;
     dataColumns.forEach(colName => {
       const match = colName.match(/^(Q?[A-Z]+\d+)r\d+c(\d+)$/i);
       if (match) {
+        matchCount++;
         const base = match[1]; // QS14, QA1, etc.
         const colNum = match[2]; // 1, 2, 3, etc.
         const key = `${base}c${colNum}`;
@@ -1917,6 +1921,8 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
             v.name === base && v.type?.toLowerCase().includes('numeric grid')
           );
 
+          console.log('  ➕ Adding:', key, '(base:', base, 'col:', colNum, 'found var:', !!originalVar, ')');
+
           numericGridColumns.set(key, {
             base,
             column: `c${colNum}`,
@@ -1925,6 +1931,8 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
         }
       }
     });
+
+    console.log('🔍 Matched', matchCount, 'columns, created', numericGridColumns.size, 'unique grid columns');
 
     // Add expanded column variables
     numericGridColumns.forEach(({ base, column, description }, key) => {
