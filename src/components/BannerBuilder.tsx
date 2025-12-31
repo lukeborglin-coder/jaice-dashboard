@@ -3050,21 +3050,7 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
                   Banner Definition
                 </th>
                 <th className="px-4 py-2 text-left text-xs font-semibold text-white uppercase tracking-wider whitespace-nowrap">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="sr-only">Configure</span>
-                    <button
-                      onClick={handleConfigureAllWithAI}
-                      disabled={aiConfiguring || !questionnaireId}
-                      className={`px-2 py-1 text-[11px] font-medium rounded-lg transition-colors ${
-                        aiConfiguring || !questionnaireId
-                          ? 'bg-white/40 text-white/70 border border-white/30 cursor-not-allowed'
-                          : 'bg-white text-[#D14A2D] hover:bg-orange-50 border border-white'
-                      }`}
-                      title={questionnaireId ? 'Ask AI to auto-configure all rows' : 'Select a questionnaire first'}
-                    >
-                      {aiConfiguring ? 'Configuring…' : 'Configure with AI'}
-                    </button>
-                  </div>
+                  <span className="sr-only">Actions</span>
                 </th>
               </tr>
             </thead>
