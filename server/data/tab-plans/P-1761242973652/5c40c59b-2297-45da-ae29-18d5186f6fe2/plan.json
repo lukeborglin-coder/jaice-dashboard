@@ -4,7 +4,7 @@
   "name": "test",
   "sourceType": "raw",
   "createdAt": "2025-12-18T16:06:33.905Z",
-  "updatedAt": "2025-12-31T15:47:00.434Z",
+  "updatedAt": "2025-12-31T15:53:15.484Z",
   "specs": {
     "variableTableSelections": {
       "QS1": [
@@ -2541,6 +2541,262 @@
                     "operator": "OR"
                   }
                 ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "import_1767196180752",
+        "title": "SMA 2025 ATU Wave 8_HCP Tab Plan v2",
+        "confidenceLevel": 95,
+        "includeTotal": true,
+        "groups": [
+          {
+            "id": "1767196180751-1",
+            "title": "Specialty",
+            "cuts": [
+              {
+                "id": "1767196180751-1-c1",
+                "title": "Pediatric",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "SPECIALTY=1"
+              },
+              {
+                "id": "1767196180751-1-c2",
+                "title": "Adult",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "SPECIALTY=2"
+              }
+            ]
+          },
+          {
+            "id": "1767196180752-2",
+            "title": "Center of Excellence Affiliation",
+            "cuts": [
+              {
+                "id": "1767196180752-2-c1",
+                "title": "Yes",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "S6=1"
+              },
+              {
+                "id": "1767196180752-2-c2",
+                "title": "No",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "S6=2 OR 3"
+              }
+            ]
+          },
+          {
+            "id": "1767196180752-3",
+            "title": "Evrysdi Prescriber",
+            "cuts": [
+              {
+                "id": "1767196180752-3-c1",
+                "title": "Yes",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "EVRYSDI PRESCRIBER=1"
+              },
+              {
+                "id": "1767196180752-3-c2",
+                "title": "No",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "EVRYSDI PRESCRIBER=2"
+              }
+            ]
+          },
+          {
+            "id": "1767196180752-4",
+            "title": "Spinraza Prescriber",
+            "cuts": [
+              {
+                "id": "1767196180752-4-c1",
+                "title": "Yes",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "SPINRAZA PRESCRIBER=1"
+              },
+              {
+                "id": "1767196180752-4-c2",
+                "title": "No",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "SPINRAZA PRESCRIBER=2"
+              }
+            ]
+          },
+          {
+            "id": "1767196180752-5",
+            "title": "Tablet Prescriber",
+            "cuts": [
+              {
+                "id": "1767196180752-5-c1",
+                "title": "Yes",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "TABLET PRESCRIBER=1"
+              },
+              {
+                "id": "1767196180752-5-c2",
+                "title": "No",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "TABLET PRESCRIBER=2"
+              }
+            ]
+          },
+          {
+            "id": "1767196180752-6",
+            "title": "Zolgensma Prescriber",
+            "cuts": [
+              {
+                "id": "1767196180752-6-c1",
+                "title": "Yes",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "S14r3c1>0 OR S14r4c1>0 OR S14r5c1>0 OR S14r10c1>0"
+              },
+              {
+                "id": "1767196180752-6-c2",
+                "title": "No",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "S14r3c1=0 OR S14r4c1=0 OR S14r5c1=0 OR S14r10c1=0"
+              }
+            ]
+          },
+          {
+            "id": "1767196180752-7",
+            "title": "Evrysdi Impression",
+            "cuts": [
+              {
+                "id": "1767196180752-7-c1",
+                "title": "Positive",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "C1=6-7"
+              },
+              {
+                "id": "1767196180752-7-c2",
+                "title": "Neutral/Negative",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "C1=1-5"
+              }
+            ]
+          },
+          {
+            "id": "1767196180752-8",
+            "title": "Evrysdi Liquid NPS",
+            "cuts": [
+              {
+                "id": "1767196180752-8-c1",
+                "title": "Promoter",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "C7r1=9-10"
+              },
+              {
+                "id": "1767196180752-8-c2",
+                "title": "Passive",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "C7r1=7-8"
+              },
+              {
+                "id": "1767196180752-8-c3",
+                "title": "Detractor",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "C7r1=0-6"
+              }
+            ]
+          },
+          {
+            "id": "1767196180752-9",
+            "title": "Evrysdi Tablet NPS",
+            "cuts": [
+              {
+                "id": "1767196180752-9-c1",
+                "title": "Promoter",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "C7r4=9-10"
+              },
+              {
+                "id": "1767196180752-9-c2",
+                "title": "Passive",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "C7r4=7-8"
+              },
+              {
+                "id": "1767196180752-9-c3",
+                "title": "Detractor",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "C7r4=0-6"
+              }
+            ]
+          },
+          {
+            "id": "1767196180752-10",
+            "title": "Spinraza NPS",
+            "cuts": [
+              {
+                "id": "1767196180752-10-c1",
+                "title": "Promoter",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "C7r2=9-10"
+              },
+              {
+                "id": "1767196180752-10-c2",
+                "title": "Passive",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "C7r1=7-8"
+              },
+              {
+                "id": "1767196180752-10-c3",
+                "title": "Detractor",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "C7r2=0-6"
+              }
+            ]
+          },
+          {
+            "id": "1767196180752-11",
+            "title": "Zolgensma NPS",
+            "cuts": [
+              {
+                "id": "1767196180752-11-c1",
+                "title": "Promoter",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "C7r3=9-10"
+              },
+              {
+                "id": "1767196180752-11-c2",
+                "title": "Passive",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "C7r3=7-8"
+              },
+              {
+                "id": "1767196180752-11-c3",
+                "title": "Detractor",
+                "variableName": "",
+                "codes": [],
+                "definitionText": "C7r3=0-6"
               }
             ]
           }

@@ -1816,19 +1816,16 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
 
   // Auto-trigger AI configuration when a newly imported group is opened
   useEffect(() => {
-    if (editingGroup && (editingGroup as any)._isNewlyImported && !aiConfiguring && questionnaireId) {
-      // Small delay to ensure component is fully rendered
-      const timer = setTimeout(() => {
-        handleConfigureAllWithAI();
-        // Remove the flag after triggering
-        if (editingGroup) {
-          delete (editingGroup as any)._isNewlyImported;
-        }
-      }, 100);
-      return () => clearTimeout(timer);
+    if (editingGroup && (editingGroup as any)._isNewlyImported && questionnaireId) {
+      // Trigger immediately (no delay) to prevent flash
+      handleConfigureAllWithAI();
+      // Remove the flag after triggering
+      if (editingGroup) {
+        delete (editingGroup as any)._isNewlyImported;
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingGroup?.id, aiConfiguring, questionnaireId]);
+  }, [editingGroup?.id, questionnaireId]);
   const codeButtonRefs = useRef<Record<string, React.RefObject<HTMLButtonElement>>>({});
   const variableButtonRefs = useRef<Record<string, React.RefObject<HTMLButtonElement>>>({});
 
@@ -1848,43 +1845,9 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
       if (v.codes && Object.keys(v.codes).length > 0 && !isNumericGrid) {
         result.push(v);
       }
-      // Include single numeric variables (not grids)
-      else if (v.type?.toLowerCase().includes('numeric') && !v.type?.toLowerCase().includes('grid')) {
+      // Include all numeric variables (including grids) as base variables
+      else if (v.type?.toLowerCase().includes('numeric')) {
         result.push(v);
-      }
-      // For numeric grids, expand each cell (row × column) into a separate selectable item
-      else if (isNumericGrid && v.statements) {
-        const baseNumber = v.name.replace(/^Q/, '');
-
-        // Get columns - either from codes or default to c1
-        const columns = v.codes && Object.keys(v.codes).length > 0
-          ? Object.entries(v.codes)
-          : [['c1', 'Value']];
-
-        Object.entries(v.statements).forEach(([rowCode, rowText]) => {
-          columns.forEach(([colCode, colText]) => {
-            // Create a synthetic variable for each cell
-            // Variable name format: Q{base}r{row}c{col} (e.g., QS5r1c1, QS5r2c1)
-            // rowCode may already include 'r' prefix (e.g., "r1") or just be a number (e.g., "1")
-            const rowPart = rowCode.toLowerCase().startsWith('r') ? rowCode : `r${rowCode}`;
-            const syntheticName = `Q${baseNumber}${rowPart}${colCode}`;
-            // cellLabel shows column and row text: "(#: Evrysdi)"
-            const cellLabel = `(${colText}: ${rowText})`;
-            result.push({
-              name: syntheticName,
-              description: v.description || v.name, // Question text
-              _cellLabel: cellLabel, // Cell-specific label to show after variable name
-              type: 'open-numeric', // Treat as single numeric for condition handling
-              codes: {},
-              _isGridCell: true,
-              _parentVariable: v.name,
-              _rowCode: rowCode,
-              _rowText: rowText,
-              _colCode: colCode,
-              _colText: colText
-            });
-          });
-        });
       }
     });
 
@@ -1980,15 +1943,13 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
 
   // Check if a variable is numeric (no codes, type includes numeric)
   const isNumericVariable = (varName: string): boolean => {
-    // First check if it's a synthetic grid cell variable
-    const syntheticVar = selectableVariables.find(sv => sv.name === varName && sv._isGridCell);
-    if (syntheticVar) return true;
-
     const v = variables.find(variable => variable.name === varName);
     if (!v) return false;
     const hasCodes = v.codes && Object.keys(v.codes).length > 0;
-    const isNumericType = v.type?.toLowerCase().includes('numeric') && !v.type?.toLowerCase().includes('grid');
-    return !hasCodes && isNumericType;
+    const isNumericType = v.type?.toLowerCase().includes('numeric');
+    // Numeric grids have codes for columns but are still numeric variables
+    const isNumericGrid = isNumericType && v.type?.toLowerCase().includes('grid');
+    return isNumericGrid || (!hasCodes && isNumericType);
   };
 
   // Calculate sample size for a cut
@@ -2887,14 +2848,25 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
           return cut;
         })
       })));
+
+      // Auto-save after successful configuration if this was a newly imported banner
+      if (editingGroup && (editingGroup as any)._isNewlyImported) {
+        // Small delay to ensure state updates are processed
+        setTimeout(() => {
+          handleSave();
+        }, 100);
+      }
     } finally {
       setAiConfiguring(false);
     }
   };
 
+  // Check if we should show loading (either actively configuring or about to configure)
+  const shouldShowLoading = aiConfiguring || (editingGroup && (editingGroup as any)._isNewlyImported && questionnaireId);
+
   return (
     <div className="flex flex-col h-full bg-white">
-      {aiConfiguring ? (
+      {shouldShowLoading ? (
         <div className="flex flex-col items-center justify-center py-20">
           <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-[#D14A2D]" />
           <div className="mt-3 text-sm text-gray-600">Configuring banner specifications…</div>
