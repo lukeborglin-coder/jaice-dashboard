@@ -2942,7 +2942,7 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
             </>
           )}
         </div>
-        {hasChanges && (
+        {hasChanges ? (
           <div className="flex items-center gap-2">
             <button
               onClick={onCancel}
@@ -2960,6 +2960,14 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
               Save
             </button>
           </div>
+        ) : (
+          <button
+            onClick={onCancel}
+            className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 rounded-lg"
+            title="Go back"
+          >
+            Back
+          </button>
         )}
       </div>
 
