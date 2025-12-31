@@ -1874,7 +1874,23 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
       if (v.codes && Object.keys(v.codes).length > 0 && !isNumericGrid) {
         result.push(v);
       }
-      // Include all numeric variables (including grids) as base variables
+      // For numeric grids, expand each column as a separate selectable variable
+      else if (isNumericGrid && v.codes && Object.keys(v.codes).length > 0) {
+        // This is a numeric grid with multiple columns - create one entry per column
+        const baseNumber = v.name.replace(/^Q/, '');
+        Object.entries(v.codes).forEach(([colCode, colLabel]) => {
+          const normalizedColCode = colCode.startsWith('c') || colCode.startsWith('C') ? colCode : `c${colCode}`;
+          result.push({
+            ...v,
+            name: `Q${baseNumber}${normalizedColCode}`,
+            description: `${v.description || v.name} - ${colLabel}`,
+            _originalVariable: v.name,
+            _columnCode: normalizedColCode,
+            _columnLabel: colLabel
+          });
+        });
+      }
+      // Include single-column numeric variables and numeric grids without codes
       else if (v.type?.toLowerCase().includes('numeric')) {
         result.push(v);
       }
@@ -1972,6 +1988,12 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
 
   // Check if a variable is numeric (no codes, type includes numeric)
   const isNumericVariable = (varName: string): boolean => {
+    // Check if this is an expanded numeric grid column variable
+    const expandedVar = selectableVariables.find(sv =>
+      sv.name === varName && sv._originalVariable
+    );
+    if (expandedVar) return true;
+
     const v = variables.find(variable => variable.name === varName);
     if (!v) return false;
     const hasCodes = v.codes && Object.keys(v.codes).length > 0;
