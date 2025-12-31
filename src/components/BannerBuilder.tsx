@@ -1955,11 +1955,30 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
         if (svNoQ === hNoQ) return true;
         // For grid cells, check if header matches the synthetic name
         if (sv._isGridCell && sv.name === headerName) return true;
+
+        // For numeric grid columns: match headers like QS14r1c1 to expanded column variables like QS14c1
+        // Extract column code from header (e.g., QS14r1c1 -> c1)
+        const colMatch = headerName.match(/c\d+$/i);
+        if (colMatch && sv._originalVariable) {
+          // This is an expanded column variable - check if the column codes match
+          const headerBase = headerName.replace(/r\d+c\d+$/i, ''); // QS14r1c1 -> QS14
+          const svBase = sv.name.replace(/c\d+$/i, ''); // QS14c1 -> QS14
+          const headerCol = colMatch[0].toLowerCase(); // c1
+          const svCol = sv._columnCode?.toLowerCase(); // c1
+          if (headerBase.toLowerCase() === svBase.toLowerCase() && headerCol === svCol) {
+            return true;
+          }
+        }
+
         return false;
       });
-      
+
       if (matched) {
-        result.push(matched);
+        // Avoid duplicates - only add if not already in result
+        const alreadyAdded = result.some(r => r.name === matched.name);
+        if (!alreadyAdded) {
+          result.push(matched);
+        }
         matchedHeaders.add(headerName);
       } else {
         // If no match found, try to resolve from categoricalVariables for codes
