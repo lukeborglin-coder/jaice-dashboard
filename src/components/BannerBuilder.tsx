@@ -946,7 +946,7 @@ const ConditionsConfigModal: React.FC<ConditionsConfigModalProps> = ({
                       </button>
                       {showVariableSelector === idx && (
                         <VariableSelectorPopup
-                          variables={selectableVariables}
+                          variables={combinedSelectableVariables}
                           selectedVariable={cond.variableName}
                           onSelect={(varName) => {
                             updateCondition(idx, { variableName: varName, codes: [] });
@@ -1561,7 +1561,7 @@ const OldCutConditionsEditor: React.FC<CutConditionsEditorProps> = ({
           </button>
           {openVariableSelector?.subGroupId === subGroupId && openVariableSelector?.cutId === cut.id && openVariableSelector?.conditionIndex === -1 && (
             <VariableSelectorPopup
-              variables={selectableVariables.filter(v => isNumericVariable(v.name))}
+              variables={combinedSelectableVariables.filter(v => isNumericVariable(v.name))}
               selectedVariable=""
               onSelect={(varName) => {
                 addSumVariable(varName);
@@ -1608,7 +1608,7 @@ const OldCutConditionsEditor: React.FC<CutConditionsEditorProps> = ({
           </button>
           {openVariableSelector?.subGroupId === subGroupId && openVariableSelector?.cutId === cut.id && openVariableSelector?.conditionIndex === 0 && (
             <VariableSelectorPopup
-              variables={selectableVariables}
+              variables={combinedSelectableVariables}
               selectedVariable=""
               onSelect={(varName) => {
                 const newCondition: BannerCondition = { id: Date.now().toString(), variableName: varName, codes: [] };
@@ -1664,7 +1664,7 @@ const OldCutConditionsEditor: React.FC<CutConditionsEditorProps> = ({
                 </span>
                 {openVariableSelector?.subGroupId === subGroupId && openVariableSelector?.cutId === cut.id && openVariableSelector?.conditionIndex === idx && (
                   <VariableSelectorPopup
-                    variables={selectableVariables}
+                    variables={combinedSelectableVariables}
                     selectedVariable={cond.variableName}
                     onSelect={(varName) => {
                       updateCondition(idx, { variableName: varName, codes: [] });
