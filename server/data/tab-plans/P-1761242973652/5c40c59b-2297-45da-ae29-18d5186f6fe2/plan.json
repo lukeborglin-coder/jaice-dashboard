@@ -4,7 +4,7 @@
   "name": "test",
   "sourceType": "raw",
   "createdAt": "2025-12-18T16:06:33.905Z",
-  "updatedAt": "2025-12-31T16:03:19.330Z",
+  "updatedAt": "2025-12-31T16:13:13.192Z",
   "specs": {
     "variableTableSelections": {
       "QS1": [
@@ -2547,17 +2547,17 @@
         ]
       },
       {
-        "id": "import_1767196776973",
+        "id": "import_1767197458326",
         "title": "SMA 2025 ATU Wave 8_HCP Tab Plan v2",
         "confidenceLevel": 95,
         "includeTotal": true,
         "groups": [
           {
-            "id": "1767196776973-1",
+            "id": "1767197458326-1",
             "title": "Specialty",
             "cuts": [
               {
-                "id": "1767196776973-1-c1",
+                "id": "1767197458326-1-c1",
                 "title": "Pediatric",
                 "variableName": "QhSPECIALTY",
                 "codes": [
@@ -2580,7 +2580,7 @@
                 ]
               },
               {
-                "id": "1767196776973-1-c2",
+                "id": "1767197458326-1-c2",
                 "title": "Adult",
                 "variableName": "QhSPECIALTY",
                 "codes": [
@@ -2605,11 +2605,11 @@
             ]
           },
           {
-            "id": "1767196776973-2",
+            "id": "1767197458326-2",
             "title": "Center of Excellence Affiliation",
             "cuts": [
               {
-                "id": "1767196776973-2-c1",
+                "id": "1767197458326-2-c1",
                 "title": "Yes",
                 "variableName": "QS6",
                 "codes": [
@@ -2632,7 +2632,7 @@
                 ]
               },
               {
-                "id": "1767196776973-2-c2",
+                "id": "1767197458326-2-c2",
                 "title": "No",
                 "variableName": "QS6",
                 "codes": [
@@ -2664,11 +2664,11 @@
             ]
           },
           {
-            "id": "1767196776973-3",
+            "id": "1767197458326-3",
             "title": "Evrysdi Prescriber",
             "cuts": [
               {
-                "id": "1767196776973-3-c1",
+                "id": "1767197458326-3-c1",
                 "title": "Yes",
                 "variableName": "QhEVRYSDI",
                 "codes": [
@@ -2691,7 +2691,7 @@
                 ]
               },
               {
-                "id": "1767196776973-3-c2",
+                "id": "1767197458326-3-c2",
                 "title": "No",
                 "variableName": "QhEVRYSDI",
                 "codes": [
@@ -2716,11 +2716,11 @@
             ]
           },
           {
-            "id": "1767196776973-4",
+            "id": "1767197458326-4",
             "title": "Spinraza Prescriber",
             "cuts": [
               {
-                "id": "1767196776973-4-c1",
+                "id": "1767197458326-4-c1",
                 "title": "Yes",
                 "variableName": "QhSPINRAZA",
                 "codes": [
@@ -2743,7 +2743,7 @@
                 ]
               },
               {
-                "id": "1767196776973-4-c2",
+                "id": "1767197458326-4-c2",
                 "title": "No",
                 "variableName": "QhSPINRAZA",
                 "codes": [
@@ -2768,11 +2768,11 @@
             ]
           },
           {
-            "id": "1767196776973-5",
+            "id": "1767197458326-5",
             "title": "Tablet Prescriber",
             "cuts": [
               {
-                "id": "1767196776973-5-c1",
+                "id": "1767197458326-5-c1",
                 "title": "Yes",
                 "variableName": "QhTABLET",
                 "codes": [
@@ -2795,7 +2795,7 @@
                 ]
               },
               {
-                "id": "1767196776973-5-c2",
+                "id": "1767197458326-5-c2",
                 "title": "No",
                 "variableName": "QhTABLET",
                 "codes": [
@@ -2820,18 +2820,18 @@
             ]
           },
           {
-            "id": "1767196776973-6",
+            "id": "1767197458326-6",
             "title": "Zolgensma Prescriber",
             "cuts": [
               {
-                "id": "1767196776973-6-c1",
+                "id": "1767197458326-6-c1",
                 "title": "Yes",
                 "variableName": "",
                 "codes": [],
                 "definitionText": "S14r3c1>0 OR S14r4c1>0 OR S14r5c1>0 OR S14r10c1>0"
               },
               {
-                "id": "1767196776973-6-c2",
+                "id": "1767197458326-6-c2",
                 "title": "No",
                 "variableName": "",
                 "codes": [],
@@ -2840,11 +2840,11 @@
             ]
           },
           {
-            "id": "1767196776973-7",
+            "id": "1767197458326-7",
             "title": "Evrysdi Impression",
             "cuts": [
               {
-                "id": "1767196776973-7-c1",
+                "id": "1767197458326-7-c1",
                 "title": "Positive",
                 "variableName": "QC1r1",
                 "codes": [
@@ -2869,7 +2869,7 @@
                 ]
               },
               {
-                "id": "1767196776973-7-c2",
+                "id": "1767197458326-7-c2",
                 "title": "Neutral/Negative",
                 "variableName": "QC1r1",
                 "codes": [
@@ -2902,11 +2902,11 @@
             ]
           },
           {
-            "id": "1767196776973-8",
+            "id": "1767197458326-8",
             "title": "Evrysdi Liquid NPS",
             "cuts": [
               {
-                "id": "1767196776973-8-c1",
+                "id": "1767197458326-8-c1",
                 "title": "Promoter",
                 "variableName": "QC7r1",
                 "codes": [
@@ -2931,7 +2931,7 @@
                 ]
               },
               {
-                "id": "1767196776973-8-c2",
+                "id": "1767197458326-8-c2",
                 "title": "Passive",
                 "variableName": "QC7r1",
                 "codes": [
@@ -2956,7 +2956,7 @@
                 ]
               },
               {
-                "id": "1767196776973-8-c3",
+                "id": "1767197458326-8-c3",
                 "title": "Detractor",
                 "variableName": "QC7r1",
                 "codes": [
@@ -2993,11 +2993,11 @@
             ]
           },
           {
-            "id": "1767196776973-9",
+            "id": "1767197458326-9",
             "title": "Evrysdi Tablet NPS",
             "cuts": [
               {
-                "id": "1767196776973-9-c1",
+                "id": "1767197458326-9-c1",
                 "title": "Promoter",
                 "variableName": "QC7r4",
                 "codes": [
@@ -3022,7 +3022,7 @@
                 ]
               },
               {
-                "id": "1767196776973-9-c2",
+                "id": "1767197458326-9-c2",
                 "title": "Passive",
                 "variableName": "QC7r4",
                 "codes": [
@@ -3047,7 +3047,7 @@
                 ]
               },
               {
-                "id": "1767196776973-9-c3",
+                "id": "1767197458326-9-c3",
                 "title": "Detractor",
                 "variableName": "QC7r4",
                 "codes": [
@@ -3084,11 +3084,11 @@
             ]
           },
           {
-            "id": "1767196776973-10",
+            "id": "1767197458326-10",
             "title": "Spinraza NPS",
             "cuts": [
               {
-                "id": "1767196776973-10-c1",
+                "id": "1767197458326-10-c1",
                 "title": "Promoter",
                 "variableName": "QC7r2",
                 "codes": [
@@ -3113,7 +3113,7 @@
                 ]
               },
               {
-                "id": "1767196776973-10-c2",
+                "id": "1767197458326-10-c2",
                 "title": "Passive",
                 "variableName": "QC7r1",
                 "codes": [
@@ -3138,7 +3138,7 @@
                 ]
               },
               {
-                "id": "1767196776973-10-c3",
+                "id": "1767197458326-10-c3",
                 "title": "Detractor",
                 "variableName": "QC7r2",
                 "codes": [
@@ -3175,11 +3175,11 @@
             ]
           },
           {
-            "id": "1767196776973-11",
+            "id": "1767197458326-11",
             "title": "Zolgensma NPS",
             "cuts": [
               {
-                "id": "1767196776973-11-c1",
+                "id": "1767197458326-11-c1",
                 "title": "Promoter",
                 "variableName": "QC7r3",
                 "codes": [
@@ -3204,7 +3204,7 @@
                 ]
               },
               {
-                "id": "1767196776973-11-c2",
+                "id": "1767197458326-11-c2",
                 "title": "Passive",
                 "variableName": "QC7r3",
                 "codes": [
@@ -3229,7 +3229,7 @@
                 ]
               },
               {
-                "id": "1767196776973-11-c3",
+                "id": "1767197458326-11-c3",
                 "title": "Detractor",
                 "variableName": "QC7r3",
                 "codes": [
