@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { XMarkIcon, PlusIcon, TrashIcon, PencilIcon, Cog6ToothIcon, ArrowDownTrayIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, PlusIcon, TrashIcon, PencilIcon, Cog6ToothIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import { type BannerGroup, type BannerCut, type BannerSubGroup, type BannerCondition, type BannerConditionGroup, type BannerSumCondition } from '../types/dataTabulation';
 import { API_BASE_URL } from '../config';
 import ExcelJS from 'exceljs';
@@ -2893,10 +2893,16 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
   };
 
   return (
-    <>
-      <div className="flex flex-col h-full bg-white">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+    <div className="flex flex-col h-full bg-white">
+      {aiConfiguring ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-[#D14A2D]" />
+          <div className="mt-3 text-sm text-gray-600">Configuring banner specifications…</div>
+        </div>
+      ) : (
+        <>
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <div className="flex items-center gap-2">
           {isEditingTitle ? (
             <input
@@ -3167,21 +3173,12 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
           <PlusIcon className="h-5 w-5" />
           Add Sub-Group
         </button>
-      </div>
-
-      {/* Footer removed (moved actions to header) */}
-      </div>
-
-      {/* Full-page loading overlay */}
-      {aiConfiguring && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-8 flex flex-col items-center gap-4">
-            <ArrowPathIcon className="h-12 w-12 animate-spin text-[#D14A2D]" />
-            <p className="text-lg font-medium text-gray-900">Configuring banner specifications...</p>
-          </div>
         </div>
+
+        {/* Footer removed (moved actions to header) */}
+        </>
       )}
-    </>
+    </div>
   );
 };
 
