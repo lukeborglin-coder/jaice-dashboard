@@ -1,0 +1,2327 @@
+
+╭─── Claude Code v2.0.72 ──────────────────────────────────────────────────────────────────────────────────────╮
+│                                                     │ Tips for getting started                               │
+│                 Welcome back Luke!                  │ Run /init to create a CLAUDE.md file with instructions…│
+│                                                     │                                                        │
+│                                                     │ ────────────────────────────────────────────────────── │
+│                    * ▐▛███▜▌ *                      │ Recent activity                                        │
+│                   * ▝▜█████▛▘ *                     │ No recent activity                                     │
+│                    *  ▘▘ ▝▝  *                      │                                                        │
+│       Sonnet 4.5 · Claude Pro ·                     │                                                        │
+│       luke.borglin@cognitiveconsulting.co's         │                                                        │
+│       Organization                                  │                                                        │
+│           ~\Desktop\Apps\jaice-dashboard            │                                                        │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+> push my full repo to git
+
+● I'll help you push your full repository to git. Let me first check your git configuration and then add,
+  commit, and push all changes.
+
+● Bash(git remote -v)
+  ⎿  origin     https://github.com/lukeborglin-coder/jaice-dashboard.git (fetch)
+     origin     https://github.com/lukeborglin-coder/jaice-dashboard.git (push)
+     /c/Users/LukeBorglin/.bashrc: line 1: $'\377\376export': command not found
+
+● Bash(git branch -vv)
+  ⎿ * main f1890df [origin/main] Major refactoring: Remove conjoint analysis backend, add tab plans feature
+    , and update data quality system
+    /c/Users/LukeBorglin/.bashrc: line 1: $'\377\376export': command not found
+
+
+● Bash(git status)
+  ⎿  On branch main
+     Your branch is up to date with 'origin/main'.
+     … +30 lines (ctrl+o to expand)
+
+● Bash(git log -3 --oneline)
+  ⎿ f1890df Major refactoring: Remove conjoint analysis backend, add tab plans feature, and update data qua
+    lity system
+    f540079 Fix transcript simple clean parsing and spacing
+    … +2 lines (ctrl+o to expand)
+
+
+● Now I'll add all changes and push to your repository. I can see you have some temp files - I'll include
+  everything as requested.
+
+● Bash(git add .)
+  ⎿ /c/Users/LukeBorglin/.bashrc: line 1: $'\377\376export': command not found
+    warning: in the working copy of 'server/data/tab-plans/P-1761242973652/5c40c59b-2297-45da-ae29-18d5186f
+    6fe2/plan.json', LF will be replaced by CRLF the next time Git touches it
+    … +31 lines (ctrl+o to expand)
+
+
+● Bash(git commit -m "Update tab plans data and refine UI components…)
+  ⎿ [main ec14aa8] Update tab plans data and refine UI components
+     23 files changed, 5511 insertions(+), 1241 deletions(-)
+     create mode 100644 server/data/tab-plans/P-1762536256185/21a1c7f9-af3f-4248-a9df-fccc374202f5/data_176
+    … +12 lines (ctrl+o to expand)
+
+
+● Bash(git push origin main)
+  ⎿  /c/Users/LukeBorglin/.bashrc: line 1: $'\377\376export': command not found
+     To https://github.com/lukeborglin-coder/jaice-dashboard.git
+        f1890df..ec14aa8  main -> main
+
+● Bash(git status)
+  ⎿  On branch main
+     Your branch is up to date with 'origin/main'.
+     … +2 lines (ctrl+o to expand)
+
+● Done! I've successfully pushed your full repository to GitHub. Here's what was done:
+
+  1. Staged all changes - 14 modified files and 7 untracked files (including temp files and new tab plans data)
+  2. Created a commit - Committed 23 files with 5,511 insertions and 1,241 deletions
+  3. Pushed to origin - Successfully pushed to https://github.com/lukeborglin-coder/jaice-dashboard.git
+
+  Your repository is now up to date with the remote. The working tree is clean and all changes have been pushed
+  to the main branch.
+
+> push my full repo to git
+
+● Let me check if there are any new changes to push.
+
+● Bash(git status)
+  ⎿  On branch main
+     Your branch is up to date with 'origin/main'.
+     … +9 lines (ctrl+o to expand)
+
+● I can see there are new changes to push. Let me add, commit, and push them now.
+
+● Bash(git add . && git commit -m "Update variable components and tab plan data…)
+  ⎿  [main 0acdf36] Update variable components and tab plan data
+      3 files changed, 536 insertions(+), 523 deletions(-)
+     /c/Users/LukeBorglin/.bashrc: line 1: $'\377\376export': command not found
+     … +8 lines (ctrl+o to expand)
+
+● Bash(git status)
+  ⎿  On branch main
+     Your branch is up to date with 'origin/main'.
+     … +2 lines (ctrl+o to expand)
+
+● Done! Successfully pushed all changes to GitHub. The commit included:
+  - 3 files changed (536 insertions, 523 deletions)
+  - Updated variable components (VariableTablePlaceholders.tsx and VariablesView.tsx)
+  - Updated tab plan data
+
+  Your repository is now fully synced with the remote. Working tree is clean.
+
+> review my tabs page with me and help me figure out why some of my numeric grids are not showing any data
+when i run a crosstab for them
+
+● I'll help you debug the numeric grid crosstab issue. Let me start by reviewing the tabs page and related
+  components.
+
+● Read(src\components\Tabs.tsx)
+  ⎿  Error: File content (26307 tokens) exceeds maximum allowed tokens (25000). Please use offset and limit
+     parameters to read specific portions of the file, or use the GrepTool to search for specific content.
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Error: File content (46986 tokens) exceeds maximum allowed tokens (25000). Please use offset and limit
+     parameters to read specific portions of the file, or use the GrepTool to search for specific content.
+
+● Search(pattern: "crosstab|crossTab", path: "src", glob: "*.tsx")
+  ⎿  Found 7 files (ctrl+o to expand)
+
+● Search(pattern: "numeric.*grid|numericGrid", path: "src", glob: "*.tsx")
+  ⎿  Found 20 files (ctrl+o to expand)
+
+● Read(src\components\CrossTabDisplay.tsx)
+  ⎿  Read 1237 lines
+
+● Search(pattern: "const.*crosstab|crosstabData|CrosstabData", path: "src\components\tabs", glob:
+        "VariablesView.tsx", output_mode: "content")
+  ⎿  Found 212 lines (ctrl+o to expand)
+
+● Let me search for the numeric grid crosstab logic more specifically.
+
+● Search(pattern: "numeric-grid|numericGrid|isNumericGrid", path: "src\components\tabs", glob:
+        "VariablesView.tsx", output_mode: "content")
+  ⎿  Found 590 lines (ctrl+o to expand)
+
+● Search(pattern: "getStatementValues|getVariableDataByExpectedHeader", path: "src\components\tabs", glob:
+        "VariablesView.tsx", output_mode: "content")
+  ⎿  Found 961 lines (ctrl+o to expand)
+
+● Search(pattern: "const getStatementValues|getStatementValues =", path: "src\components\tabs", glob:
+        "VariablesView.tsx", output_mode: "content")
+  ⎿  Found 61 lines (ctrl+o to expand)
+
+● Search(pattern: "getStatementValues|return getVariableDataByExpectedHeader", path: "src\components\tabs",
+        glob: "VariablesView.tsx", output_mode: "content", head_limit: 100)
+  ⎿  Found 0 lines
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Read 80 lines
+
+● Let me read more of the numeric grid crosstab logic to see where the data issue occurs.
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Read 100 lines
+
+● I've reviewed the crosstab implementation for numeric grids. I can see the code flow, but I need to understand
+   your specific issue better. Let me ask you a few questions:
+
+  1. Which numeric grid variable are you trying to crosstab? Can you tell me the variable name?
+  2. What are you cross-tabbing it against? (the target variable)
+  3. What happens when you run the crosstab? Do you see:
+    - An empty table with no rows at all?
+    - A table structure but all cells show 0 or blank?
+    - No table appears at all?
+  4. Does the numeric grid variable show data in its normal table view (without crosstabs)?
+  5. Can you check your browser console (F12 → Console tab) when you run the crosstab? Are there any log
+  messages that start with 🟣 [CROSSTAB DEBUG] or any warnings/errors?
+
+  The crosstab logic for numeric grids works by:
+  1. Getting statement values using getStatementValues which tries multiple header patterns
+  2. Pairing those values with the target variable's responses
+  3. Calculating aggregates for each cell
+
+  The most common issues are:
+  - Header mismatch: The function can't find the right column headers for the numeric grid statements
+  - Empty target values: The crosstab target variable has no data
+  - Data type mismatch: The values aren't being recognized as numbers
+
+  Once you provide more details about your specific case, I can pinpoint the exact issue and fix it.
+
+> AdminMessagePopup.tsx:109 [AdminMessagePopup] Seen API error: Object
+loadMessages @ AdminMessagePopup.tsx:109
+AdminMessagePopup.tsx:109 [AdminMessagePopup] Seen API error: Object
+loadMessages @ AdminMessagePopup.tsx:109
+chunk-EJTTOCY5.js?v=8dc1478c:11595 Uncaught Error: Rendered fewer hooks than expected. This may be caused by
+ an accidental early return statement.
+    at renderWithHooks (chunk-EJTTOCY5.js?v=8dc1478c:11595:19)
+    at updateFunctionComponent (chunk-EJTTOCY5.js?v=8dc1478c:14582:28)
+    at beginWork (chunk-EJTTOCY5.js?v=8dc1478c:15924:22)
+    at HTMLUnknownElement.callCallback2 (chunk-EJTTOCY5.js?v=8dc1478c:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-EJTTOCY5.js?v=8dc1478c:3699:24)
+    at invokeGuardedCallback (chunk-EJTTOCY5.js?v=8dc1478c:3733:39)
+    at beginWork$1 (chunk-EJTTOCY5.js?v=8dc1478c:19765:15)
+    at performUnitOfWork (chunk-EJTTOCY5.js?v=8dc1478c:19198:20)
+    at workLoopConcurrent (chunk-EJTTOCY5.js?v=8dc1478c:19189:13)
+    at renderRootConcurrent (chunk-EJTTOCY5.js?v=8dc1478c:19164:15)
+chunk-EJTTOCY5.js?v=8dc1478c:11595 Uncaught Error: Rendered fewer hooks than expected. This may be caused by
+ an accidental early return statement.
+    at renderWithHooks (chunk-EJTTOCY5.js?v=8dc1478c:11595:19)
+    at updateFunctionComponent (chunk-EJTTOCY5.js?v=8dc1478c:14582:28)
+    at beginWork (chunk-EJTTOCY5.js?v=8dc1478c:15924:22)
+    at HTMLUnknownElement.callCallback2 (chunk-EJTTOCY5.js?v=8dc1478c:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-EJTTOCY5.js?v=8dc1478c:3699:24)
+    at invokeGuardedCallback (chunk-EJTTOCY5.js?v=8dc1478c:3733:39)
+    at beginWork$1 (chunk-EJTTOCY5.js?v=8dc1478c:19765:15)
+    at performUnitOfWork (chunk-EJTTOCY5.js?v=8dc1478c:19198:20)
+    at workLoopSync (chunk-EJTTOCY5.js?v=8dc1478c:19137:13)
+    at renderRootSync (chunk-EJTTOCY5.js?v=8dc1478c:19116:15)
+chunk-EJTTOCY5.js?v=8dc1478c:14032 The above error occurred in the <VariableTablePlaceholders> component:
+
+    at VariableTablePlaceholders
+(http://localhost:5173/src/components/tabs/VariableTablePlaceholders.tsx:41:3)
+    at div
+    at div
+    at div
+    at div
+    at VariablesView (http://localhost:5173/src/components/tabs/VariablesView.tsx:37:3)
+    at div
+    at div
+    at Tabs (http://localhost:5173/src/components/Tabs.tsx:45:32)
+    at div
+    at AuthWrapper (http://localhost:5173/src/components/AuthWrapper.tsx:7:24)
+    at App (http://localhost:5173/src/App.tsx:8475:35)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=8dc1478c:5972:26)
+    at Routes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=8dc1478c:6755:3)
+    at AppRouter (http://localhost:5173/src/AppRouter.tsx:8:20)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=8dc1478c:6698:13)
+    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=8dc1478c:9804:3)
+    at ToastProvider (http://localhost:5173/src/components/Toast.tsx:15:33)
+    at AuthProvider (http://localhost:5173/src/contexts/AuthContext.tsx:15:32)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+logCapturedError @ chunk-EJTTOCY5.js?v=8dc1478c:14032
+chunk-EJTTOCY5.js?v=8dc1478c:19413 Uncaught Error: Rendered fewer hooks than expected. This may be caused by
+ an accidental early return statement.
+    at renderWithHooks (chunk-EJTTOCY5.js?v=8dc1478c:11595:19)
+    at updateFunctionComponent (chunk-EJTTOCY5.js?v=8dc1478c:14582:28)
+    at beginWork (chunk-EJTTOCY5.js?v=8dc1478c:15924:22)
+    at beginWork$1 (chunk-EJTTOCY5.js?v=8dc1478c:19753:22)
+    at performUnitOfWork (chunk-EJTTOCY5.js?v=8dc1478c:19198:20)
+    at workLoopSync (chunk-EJTTOCY5.js?v=8dc1478c:19137:13)
+    at renderRootSync (chunk-EJTTOCY5.js?v=8dc1478c:19116:15)
+    at recoverFromConcurrentError (chunk-EJTTOCY5.js?v=8dc1478c:18736:28)
+    at performConcurrentWorkOnRoot (chunk-EJTTOCY5.js?v=8dc1478c:18684:30)
+    at workLoop (chunk-EJTTOCY5.js?v=8dc1478c:197:42)
+
+● Now I can see the real issue! The error is a React hooks violation in the VariableTablePlaceholders component:
+
+  Uncaught Error: Rendered fewer hooks than expected. This may be caused by an accidental early return
+  statement.
+
+  This means there's an early return statement in VariableTablePlaceholders.tsx that's happening before all the
+  hooks are called. Let me examine that file.
+
+● Read(src\components\tabs\VariableTablePlaceholders.tsx)
+  ⎿  Error: File content (44434 tokens) exceeds maximum allowed tokens (25000). Please use offset and limit
+     parameters to read specific portions of the file, or use the GrepTool to search for specific content.
+
+● Read(src\components\tabs\VariableTablePlaceholders.tsx)
+  ⎿  Read 150 lines
+
+● Search(pattern: "^\s*if.*return\s+null|^\s*if.*return\s+<|^\s*return\s+null", path: "src\components\tabs",
+        glob: "VariableTablePlaceholders.tsx", output_mode: "content")
+  ⎿  Found 22 lines (ctrl+o to expand)
+
+● Read(src\components\tabs\VariableTablePlaceholders.tsx)
+  ⎿  Read 100 lines
+
+● Search(pattern: "if.*numericGridHasData|numericGridHasData.*return", path: "src\components\tabs", glob:
+        "VariableTablePlaceholders.tsx", output_mode: "content")
+  ⎿  Found 21 lines (ctrl+o to expand)
+
+● Found the issue! There's a React hooks violation. Let me check the order of hooks vs. early returns:
+
+● Read(src\components\tabs\VariableTablePlaceholders.tsx)
+  ⎿  Read 200 lines
+
+● Perfect! I found the React hooks violation. Here's the problem:
+
+  The Issue:
+  1. Line 121: numericGridHasData hook is defined (React.useMemo)
+  2. Line 260: columnStatementsFromNotes hook is defined (React.useMemo)
+  3. Line 300-306: Early return (before all hooks are called)
+  4. Line 308-314: Another early return (before all hooks are called)
+
+  React requires ALL hooks to be called in the same order on every render. When you have early returns between
+  hooks, it violates this rule.
+
+  Let me fix this by moving the early return checks BEFORE the hooks, or ensuring all hooks are called before
+  any returns:
+
+● Update(src\components\tabs\VariableTablePlaceholders.tsx)
+  ⎿  Added 9 lines
+        88      columnHeaderOverrides,
+        89      onTablesNoData,
+        90    }) => {
+        91 +    // Early validation - check before any hooks
+        92 +    if (!variable || tableOptions.length === 0) {
+        93 +      return (
+        94 +        <div className="text-center py-12 text-gray-500">
+        95 +          {variable ? 'No tables available for this variable' : 'Select a variable to view
+           + tables'}
+        96 +        </div>
+        97 +      );
+        98 +    }
+        99 +
+       100      const variableName = variable?.name || '';
+       101      const typeLower = variable?.type?.toLowerCase() || '';
+       102      const isSingleSelect = typeLower.includes('single select') &&
+             !typeLower.includes('grid');
+
+● Now I need to remove the duplicate early return checks that now appear later in the file:
+
+● Update(src\components\tabs\VariableTablePlaceholders.tsx)
+  ⎿  Removed 15 lines
+       306          return a.code.localeCompare(b.code);
+       307        });
+       308      }, [matchingQuestion, columnCode, baseQuestionNumber]);
+       309 -    if (!variable || tableOptions.length === 0) {
+       310 -      return (
+       311 -        <div className="text-center py-12 text-gray-500">
+       312 -          {variable ? 'No tables available for this variable' : 'Select a variable to view
+           - tables'}
+       313 -        </div>
+       314 -      );
+       315 -    }
+       316 -    // Show numeric grid no-data banner if bases are all 0
+       317 -    if (isNumericGrid && !numericGridHasData) {
+       318 -      return (
+       319 -        <div className="border border-red-200 bg-red-50 text-red-700 px-4 py-3 rounded">
+       320 -          No data found for this numeric grid - bases are 0 across all columns/rows. Upload
+           - or map data for this question to see tables.
+       321 -        </div>
+       322 -      );
+       323 -    }
+       309      // Get response options for single select variable
+       310      const getResponseOptions = (): Array<{ code: string; text: string }> => {
+       311        if (!variable) return [];
+
+● Good! Now I need to add back the numeric grid no-data check, but in a way that doesn't violate hooks rules.
+  Let me find the final return statement and add the conditional rendering there:
+
+● Search(pattern: "^  return \(|^  return <", path: "src\components\tabs", glob:
+        "VariableTablePlaceholders.tsx", output_mode: "content", head_limit: 20)
+  ⎿  Found 1 line (ctrl+o to expand)
+
+● Read(src\components\tabs\VariableTablePlaceholders.tsx)
+  ⎿  Read 8 lines
+
+● Update(src\components\tabs\VariableTablePlaceholders.tsx)
+  ⎿  Added 9 lines
+       3532        return renderNoDataBanner(undefined, 'No data found for these tables - bases are 0
+              across all rows/columns. Upload or map data for this question to see tables.');
+       3533      }
+       3534
+       3535 +    // Show numeric grid no-data banner if bases are all 0
+       3536 +    if (isNumericGrid && !numericGridHasData) {
+       3537 +      return (
+       3538 +        <div className="border border-red-200 bg-red-50 text-red-700 px-4 py-3 rounded">
+       3539 +          No data found for this numeric grid - bases are 0 across all columns/rows. Upload
+            + or map data for this question to see tables.
+       3540 +        </div>
+       3541 +      );
+       3542 +    }
+       3543 +
+       3544      return (
+       3545        <div className="space-y-6">
+       3546          {summaryContent}
+
+● Perfect! I've fixed the React hooks violation. Here's what was wrong and what I fixed:
+
+  The Problem
+
+  Your numeric grids weren't showing data because the component was crashing with a React hooks error:
+  Uncaught Error: Rendered fewer hooks than expected. This may be caused by an accidental early return
+  statement.
+
+  Root cause: In VariableTablePlaceholders.tsx, there were conditional return statements (early exits) appearing
+   AFTER React hooks were already defined. React requires all hooks to be called in the same order on every
+  render.
+
+  The bad structure was:
+  1. Define numericGridHasData hook (line 121)
+  2. Define columnStatementsFromNotes hook (line 260)
+  3. Early return if (!variable || tableOptions.length === 0) (line 300) ❌
+  4. Early return if (isNumericGrid && !numericGridHasData) (line 308) ❌
+
+  When those early returns happened, subsequent hooks weren't called, causing React to throw the error.
+
+  The Fix
+
+  I moved all validation checks BEFORE any hooks are defined:
+
+  New structure:
+  1. Early return if (!variable || tableOptions.length === 0) (line 92) ✅ - BEFORE hooks
+  2. Define all variables and React hooks (lines 100-308)
+  3. Regular component logic
+  4. Final return with numeric grid check (line 3536) ✅ - AFTER all hooks
+
+  Test It
+
+  Now you should:
+  1. Refresh your browser to clear the error
+  2. Select a numeric grid variable
+  3. Try running a crosstab on it
+
+  The component should now render properly without crashing, and your numeric grids should show data correctly!
+
+  Let me know if you still see any issues or if the crosstabs are working now.
+
+> add console debugging for when i run a crosstab for a question so i can show you what data is being shown
+
+● I'll add comprehensive console debugging to the crosstab logic so we can see what's happening when you run a
+  crosstab. Let me add logging to the key areas:
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Read 200 lines
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 19 lines, removed 1 line
+       1028        if (!crosstabActiveTarget) return null;
+       1029        if (!selectedVar || !isCrosstabSupported || !getVariableDataByExpectedHeader) return
+              null;
+       1030
+       1031 +      console.log('🔵 [CROSSTAB] Starting crosstab calculation', {
+       1032 +        selectedVariable: selectedVar.name,
+       1033 +        selectedVarType: selectedVar.type,
+       1034 +        crosstabTarget: crosstabActiveTarget,
+       1035 +        isNumericGrid,
+       1036 +        isSingleSelectGrid,
+       1037 +        isSingleSelectQuestion
+       1038 +      });
+       1039 +
+       1040        const targetVar = variables.find((v) => v.name === crosstabActiveTarget);
+       1041 -      if (!targetVar) return null;
+       1041 +      if (!targetVar) {
+       1042 +        console.log('🔴 [CROSSTAB] Target variable not found:', crosstabActiveTarget);
+       1043 +        return null;
+       1044 +      }
+       1045 +      console.log('🔵 [CROSSTAB] Target variable found:', {
+       1046 +        name: targetVar.name,
+       1047 +        type: targetVar.type,
+       1048 +        codes: targetVar.codes,
+       1049 +        statements: targetVar.statements
+       1050 +      });
+       1051        const typeLowerTarget = targetVar.type?.toLowerCase() || '';
+       1052        const targetTags = Array.isArray((targetVar as any).tags) ? (targetVar as any).tags :
+              [];
+       1053        const targetHasScaleTag = targetTags.some((t: string) =>
+              /scale\s*\(7pt\)/i.test(String(t)));
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 9 lines, removed 1 line
+       1054        const targetEligible =
+       1055          (typeLowerTarget.includes('single select') && !typeLowerTarget.includes('grid')) ||
+       1056          (typeLowerTarget.includes('single select grid') && targetHasScaleTag);
+       1057 -      if (!targetEligible) return null;
+       1057 +      if (!targetEligible) {
+       1058 +        console.log('🔴 [CROSSTAB] Target variable not eligible for crosstab:', {
+       1059 +          typeLowerTarget,
+       1060 +          targetHasScaleTag,
+       1061 +          reason: 'Must be single select or single select grid with scale tag'
+       1062 +        });
+       1063 +        return null;
+       1064 +      }
+       1065        const targetIsScaleGrid = typeLowerTarget.includes('single select grid') &&
+              targetHasScaleTag;
+       1066 +      console.log('🔵 [CROSSTAB] Target is eligible:', { targetIsScaleGrid });
+       1067
+       1068        const targetBaseNum = getBaseQuestionNumber(targetVar.name).replace(/^Q/i, '');
+       1069        const targetMatchingQuestion = questionnaireQuestions.find((q) => {
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 5 lines, removed 1 line
+       1088            targetOptions.push({ code, text });
+       1089          });
+       1090        }
+       1091 -      if (targetOptions.length === 0) return null;
+       1091 +      if (targetOptions.length === 0) {
+       1092 +        console.log('🔴 [CROSSTAB] No target options found');
+       1093 +        return null;
+       1094 +      }
+       1095 +      console.log('🔵 [CROSSTAB] Target options:', targetOptions);
+       1096
+       1097        const targetCodes = targetOptions.map((o) => o.code);
+       1098        const getStatementValues = (stmtCode: string, forSelected: boolean) => {
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Error editing file
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 13 lines
+       1145            );
+       1146          }
+       1147
+       1148 +        console.log(`🔍 [CROSSTAB] Looking for statement values:`, {
+       1149 +          stmtCode,
+       1150 +          forSelected,
+       1151 +          varName,
+       1152 +          candidatesCount: candidates.length,
+       1153 +          firstFewCandidates: candidates.slice(0, 5)
+       1154 +        });
+       1155 +
+       1156          for (const header of candidates) {
+       1157            const data = getVariableDataByExpectedHeader(header);
+       1158            if (data && Array.isArray(data.values) && data.values.length > 0) {
+       1159 +            console.log(`✅ [CROSSTAB] Found statement data for "${stmtCode}" at header
+            + "${header}":`, {
+       1160 +              valueCount: data.values.length,
+       1161 +              firstFewValues: data.values.slice(0, 5)
+       1162 +            });
+       1163              return data.values;
+       1164            }
+       1165          }
+       1166 +        console.log(`❌ [CROSSTAB] No data found for statement "${stmtCode}", tried
+            + ${candidates.length} headers`);
+       1167          return null;
+       1168        };
+       1169
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 7 lines
+       1169
+       1170        const targetData = getVariableDataByExpectedHeader(targetVar.name);
+       1171        let targetValues = Array.isArray(targetData?.values) ? targetData.values : [];
+       1172 +      console.log('🔵 [CROSSTAB] Target variable data:', {
+       1173 +        targetVarName: targetVar.name,
+       1174 +        hasData: !!targetData,
+       1175 +        targetValuesCount: targetValues.length,
+       1176 +        firstFewTargetValues: targetValues.slice(0, 10),
+       1177 +        uniqueTargetValues: [...new Set(targetValues.filter(v => v !== null && v !==
+            + undefined))]
+       1178 +      });
+       1179
+       1180        // Fallback/override for scale grids: build respondent-level values by averaging
+              numeric responses across statements
+       1181        const buildTargetGridValues = (): any[] | null => {
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 10 lines, removed 2 lines
+       1242          }
+       1243        }
+       1244
+       1245 -      if (targetValues.length === 0) return null;
+       1245 +      if (targetValues.length === 0) {
+       1246 +        console.log('🔴 [CROSSTAB] No target values found, cannot build crosstab');
+       1247 +        return null;
+       1248 +      }
+       1249
+       1250        // Numeric grid crosstab: build tables aligned with numeric grid summaries
+       1251        if (isNumericGrid) {
+       1252 +        console.log('🟢 [CROSSTAB] Building NUMERIC GRID crosstab');
+       1253          const statements = multiSelectGridStatements;
+       1254 -        if (!statements.length) return null;
+       1254 +        if (!statements.length) {
+       1255 +          console.log('🔴 [CROSSTAB] No statements found for numeric grid');
+       1256 +          return null;
+       1257 +        }
+       1258 +        console.log('🔵 [CROSSTAB] Numeric grid statements:', statements);
+       1259
+       1260          // Build column bases from target responses
+       1261          const columnBases: Record<string, number> = {};
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 2 lines
+       1265            if (!code) return;
+       1266            columnBases[code] = (columnBases[code] || 0) + 1;
+       1267          });
+       1268 +        console.log('🔵 [CROSSTAB] Column bases:', columnBases);
+       1269
+       1270          let activeColumns = targetOptions.filter((col) => (columnBases[col.code] || 0) > 0);
+       1271          if (activeColumns.length === 0) activeColumns = targetOptions;
+       1272 +        console.log('🔵 [CROSSTAB] Active columns:', activeColumns);
+       1273
+       1274          const hasMeanSelection = Array.from(selectedVarTableSelections || []).some((id) =>
+       1275            /MeanSummaryTable/i.test(id || '')
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 5 lines
+       1275            /MeanSummaryTable/i.test(id || '')
+       1276          );
+       1277          const valueType = isNumericGridPercentTag && hasMeanSelection ? 'mean' : 'sum';
+       1278 +        console.log('🔵 [CROSSTAB] Value type:', {
+       1279 +          isNumericGridPercentTag,
+       1280 +          hasMeanSelection,
+       1281 +          valueType
+       1282 +        });
+       1283
+       1284          let rows: Array<{
+       1285            key: string;
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Read 70 lines
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 20 lines, removed 1 line
+       1340                const c = cells[col.code];
+       1341                return c && (c.base > 0 || c.value !== 0);
+       1342              });
+       1343 -          if (!hasAny) return null;
+       1343 +          if (!hasAny) {
+       1344 +            console.log(`⚠️ [CROSSTAB] No data for statement "${stmt.code}" - skipping
+            + row`);
+       1345 +            return null;
+       1346 +          }
+       1347
+       1348 +          console.log(`✅ [CROSSTAB] Built row for statement "${stmt.code}":`, {
+       1349 +            label: stmt.text || stmt.code,
+       1350 +            totalValue,
+       1351 +            totalBase: totalBaseAgg,
+       1352 +            cells: Object.entries(cells).map(([code, cell]) => ({
+       1353 +              code,
+       1354 +              value: cell.value,
+       1355 +              base: cell.base
+       1356 +            }))
+       1357 +          });
+       1358 +
+       1359            return {
+       1360              key: stmt.code || `row-${idx}`,
+       1361              label: stmt.text || stmt.code || `Row ${idx + 1}`,
+     ...
+       1357            totalBase: number;
+       1358          }>;
+       1359
+       1360 +        console.log('🟢 [CROSSTAB] Final numeric grid rows:', {
+       1361 +          rowCount: rows.length,
+       1362 +          rows: rows.map(r => ({ key: r.key, label: r.label, totalBase: r.totalBase }))
+       1363 +        });
+       1364 +
+       1365          if (!rows.length) {
+       1366            rows = statements.map((stmt, idx) => {
+       1367              const stmtValues = getStatementValues(stmt.code, true);
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Read 50 lines
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 12 lines, removed 1 line
+       1427              isNumericGridNumberTag && totalValueAll > 0 ? (row.totalValue / totalValueAll) *
+               100 : 0;
+       1428          });
+       1429
+       1430 -        return {
+       1430 +        const result = {
+       1431            target: crosstabActiveTarget,
+       1432            columns: activeColumns,
+       1433            mode: 'numeric-grid',
+     ...
+       1437            columnValueTotals,
+       1438            totalValueAll,
+       1439          };
+       1440 +
+       1441 +        console.log('🟢 [CROSSTAB] ===== NUMERIC GRID CROSSTAB COMPLETE =====', {
+       1442 +          target: crosstabActiveTarget,
+       1443 +          columnCount: activeColumns.length,
+       1444 +          rowCount: rows.length,
+       1445 +          valueType,
+       1446 +          columnBases,
+       1447 +          hasData: rows.length > 0
+       1448 +        });
+       1449 +
+       1450 +        return result;
+       1451        }
+       1452
+       1453        // If using scale buckets for single-select grid 7pt: build bucket tables per
+              statement
+
+● Perfect! I've added comprehensive console debugging throughout the crosstab logic. Here's what will be logged
+  when you run a crosstab:
+
+  Debug Logs Added:
+
+  🔵 Blue logs - Info/progress messages:
+  - Crosstab initialization (variables, types)
+  - Target variable details (name, type, codes, statements)
+  - Target options found
+  - Target values retrieved
+  - Statements for numeric grid
+  - Column bases calculated
+  - Active columns
+  - Value type (sum vs mean)
+
+  🟢 Green logs - Success/completion:
+  - Numeric grid crosstab starting
+  - Final crosstab complete with summary
+
+  🔴 Red logs - Errors/missing data:
+  - Target variable not found
+  - Target not eligible
+  - No target options
+  - No target values
+  - No statements
+
+  🔍 Search logs - Data lookup:
+  - Looking for statement values (shows candidates tried)
+  - ✅ Found data at specific header
+  - ❌ No data found after trying all headers
+
+  ⚠️ Warning logs:
+  - Skipping rows with no data
+
+  How to Use:
+
+  1. Refresh your browser to clear the previous error
+  2. Open the browser console (F12 → Console tab)
+  3. Select a numeric grid variable
+  4. Click the crosstab button and select a target variable
+  5. Run the crosstab
+
+  You'll see a complete trace like:
+  🔵 [CROSSTAB] Starting crosstab calculation
+  🔵 [CROSSTAB] Target variable found
+  🔵 [CROSSTAB] Target is eligible
+  🔵 [CROSSTAB] Target options: [...]
+  🔵 [CROSSTAB] Target variable data: {...}
+  🟢 [CROSSTAB] Building NUMERIC GRID crosstab
+  🔵 [CROSSTAB] Numeric grid statements: [...]
+  🔍 [CROSSTAB] Looking for statement values...
+  ✅ [CROSSTAB] Found statement data...
+  🟢 [CROSSTAB] ===== NUMERIC GRID CROSSTAB COMPLETE =====
+
+  Now run a crosstab and share the console output with me - this will show me exactly what data is being found
+  (or not found) and help diagnose the issue!
+
+> VariablesView.tsx:1031 🔵 [CROSSTAB] Starting crosstab calculation {selectedVariable: 'QS11c2',
+selectedVarType: 'Numeric grid', crosstabTarget: 'QS1', isNumericGrid: true, isSingleSelectGrid: false, …}
+VariablesView.tsx:1045 🔵 [CROSSTAB] Target variable found: {name: 'QS1', type: 'Single select', codes: {…},
+ statements: undefined}
+VariablesView.tsx:1066 🔵 [CROSSTAB] Target is eligible: {targetIsScaleGrid: false}
+VariablesView.tsx:1095 🔵 [CROSSTAB] Target options: (7) [{…}, {…}, {…}, {…}, {…}, {…}, {…}]
+VariablesView.tsx:1172 🔵 [CROSSTAB] Target variable data: {targetVarName: 'QS1', hasData: true,
+targetValuesCount: 50, firstFewTargetValues: Array(10), uniqueTargetValues: Array(2)}
+VariablesView.tsx:1252 🟢 [CROSSTAB] Building NUMERIC GRID crosstab
+VariablesView.tsx:1258 🔵 [CROSSTAB] Numeric grid statements: (4) [{…}, {…}, {…}, {…}]
+VariablesView.tsx:1268 🔵 [CROSSTAB] Column bases: {5: 42, 6: 8}
+VariablesView.tsx:1272 🔵 [CROSSTAB] Active columns: (2) [{…}, {…}]
+VariablesView.tsx:1278 🔵 [CROSSTAB] Value type: {isNumericGridPercentTag: false, hasMeanSelection: true,
+valueType: 'sum'}
+VariablesView.tsx:1374 🟢 [CROSSTAB] Final numeric grid rows: {rowCount: 0, rows: Array(0)}
+VariablesView.tsx:1441 🟢 [CROSSTAB] ===== NUMERIC GRID CROSSTAB COMPLETE ===== {target: 'QS1', columnCount:
+ 2, rowCount: 4, valueType: 'sum', columnBases: {…}, …}
+VariablesView.tsx:1031 🔵 [CROSSTAB] Starting crosstab calculation {selectedVariable: 'QS11c2',
+selectedVarType: 'Numeric grid', crosstabTarget: 'QS1', isNumericGrid: true, isSingleSelectGrid: false, …}
+VariablesView.tsx:1045 🔵 [CROSSTAB] Target variable found: {name: 'QS1', type: 'Single select', codes: {…},
+ statements: undefined}
+VariablesView.tsx:1066 🔵 [CROSSTAB] Target is eligible: {targetIsScaleGrid: false}
+VariablesView.tsx:1095 🔵 [CROSSTAB] Target options: (7) [{…}, {…}, {…}, {…}, {…}, {…}, {…}]
+VariablesView.tsx:1172 🔵 [CROSSTAB] Target variable data: {targetVarName: 'QS1', hasData: true,
+targetValuesCount: 50, firstFewTargetValues: Array(10), uniqueTargetValues: Array(2)}
+VariablesView.tsx:1252 🟢 [CROSSTAB] Building NUMERIC GRID crosstab
+VariablesView.tsx:1258 🔵 [CROSSTAB] Numeric grid statements: (4) [{…}, {…}, {…}, {…}]
+VariablesView.tsx:1268 🔵 [CROSSTAB] Column bases: {5: 42, 6: 8}
+VariablesView.tsx:1272 🔵 [CROSSTAB] Active columns: (2) [{…}, {…}]
+VariablesView.tsx:1278 🔵 [CROSSTAB] Value type: {isNumericGridPercentTag: false, hasMeanSelection: true,
+valueType: 'sum'}
+VariablesView.tsx:1374 🟢 [CROSSTAB] Final numeric grid rows: {rowCount: 0, rows: Array(0)}
+VariablesView.tsx:1441 🟢 [CROSSTAB] ===== NUMERIC GRID CROSSTAB COMPLETE ===== {target: 'QS1', columnCount:
+ 2, rowCount: 4, valueType: 'sum', columnBases: {…}, …}
+
+● Excellent! Now I can see the issue clearly. Look at these key findings:
+
+  The Problem:
+  - Line: 🟢 [CROSSTAB] Final numeric grid rows: {rowCount: 0, rows: Array(0)}
+  - NO ROWS were created from the data! All 4 statements returned null from getStatementValues()
+
+  But notice:
+  - ✅ Target data exists (50 values)
+  - ✅ Column bases calculated correctly: {5: 42, 6: 8}
+  - ✅ 4 statements found
+  - ❌ Missing: No "🔍 [CROSSTAB] Looking for statement values" logs
+
+  This means getStatementValues() is returning null immediately before even trying to search for data. Let me
+  check why:
+
+● Search(pattern: "console.*Looking for statement|if \(!questionRef\) return null", path: "src\components\tabs",
+         glob: "VariablesView.tsx", output_mode: "content")
+  ⎿  Found 15 lines (ctrl+o to expand)
+
+● Found it! The getStatementValues function returns null at line 1104 because questionRef (which is
+  matchingQuestion for the selected variable) doesn't exist. Let me add debugging to confirm:
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 12 lines, removed 1 line
+       1101            : targetBaseNum;
+       1102          const questionRef = forSelected ? matchingQuestion : targetMatchingQuestion;
+       1103          const varName = forSelected ? selectedVar.name : targetVar.name;
+       1104 -        if (!questionRef) return null;
+       1104
+       1105 +        if (!questionRef) {
+       1106 +          console.log(`🔴 [CROSSTAB] No matching question found for statement
+            + "${stmtCode}":`, {
+       1107 +            forSelected,
+       1108 +            varName,
+       1109 +            baseNum,
+       1110 +            matchingQuestion: forSelected ? matchingQuestion : targetMatchingQuestion,
+       1111 +            selectedVarName: selectedVar.name,
+       1112 +            allQuestions: questionnaireQuestions.map(q => ({ number: q.number, id: q.id }))
+       1113 +          });
+       1114 +          return null;
+       1115 +        }
+       1116 +
+       1117          const columnSuffix = forSelected && selectedVarColumnSuffix ?
+              selectedVarColumnSuffix : '';
+       1118
+       1119          // Normalize statement code to avoid double-appending base/column
+
+● Now let's also check what matchingQuestion and the statements look like at the start:
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 7 lines
+       1261        // Numeric grid crosstab: build tables aligned with numeric grid summaries
+       1262        if (isNumericGrid) {
+       1263          console.log('🟢 [CROSSTAB] Building NUMERIC GRID crosstab');
+       1264 +        console.log('🔵 [CROSSTAB] Selected variable details:', {
+       1265 +          name: selectedVar.name,
+       1266 +          type: selectedVar.type,
+       1267 +          baseQuestionNumber: getBaseQuestionNumber(selectedVar.name),
+       1268 +          matchingQuestion: matchingQuestion ? { number: matchingQuestion.number, id:
+            + matchingQuestion.id, text: matchingQuestion.text } : null,
+       1269 +          selectedVarColumnSuffix
+       1270 +        });
+       1271          const statements = multiSelectGridStatements;
+       1272          if (!statements.length) {
+       1273            console.log('🔴 [CROSSTAB] No statements found for numeric grid');
+
+● Perfect! Now run the crosstab again and we should see:
+
+  1. What matchingQuestion is (or if it's null)
+  2. What selectedVarColumnSuffix is
+  3. The 🔴 [CROSSTAB] No matching question found error showing which questions exist
+
+  This will tell us exactly why the statement data lookup is failing. The issue is likely that:
+  - Your variable is QS11c2 (numeric grid with column c2)
+  - The code can't find a matching question in the questionnaire for QS11c2
+  - So it returns null before even trying to find the data
+
+  Please run the crosstab again and share the new console output! We should see red error messages now that will
+   pinpoint the exact issue.
+
+> VariablesView.tsx:1031 🔵 [CROSSTAB] Starting crosstab calculation {selectedVariable: 'QS11c2',
+selectedVarType: 'Numeric grid', crosstabTarget: 'QS1', isNumericGrid: true, isSingleSelectGrid: false, …}
+VariablesView.tsx:1045 🔵 [CROSSTAB] Target variable found: {name: 'QS1', type: 'Single select', codes: {…},
+ statements: undefined}
+VariablesView.tsx:1066 🔵 [CROSSTAB] Target is eligible: {targetIsScaleGrid: false}
+VariablesView.tsx:1095 🔵 [CROSSTAB] Target options: (7) [{…}, {…}, {…}, {…}, {…}, {…}, {…}]
+VariablesView.tsx:1183 🔵 [CROSSTAB] Target variable data: {targetVarName: 'QS1', hasData: true,
+targetValuesCount: 50, firstFewTargetValues: Array(10), uniqueTargetValues: Array(2)}
+VariablesView.tsx:1263 🟢 [CROSSTAB] Building NUMERIC GRID crosstab
+VariablesView.tsx:1264 🔵 [CROSSTAB] Selected variable details: {name: 'QS11c2', type: 'Numeric grid',
+baseQuestionNumber: 'QS11', matchingQuestion: null, selectedVarColumnSuffix: 'c2'}
+VariablesView.tsx:1276 🔵 [CROSSTAB] Numeric grid statements: (4) [{…}, {…}, {…}, {…}]
+VariablesView.tsx:1286 🔵 [CROSSTAB] Column bases: {5: 42, 6: 8}
+VariablesView.tsx:1290 🔵 [CROSSTAB] Active columns: (2) [{…}, {…}]
+VariablesView.tsx:1296 🔵 [CROSSTAB] Value type: {isNumericGridPercentTag: false, hasMeanSelection: true,
+valueType: 'sum'}
+VariablesView.tsx:1106 🔴 [CROSSTAB] No matching question found for statement "r1": {forSelected: true,
+varName: 'QS11c2', baseNum: 'S11', matchingQuestion: undefined, selectedVarName: 'QS11c2', …}
+VariablesView.tsx:1106 🔴 [CROSSTAB] No matching question found for statement "r2": {forSelected: true,
+varName: 'QS11c2', baseNum: 'S11', matchingQuestion: undefined, selectedVarName: 'QS11c2', …}
+VariablesView.tsx:1106 🔴 [CROSSTAB] No matching question found for statement "r3": {forSelected: true,
+varName: 'QS11c2', baseNum: 'S11', matchingQuestion: undefined, selectedVarName: 'QS11c2', …}
+VariablesView.tsx:1106 🔴 [CROSSTAB] No matching question found for statement "r4": {forSelected: true,
+varName: 'QS11c2', baseNum: 'S11', matchingQuestion: undefined, selectedVarName: 'QS11c2', …}
+VariablesView.tsx:1392 🟢 [CROSSTAB] Final numeric grid rows: {rowCount: 0, rows: Array(0)}
+VariablesView.tsx:1106 🔴 [CROSSTAB] No matching question found for statement "r1": {forSelected: true,
+varName: 'QS11c2', baseNum: 'S11', matchingQuestion: undefined, selectedVarName: 'QS11c2', …}
+VariablesView.tsx:1106 🔴 [CROSSTAB] No matching question found for statement "r2": {forSelected: true,
+varName: 'QS11c2', baseNum: 'S11', matchingQuestion: undefined, selectedVarName: 'QS11c2', …}
+VariablesView.tsx:1106 🔴 [CROSSTAB] No matching question found for statement "r3": {forSelected: true,
+varName: 'QS11c2', baseNum: 'S11', matchingQuestion: undefined, selectedVarName: 'QS11c2', …}
+VariablesView.tsx:1106 🔴 [CROSSTAB] No matching question found for statement "r4": {forSelected: true,
+varName: 'QS11c2', baseNum: 'S11', matchingQuestion: undefined, selectedVarName: 'QS11c2', …}
+VariablesView.tsx:1459 🟢 [CROSSTAB] ===== NUMERIC GRID CROSSTAB COMPLETE ===== {target: 'QS1', columnCount:
+ 2, rowCount: 4, valueType: 'sum', columnBases: {…}, …}
+VariablesView.tsx:1031 🔵 [CROSSTAB] Starting crosstab calculation {selectedVariable: 'QS11c2',
+selectedVarType: 'Numeric grid', crosstabTarget: 'QS1', isNumericGrid: true, isSingleSelectGrid: false, …}
+VariablesView.tsx:1045 🔵 [CROSSTAB] Target variable found: {name: 'QS1', type: 'Single select', codes: {…},
+ statements: undefined}
+VariablesView.tsx:1066 🔵 [CROSSTAB] Target is eligible: {targetIsScaleGrid: false}
+VariablesView.tsx:1095 🔵 [CROSSTAB] Target options: (7) [{…}, {…}, {…}, {…}, {…}, {…}, {…}]
+VariablesView.tsx:1183 🔵 [CROSSTAB] Target variable data: {targetVarName: 'QS1', hasData: true,
+targetValuesCount: 50, firstFewTargetValues: Array(10), uniqueTargetValues: Array(2)}
+VariablesView.tsx:1263 🟢 [CROSSTAB] Building NUMERIC GRID crosstab
+VariablesView.tsx:1264 🔵 [CROSSTAB] Selected variable details: {name: 'QS11c2', type: 'Numeric grid',
+baseQuestionNumber: 'QS11', matchingQuestion: null, selectedVarColumnSuffix: 'c2'}
+VariablesView.tsx:1276 🔵 [CROSSTAB] Numeric grid statements: (4) [{…}, {…}, {…}, {…}]
+VariablesView.tsx:1286 🔵 [CROSSTAB] Column bases: {5: 42, 6: 8}
+VariablesView.tsx:1290 🔵 [CROSSTAB] Active columns: (2) [{…}, {…}]
+VariablesView.tsx:1296 🔵 [CROSSTAB] Value type: {isNumericGridPercentTag: false, hasMeanSelection: true,
+valueType: 'sum'}
+VariablesView.tsx:1106 🔴 [CROSSTAB] No matching question found for statement "r1": {forSelected: true,
+varName: 'QS11c2', baseNum: 'S11', matchingQuestion: undefined, selectedVarName: 'QS11c2', …}
+VariablesView.tsx:1106 🔴 [CROSSTAB] No matching question found for statement "r2": {forSelected: true,
+varName: 'QS11c2', baseNum: 'S11', matchingQuestion: undefined, selectedVarName: 'QS11c2', …}
+VariablesView.tsx:1106 🔴 [CROSSTAB] No matching question found for statement "r3": {forSelected: true,
+varName: 'QS11c2', baseNum: 'S11', matchingQuestion: undefined, selectedVarName: 'QS11c2', …}
+VariablesView.tsx:1106 🔴 [CROSSTAB] No matching question found for statement "r4": {forSelected: true,
+varName: 'QS11c2', baseNum: 'S11', matchingQuestion: undefined, selectedVarName: 'QS11c2', …}
+VariablesView.tsx:1392 🟢 [CROSSTAB] Final numeric grid rows: {rowCount: 0, rows: Array(0)}
+VariablesView.tsx:1106 🔴 [CROSSTAB] No matching question found for statement "r1": {forSelected: true,
+varName: 'QS11c2', baseNum: 'S11', matchingQuestion: undefined, selectedVarName: 'QS11c2', …}
+VariablesView.tsx:1106 🔴 [CROSSTAB] No matching question found for statement "r2": {forSelected: true,
+varName: 'QS11c2', baseNum: 'S11', matchingQuestion: undefined, selectedVarName: 'QS11c2', …}
+VariablesView.tsx:1106 🔴 [CROSSTAB] No matching question found for statement "r3": {forSelected: true,
+varName: 'QS11c2', baseNum: 'S11', matchingQuestion: undefined, selectedVarName: 'QS11c2', …}
+VariablesView.tsx:1106 🔴 [CROSSTAB] No matching question found for statement "r4": {forSelected: true,
+varName: 'QS11c2', baseNum: 'S11', matchingQuestion: undefined, selectedVarName: 'QS11c2', …}
+VariablesView.tsx:1459 🟢 [CROSSTAB] ===== NUMERIC GRID CROSSTAB COMPLETE ===== {target: 'QS1', columnCount:
+ 2, rowCount: 4, valueType: 'sum', columnBases: {…}, …}
+
+● Perfect! Now I can see the exact issue:
+
+  The Problem
+
+  Key findings:
+  - matchingQuestion: null ← This is the issue!
+  - baseQuestionNumber: 'QS11'
+  - But baseNum extracted is 'S11' (missing the Q!)
+  - selectedVarColumnSuffix: 'c2'
+
+  The code is looking for a questionnaire question matching QS11c2, but your questionnaire probably only has
+  QS11 (the base grid), not the individual columns like QS11c2.
+
+  The function fails because:
+  1. It requires matchingQuestion to proceed
+  2. But for numeric grid columns (like QS11c2), there's no separate question—it's part of the base grid
+  question
+  3. So it returns null before even trying to find the data
+
+  The Fix
+
+  For numeric grids, we should proceed without requiring matchingQuestion since we already have enough
+  information (baseNum, varName, columnSuffix) to build the candidate headers. Let me fix this:
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 6 lines, removed 4 lines
+       1102          const questionRef = forSelected ? matchingQuestion : targetMatchingQuestion;
+       1103          const varName = forSelected ? selectedVar.name : targetVar.name;
+       1104
+       1105 -        if (!questionRef) {
+       1105 +        const columnSuffix = forSelected && selectedVarColumnSuffix ?
+            + selectedVarColumnSuffix : '';
+       1106 +
+       1107 +        // For numeric grids with column suffixes, questionRef may be null (column is not a
+            + separate question)
+       1108 +        // We can still proceed using the base information we have
+       1109 +        if (!questionRef && !columnSuffix) {
+       1110            console.log(`🔴 [CROSSTAB] No matching question found for statement
+              "${stmtCode}":`, {
+       1111              forSelected,
+       1112              varName,
+     ...
+       1114            return null;
+       1115          }
+       1116
+       1117 -        const columnSuffix = forSelected && selectedVarColumnSuffix ?
+            - selectedVarColumnSuffix : '';
+       1118 -
+       1117          // Normalize statement code to avoid double-appending base/column
+       1118          const basePattern = new RegExp(`^Q?${baseNum}`, 'i');
+       1119          let coreCode = stmtCode.replace(basePattern, '');
+     ...
+       1128          coreCode = coreCode.replace(/^[_-]+/, '');
+       1129
+       1130          const baseWithPrefix = baseNum.toLowerCase().startsWith('q') ? baseNum :
+              `Q${baseNum}`;
+       1131 -        const questionNum = questionRef.number || questionRef.id || '';
+       1131 +        const questionNum = questionRef ? (questionRef.number || questionRef.id || ''
+            +  ) : baseWithPrefix;
+       1132
+       1133          const candidates: string[] = [
+       1134            stmtCode,
+
+> resume
+
+● Perfect! I've made the fix. The issue was that the code was requiring a matchingQuestion to exist, but for
+  numeric grid columns (like QS11c2), there's no separate question in the questionnaire - only the base grid
+  question (QS11).
+
+  The fix:
+  - Changed the check from if (!questionRef) return null
+  - To: if (!questionRef && !columnSuffix) return null
+  - This allows numeric grid columns with a columnSuffix (like c2) to proceed even without a matching question
+  - Uses baseWithPrefix as the questionNum when questionRef is null
+
+  Now please run the crosstab again and you should see:
+  1. The 🔍 [CROSSTAB] Looking for statement values logs appear
+  2. Hopefully some ✅ [CROSSTAB] Found statement data messages
+  3. Rows being built with data instead of rowCount: 0
+
+  Run it now and share the new console output! We should finally see data being found and the crosstab working.
+
+> Now for my numeric grids, when I run a cross-tab, it's currently showing me the sum summaries cross-tabs.
+But if in the tables view I have a mean summary included as well, which should be defined from what's
+checked in the tab specs page, then I want the mean summary table to also be added as a cross-tab when I run
+ cross-tabs, showing above the sum summary table, and using the same column cuts.
+
+● I'll add support for showing both mean and sum crosstab tables when both are selected in the table specs. Let
+  me modify the numeric grid crosstab logic:
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Read 30 lines
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 14 lines, removed 3 lines
+       1294          const hasMeanSelection = Array.from(selectedVarTableSelections || []).some((id) =>
+       1295            /MeanSummaryTable/i.test(id || '')
+       1296          );
+       1297 -        const valueType = isNumericGridPercentTag && hasMeanSelection ? 'mean' : 'sum';
+       1298 -        console.log('🔵 [CROSSTAB] Value type:', {
+       1297 +        const hasSumSelection = Array.from(selectedVarTableSelections || []).some((id) =>
+       1298 +          /SumSummaryTable/i.test(id || '')
+       1299 +        );
+       1300 +
+       1301 +        // Determine which value types to include
+       1302 +        const valueTypesToInclude: Array<'mean' | 'sum'> = [];
+       1303 +        if (hasMeanSelection) valueTypesToInclude.push('mean');
+       1304 +        if (hasSumSelection) valueTypesToInclude.push('sum');
+       1305 +        // Default to sum if nothing selected
+       1306 +        if (valueTypesToInclude.length === 0) valueTypesToInclude.push('sum');
+       1307 +
+       1308 +        console.log('🔵 [CROSSTAB] Value types to include:', {
+       1309            isNumericGridPercentTag,
+       1310            hasMeanSelection,
+       1311 -          valueType
+       1311 +          hasSumSelection,
+       1312 +          valueTypesToInclude
+       1313          });
+       1314
+       1315          let rows: Array<{
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Read 150 lines
+
+● Let me refactor this to create a function that builds rows for a specific value type, then call it for each
+  type:
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 11 lines, removed 1 line
+       1312            valueTypesToInclude
+       1313          });
+       1314
+       1315 -        let rows: Array<{
+       1315 +        // Helper function to build rows for a specific value type
+       1316 +        const buildRowsForValueType = (valueType: 'mean' | 'sum'): Array<{
+       1317            key: string;
+       1318            label: string;
+       1319            cells: Record<string, { value: number; base: number; pct: number }>;
+       1320            totalValue: number;
+       1321            totalBase: number;
+       1322 +        }> => {
+       1323 +          const isMeanMode = valueType === 'mean';
+       1324 +
+       1325 +          let rows: Array<{
+       1326 +          key: string;
+       1327 +          label: string;
+       1328 +          cells: Record<string, { value: number; base: number; pct: number }>;
+       1329 +          totalValue: number;
+       1330 +          totalBase: number;
+       1331          }> = statements.map((stmt, idx) => {
+       1332            const stmtValues = getStatementValues(stmt.code, true);
+       1333            if (!stmtValues) return null;
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 4 lines, removed 3 lines
+       1361              cells[tCode].value += num;
+       1362            }
+       1363
+       1364 -          // Finalize values
+       1364 +          // Finalize values based on value type
+       1365            activeColumns.forEach((col) => {
+       1366              const cell = cells[col.code];
+       1367 -            if (isNumericGridPercentTag) {
+       1367 +            if (isNumericGridPercentTag && isMeanMode) {
+       1368                cell.value = cell.base > 0 ? cell.value / cell.base : 0;
+       1369              }
+       1370 +            // For sum mode or non-percent tags, keep the sum value as-is
+       1371            });
+       1372
+       1373 -          const totalValue = isNumericGridPercentTag
+       1373 +          const totalValue = (isNumericGridPercentTag && isMeanMode)
+       1374              ? totalBaseAgg > 0
+       1375                ? totalValueAgg / totalBaseAgg
+       1376                : 0
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 1 line, removed 1 line
+       1433                  }
+       1434                });
+       1435              }
+       1436 -            const totalValue = isNumericGridPercentTag
+       1436 +            const totalValue = (isNumericGridPercentTag && isMeanMode)
+       1437                ? totalBaseAgg > 0
+       1438                  ? totalValueAgg / totalBaseAgg
+       1439                  : 0
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Read 50 lines
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 46 lines, removed 27 lines
+       1452            });
+       1453          }
+       1454
+       1455 -        // Column totals for percentage rows (number tag)
+       1456 -        const columnValueTotals: Record<string, number> = {};
+       1457 -        activeColumns.forEach((col) => {
+       1458 -          columnValueTotals[col.code] = rows.reduce((sum, row) => sum +
+            - (row.cells[col.code]?.value || 0), 0);
+       1459 -        });
+       1460 -        const totalValueAll = rows.reduce((sum, row) => sum + row.totalValue, 0);
+       1461 -
+       1462 -        rows.forEach((row) => {
+       1455 +          // Column totals for percentage rows (number tag)
+       1456 +          const columnValueTotals: Record<string, number> = {};
+       1457            activeColumns.forEach((col) => {
+       1458 -            const cell = row.cells[col.code];
+       1459 -            const colTotal = columnValueTotals[col.code] || 0;
+       1460 -            cell.pct = isNumericGridNumberTag && colTotal > 0 ? (cell.value / colTotal) *
+            - 100 : 0;
+       1458 +            columnValueTotals[col.code] = rows.reduce((sum, row) => sum +
+            + (row.cells[col.code]?.value || 0), 0);
+       1459            });
+       1460 -          (row as any).totalPct =
+       1461 -            isNumericGridNumberTag && totalValueAll > 0 ? (row.totalValue / totalValueAll) *
+            -  100 : 0;
+       1462 -        });
+       1460 +          const totalValueAll = rows.reduce((sum, row) => sum + row.totalValue, 0);
+       1461
+       1462 -        const result = {
+       1463 -          target: crosstabActiveTarget,
+       1464 -          columns: activeColumns,
+       1465 -          mode: 'numeric-grid',
+       1466 -          valueType,
+       1467 -          rows,
+       1468 -          columnBases: columnBases,
+       1469 -          columnValueTotals,
+       1470 -          totalValueAll,
+       1462 +          rows.forEach((row) => {
+       1463 +            activeColumns.forEach((col) => {
+       1464 +              const cell = row.cells[col.code];
+       1465 +              const colTotal = columnValueTotals[col.code] || 0;
+       1466 +              cell.pct = isNumericGridNumberTag && colTotal > 0 ? (cell.value / colTotal) *
+            + 100 : 0;
+       1467 +            });
+       1468 +            (row as any).totalPct =
+       1469 +              isNumericGridNumberTag && totalValueAll > 0 ? (row.totalValue / totalValueAll)
+            +  * 100 : 0;
+       1470 +          });
+       1471 +
+       1472 +          return rows;
+       1473          };
+       1474
+       1475 +        // Build tables for each value type
+       1476 +        const tables = valueTypesToInclude.map(valueType => {
+       1477 +          const rows = buildRowsForValueType(valueType);
+       1478 +          const columnValueTotals: Record<string, number> = {};
+       1479 +          activeColumns.forEach((col) => {
+       1480 +            columnValueTotals[col.code] = rows.reduce((sum, row) => sum +
+            + (row.cells[col.code]?.value || 0), 0);
+       1481 +          });
+       1482 +          const totalValueAll = rows.reduce((sum, row) => sum + row.totalValue, 0);
+       1483 +
+       1484 +          console.log(`🟢 [CROSSTAB] Built ${valueType} table:`, {
+       1485 +            valueType,
+       1486 +            rowCount: rows.length,
+       1487 +            hasData: rows.length > 0
+       1488 +          });
+       1489 +
+       1490 +          return {
+       1491 +            target: crosstabActiveTarget,
+       1492 +            columns: activeColumns,
+       1493 +            mode: 'numeric-grid',
+       1494 +            valueType,
+       1495 +            rows,
+       1496 +            columnBases: columnBases,
+       1497 +            columnValueTotals,
+       1498 +            totalValueAll,
+       1499 +          };
+       1500 +        });
+       1501 +
+       1502          console.log('🟢 [CROSSTAB] ===== NUMERIC GRID CROSSTAB COMPLETE =====', {
+       1503            target: crosstabActiveTarget,
+       1504            columnCount: activeColumns.length,
+       1505 -          rowCount: rows.length,
+       1506 -          valueType,
+       1505 +          tableCount: tables.length,
+       1506 +          valueTypes: valueTypesToInclude,
+       1507            columnBases,
+       1508 -          hasData: rows.length > 0
+       1508          });
+       1509
+       1510 -        return result;
+       1510 +        // Return multiple tables if both mean and sum are selected
+       1511 +        return tables.length > 1 ? { mode: 'numeric-grid-multi', tables } : tables[0];
+       1512        }
+       1513
+       1514        // If using scale buckets for single-select grid 7pt: build bucket tables per
+              statement
+
+● Now I need to update the rendering logic to handle the new multi-table mode. Let me find the rendering code:
+
+● Search(pattern: "crosstabSummary.*mode.*numeric-grid|mode === 'numeric-grid'", path: "src\components\tabs",
+        glob: "VariablesView.tsx", output_mode: "content")
+  ⎿  Found 23 lines (ctrl+o to expand)
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Read 50 lines
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 11 lines, removed 3 lines
+       2425                          </div>
+       2426                        </div>
+       2427
+       2428 -                      {(crosstabSummary as any).mode === 'numeric-grid' ? (
+       2428 +                      {((crosstabSummary as any).mode === 'numeric-grid'
+            +  || (crosstabSummary as any).mode === 'numeric-grid-multi') ? (
+       2429                          (() => {
+       2430 -                          const ng = crosstabSummary as any;
+       2431 -                          const isMeanMode = ng.valueType === 'mean';
+       2430 +                          // Handle both single table and multi-table modes
+       2431 +                          const isMultiMode = (crosstabSummary as any).mode ===
+            + 'numeric-grid-multi';
+       2432 +                          const tablesToRender = isMultiMode
+       2433 +                            ? (crosstabSummary as any).tables
+       2434 +                            : [crosstabSummary];
+       2435 +
+       2436 +                          return (
+       2437 +                            <div className="space-y-4">
+       2438 +                              {tablesToRender.map((ng: any, tableIdx: number) => {
+       2439 +                                const isMeanMode = ng.valueType === 'mean';
+       2440                            const totalBaseRow = ng.columns.reduce(
+       2441                              (sum: number, col: any) => sum + (ng.columnBases?.[col.code] ||
+              0),
+       2442                              0
+
+● Search(pattern: "</div>\s*\)\s*\)", path: "src\components\tabs", glob: "VariablesView.tsx", output_mode:
+        "content", head_limit: 20)
+  ⎿  Found 0 lines
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Read 50 lines
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Read 40 lines
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 3 lines
+       2602                                  </tbody>
+       2603                                </table>
+       2604                              </div>
+       2605 +                                );
+       2606 +                              })}
+       2607 +                            </div>
+       2608                            );
+       2609                          })()
+       2610                        ) : useScaleBuckets && crosstabSummary.bucketTables ? (
+
+● Now I need to update the significance testing logic to handle multi-table mode:
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 8 lines, removed 3 lines
+       1673      const crosstabSigSummary = React.useMemo(() => {
+       1674        if (!crosstabSummary) return [];
+       1675        if ((crosstabSummary as any).bucketTables) return [];
+       1676 -      if ((crosstabSummary as any).mode === 'numeric-grid') {
+       1677 -        const ng: any = crosstabSummary;
+       1678 -        if (ng.valueType === 'mean') return [];
+       1676 +
+       1677 +      // Handle multi-table mode
+       1678 +      if ((crosstabSummary as any).mode === 'numeric-grid-multi') {
+       1679 +        const tables = (crosstabSummary as any).tables || [];
+       1680 +        // Only show sig testing for sum tables in multi mode
+       1681 +        const sumTable = tables.find((t: any) => t.valueType === 'sum');
+       1682 +        if (!sumTable) return [];
+       1683 +        const ng: any = sumTable;
+       1684          const columns = ng.columns || [];
+       1685          const bases: Record<string, number> = ng.columnBases || {};
+       1686          const letterToCol: Record<string, { code: string; text: string }> = {};
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Read 50 lines
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Read 20 lines
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 60 lines
+       1735          });
+       1736          return summaries;
+       1737        }
+       1738 +
+       1739 +      // Handle single numeric-grid mode
+       1740 +      if ((crosstabSummary as any).mode === 'numeric-grid') {
+       1741 +        const ng: any = crosstabSummary;
+       1742 +        if (ng.valueType === 'mean') return [];
+       1743 +        const columns = ng.columns || [];
+       1744 +        const bases: Record<string, number> = ng.columnBases || {};
+       1745 +        const letterToCol: Record<string, { code: string; text: string }> = {};
+       1746 +        columns.forEach((col: any, idx: number) => {
+       1747 +          letterToCol[String.fromCharCode(65 + idx)] = { code: col.code, text: col.text };
+       1748 +        });
+       1749 +        const summaries: Array<{ row: string; col: string; colPct: number; targets: Array<{
+            + text: string; pct: number }> }> = [];
+       1750 +        ng.rows.forEach((row: any) => {
+       1751 +          const lettersMap: Record<string, string> = {};
+       1752 +          columns.forEach((col: any, colIdx: number) => {
+       1753 +            const base = bases[col.code] || 0;
+       1754 +            const lettersArr: string[] = [];
+       1755 +            if (base > 0) {
+       1756 +              const p1 = ((row.cells[col.code]?.pct || 0) as number) / 100;
+       1757 +              columns.forEach((compareCol: any, compareIdx: number) => {
+       1758 +                if (compareCol.code === col.code) return;
+       1759 +                const base2 = bases[compareCol.code] || 0;
+       1760 +                if (base2 <= 0) return;
+       1761 +                const p2 = ((row.cells[compareCol.code]?.pct || 0) as number) / 100;
+       1762 +                const zDen = Math.sqrt((p1 * (1 - p1)) / base + (p2 * (1 - p2)) / base2);
+       1763 +                if (zDen > 0) {
+       1764 +                  const z = (p1 - p2) / zDen;
+       1765 +                  if (z >= 1.96) {
+       1766 +                    lettersArr.push(String.fromCharCode(65 + compareIdx));
+       1767 +                  }
+       1768 +                }
+       1769 +              });
+       1770 +            }
+       1771 +            lettersMap[col.code] = lettersArr.join('');
+       1772 +          });
+       1773 +          Object.entries(lettersMap).forEach(([colCode, letters]) => {
+       1774 +            if (!letters) return;
+       1775 +            const letterArr = letters.split('');
+       1776 +            const col = columns.find((c: any) => c.code === colCode);
+       1777 +            if (!col) return;
+       1778 +            const pct = row.cells[colCode]?.pct ?? 0;
+       1779 +            const targets = letterArr
+       1780 +              .map((l) => {
+       1781 +                const mapping = letterToCol[l];
+       1782 +                if (!mapping) return null;
+       1783 +                const pct2 = row.cells[mapping.code]?.pct ?? 0;
+       1784 +                return { text: mapping.text, pct: pct2 };
+       1785 +              })
+       1786 +              .filter(Boolean) as Array<{ text: string; pct: number }>;
+       1787 +            summaries.push({
+       1788 +              row: row.label,
+       1789 +              col: col.text,
+       1790 +              colPct: pct,
+       1791 +              targets,
+       1792 +            });
+       1793 +          });
+       1794 +        });
+       1795 +        return summaries;
+       1796 +      }
+       1797 +
+       1798        const columns = crosstabSummary.columns;
+       1799        const colTotals = crosstabSummary.colTotals || {};
+       1800        const letterToCol: Record<string, { code: string; text: string }> = {};
+
+● Perfect! I've implemented the feature. Here's what I've done:
+
+  Changes Made:
+
+  1. Detection of table selections: Now checks for both MeanSummaryTable and SumSummaryTable in the selected
+  tables
+  2. Multi-table crosstab building: Created a helper function buildRowsForValueType() that builds rows for
+  either mean or sum mode, then calls it for each selected type
+  3. Conditional value calculation:
+    - Mean mode: Divides aggregated values by bases (for percent-tagged grids)
+    - Sum mode: Keeps the summed values as-is
+  4. Multi-table return structure:
+    - If both mean and sum are selected: Returns { mode: 'numeric-grid-multi', tables: [...] }
+    - If only one is selected: Returns single table as before
+    - Mean table appears FIRST in the array (rendered above sum)
+  5. Updated rendering: Modified the JSX to handle both single and multi-table modes, rendering each table in
+  the array
+  6. Significance testing: Only applies to sum tables (not mean tables)
+
+  How it works now:
+
+  - If you have both Mean Summary and Sum Summary checked in the tab specs → You'll see BOTH crosstab tables
+  when you run a crosstab
+  - Mean summary table shows first (above)
+  - Sum summary table shows second (below)
+  - Both use the same column cuts from the target variable
+  - Significance testing only appears for the sum table
+
+  Test it out by:
+  1. Going to a numeric grid variable
+  2. Checking both "Mean Summary Table" and "Sum Summary Table" in the tab specs
+  3. Running a crosstab
+  4. You should see both tables rendered one after the other!
+
+  Let me know if it works as expected!
+
+> remove the col: text shown under the statement option in the table and crosstab view. also make sure stat
+testing is being applied when looking at crosstabs for mean summary tables
+
+● I'll make those changes:
+
+● Search(pattern: "col:.*selectedVar|selectedVar.*name.*col:", path: "src\components\tabs", glob:
+        "VariablesView.tsx", output_mode: "content")
+  ⎿  Found 7 lines (ctrl+o to expand)
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 1 line, removed 6 lines
+       2600                                        <React.Fragment key={row.key || idx}>
+       2601                                          <tr className={rowBg}>
+       2602                                            <td className="px-4 py-2 text-sm font-medium
+              text-gray-900 border-r border-gray-200" rowSpan={isMeanMode ? 1 : hasLetters ? 3 : 2}>
+       2603 -                                            <div className="flex flex-col">
+       2604 -                                              <span>{row.label}</span>
+       2605 -                                              {selectedVar?.name ? (
+       2606 -                                                <span className="text-[11px]
+            - text-gray-500">col: {selectedVar.name}</span>
+       2607 -                                              ) : null}
+       2608 -                                            </div>
+       2603 +                                            {row.label}
+       2604                                            </td>
+       2605                                            <td className="px-4 py-2 text-sm text-gray-900
+              text-center border-l border-gray-200">
+       2606                                              {formatTop(row.totalValue)}
+
+● Search(pattern: "col:.*variable|text-gray-500.*col:", path: "src\components", glob: "*.tsx")
+  ⎿  Found 1 file (ctrl+o to expand)
+
+● Search(pattern: "col:.*variable|text-gray-500.*col:", path: "src\components\tabs", glob:
+        "VariableTablePlaceholders.tsx", output_mode: "content")
+  ⎿  Found 15 lines (ctrl+o to expand)
+
+● Update(src\components\tabs\VariableTablePlaceholders.tsx)
+  ⎿  Error editing file
+
+● Read(src\components\tabs\VariableTablePlaceholders.tsx)
+  ⎿  Read 15 lines
+
+● Update(src\components\tabs\VariableTablePlaceholders.tsx)
+  ⎿  Added 1 line, removed 6 lines
+       1958                          {/* Statement row */}
+       1959                          <tr className="border-b border-gray-200 hover:bg-gray-50">
+       1960                            <td className="px-4 py-2 text-sm text-gray-900 border-r
+              border-gray-200">
+       1961 -                            <div className="flex flex-col">
+       1962 -                              <span>{stmt.text}</span>
+       1963 -                              {columnsToUse.length === 1 && variableName ? (
+       1964 -                                <span className="text-[11px] text-gray-500">col:
+            - {variableName}</span>
+       1965 -                              ) : null}
+       1966 -                            </div>
+       1961 +                            {stmt.text}
+       1962                            </td>
+       1963                            {columnsToUse.map((colCode, colIdx) => {
+       1964                              const displayValue = formatNumber((stmt.columnValues[colCode] ||
+               0).toFixed(2));
+
+● Read(src\components\tabs\VariableTablePlaceholders.tsx)
+  ⎿  Read 15 lines
+
+● Read(src\components\tabs\VariableTablePlaceholders.tsx)
+  ⎿  Read 15 lines
+
+● Update(src\components\tabs\VariableTablePlaceholders.tsx)
+  ⎿  Added 1 line, removed 6 lines
+       2007                            {/* Statement row */}
+       2008                            <tr className="border-b border-gray-200 hover:bg-gray-50">
+       2009                              <td className="px-4 py-2 text-sm text-gray-900 border-r
+              border-gray-200">
+       2010 -                              <div className="flex flex-col">
+       2011 -                                <span>{stmt.text}</span>
+       2012 -                                {columnsToUse.length === 1 && variableName ? (
+       2013 -                                  <span className="text-[11px] text-gray-500">col:
+            - {variableName}</span>
+       2014 -                                ) : null}
+       2015 -                              </div>
+       2010 +                              {stmt.text}
+       2011                              </td>
+       2012                              {columnsToUse.map((colCode, colIdx) => {
+       2013                                const columnValue = stmt.columnValues[colCode] || 0;
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 4 lines, removed 4 lines
+       1677        // Handle multi-table mode
+       1678        if ((crosstabSummary as any).mode === 'numeric-grid-multi') {
+       1679          const tables = (crosstabSummary as any).tables || [];
+       1680 -        // Only show sig testing for sum tables in multi mode
+       1681 -        const sumTable = tables.find((t: any) => t.valueType === 'sum');
+       1682 -        if (!sumTable) return [];
+       1683 -        const ng: any = sumTable;
+       1680 +        // Apply sig testing to all tables (both mean and sum)
+       1681 +        const allSummaries: Array<{ row: string; col: string; colPct: number; targets:
+            + Array<{ text: string; pct: number }> }> = [];
+       1682 +
+       1683 +        tables.forEach((ng: any) => {
+       1684          const columns = ng.columns || [];
+       1685          const bases: Record<string, number> = ng.columnBases || {};
+       1686          const letterToCol: Record<string, { code: string; text: string }> = {};
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Read 60 lines
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Error editing file
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 48 lines, removed 48 lines
+       1681          const allSummaries: Array<{ row: string; col: string; colPct: number; targets:
+              Array<{ text: string; pct: number }> }> = [];
+       1682
+       1683          tables.forEach((ng: any) => {
+       1684 -        const columns = ng.columns || [];
+       1685 -        const bases: Record<string, number> = ng.columnBases || {};
+       1686 -        const letterToCol: Record<string, { code: string; text: string }> = {};
+       1687 -        columns.forEach((col: any, idx: number) => {
+       1688 -          letterToCol[String.fromCharCode(65 + idx)] = { code: col.code, text: col.text };
+       1689 -        });
+       1690 -        const summaries: Array<{ row: string; col: string; colPct: number; targets: Array<{
+            - text: string; pct: number }> }> = [];
+       1691 -        ng.rows.forEach((row: any) => {
+       1692 -          const lettersMap: Record<string, string> = {};
+       1693 -          columns.forEach((col: any, colIdx: number) => {
+       1694 -            const base = bases[col.code] || 0;
+       1695 -            const lettersArr: string[] = [];
+       1696 -            if (base > 0) {
+       1697 -              const p1 = ((row.cells[col.code]?.pct || 0) as number) / 100;
+       1698 -              columns.forEach((compareCol: any, compareIdx: number) => {
+       1699 -                if (compareCol.code === col.code) return;
+       1700 -                const base2 = bases[compareCol.code] || 0;
+       1701 -                if (base2 <= 0) return;
+       1702 -                const p2 = ((row.cells[compareCol.code]?.pct || 0) as number) / 100;
+       1703 -                const zDen = Math.sqrt((p1 * (1 - p1)) / base + (p2 * (1 - p2)) / base2);
+       1704 -                if (zDen > 0) {
+       1705 -                  const z = (p1 - p2) / zDen;
+       1706 -                  if (z >= 1.96) {
+       1707 -                    lettersArr.push(String.fromCharCode(65 + compareIdx));
+       1684 +          const columns = ng.columns || [];
+       1685 +          const bases: Record<string, number> = ng.columnBases || {};
+       1686 +          const letterToCol: Record<string, { code: string; text: string }> = {};
+       1687 +          columns.forEach((col: any, idx: number) => {
+       1688 +            letterToCol[String.fromCharCode(65 + idx)] = { code: col.code, text: col.text };
+       1689 +          });
+       1690 +          ng.rows.forEach((row: any) => {
+       1691 +            const lettersMap: Record<string, string> = {};
+       1692 +            columns.forEach((col: any, colIdx: number) => {
+       1693 +              const base = bases[col.code] || 0;
+       1694 +              const lettersArr: string[] = [];
+       1695 +              if (base > 0) {
+       1696 +                const p1 = ((row.cells[col.code]?.pct || 0) as number) / 100;
+       1697 +                columns.forEach((compareCol: any, compareIdx: number) => {
+       1698 +                  if (compareCol.code === col.code) return;
+       1699 +                  const base2 = bases[compareCol.code] || 0;
+       1700 +                  if (base2 <= 0) return;
+       1701 +                  const p2 = ((row.cells[compareCol.code]?.pct || 0) as number) / 100;
+       1702 +                  const zDen = Math.sqrt((p1 * (1 - p1)) / base + (p2 * (1 - p2)) / base2);
+       1703 +                  if (zDen > 0) {
+       1704 +                    const z = (p1 - p2) / zDen;
+       1705 +                    if (z >= 1.96) {
+       1706 +                      lettersArr.push(String.fromCharCode(65 + compareIdx));
+       1707 +                    }
+       1708                    }
+       1709 -                }
+       1709 +                });
+       1710 +              }
+       1711 +              lettersMap[col.code] = lettersArr.join('');
+       1712 +            });
+       1713 +            Object.entries(lettersMap).forEach(([colCode, letters]) => {
+       1714 +              if (!letters) return;
+       1715 +              const letterArr = letters.split('');
+       1716 +              const col = columns.find((c: any) => c.code === colCode);
+       1717 +              if (!col) return;
+       1718 +              const pct = row.cells[colCode]?.pct ?? 0;
+       1719 +              const targets = letterArr
+       1720 +                .map((l) => {
+       1721 +                  const mapping = letterToCol[l];
+       1722 +                  if (!mapping) return null;
+       1723 +                  const pct2 = row.cells[mapping.code]?.pct ?? 0;
+       1724 +                  return { text: mapping.text, pct: pct2 };
+       1725 +                })
+       1726 +                .filter(Boolean) as Array<{ text: string; pct: number }>;
+       1727 +              allSummaries.push({
+       1728 +                row: `${row.label} (${ng.valueType})`,
+       1729 +                col: col.text,
+       1730 +                colPct: pct,
+       1731 +                targets,
+       1732                });
+       1733 -            }
+       1734 -            lettersMap[col.code] = lettersArr.join('');
+       1735 -          });
+       1736 -          Object.entries(lettersMap).forEach(([colCode, letters]) => {
+       1737 -            if (!letters) return;
+       1738 -            const letterArr = letters.split('');
+       1739 -            const col = columns.find((c: any) => c.code === colCode);
+       1740 -            if (!col) return;
+       1741 -            const pct = row.cells[colCode]?.pct ?? 0;
+       1742 -            const targets = letterArr
+       1743 -              .map((l) => {
+       1744 -                const mapping = letterToCol[l];
+       1745 -                if (!mapping) return null;
+       1746 -                const pct2 = row.cells[mapping.code]?.pct ?? 0;
+       1747 -                return { text: mapping.text, pct: pct2 };
+       1748 -              })
+       1749 -              .filter(Boolean) as Array<{ text: string; pct: number }>;
+       1750 -            summaries.push({
+       1751 -              row: row.label,
+       1752 -              col: col.text,
+       1753 -              colPct: pct,
+       1754 -              targets,
+       1733              });
+       1734            });
+       1735          });
+       1736 -        return summaries;
+       1736 +        return allSummaries;
+       1737        }
+       1738
+       1739        // Handle single numeric-grid mode
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Removed 1 line
+       1739        // Handle single numeric-grid mode
+       1740        if ((crosstabSummary as any).mode === 'numeric-grid') {
+       1741          const ng: any = crosstabSummary;
+       1742 -        if (ng.valueType === 'mean') return [];
+       1742          const columns = ng.columns || [];
+       1743          const bases: Record<string, number> = ng.columnBases || {};
+       1744          const letterToCol: Record<string, { code: string; text: string }> = {};
+
+● Search(pattern: "isMeanMode.*hasLetters|hasLetters.*isMeanMode", path: "src\components\tabs", glob:
+        "VariablesView.tsx", output_mode: "content")
+  ⎿  Found 7 lines (ctrl+o to expand)
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Read 60 lines
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 23 lines, removed 24 lines
+       2570                                      const rowBg = 'bg-white';
+       2571                                      const lettersMap: Record<string, string> = {};
+       2572                                      let hasLetters = false;
+       2573 -                                    if (!isMeanMode) {
+       2574 -                                      ng.columns.forEach((col: any, colIdx: number) => {
+       2575 -                                        const base = ng.columnBases?.[col.code] || 0;
+       2576 -                                        const lettersArr: string[] = [];
+       2577 -                                        if (base > 0) {
+       2578 -                                          const p1 = (row.cells[col.code]?.pct || 0) / 100;
+       2579 -
+            -  ng.columns.forEach((compareCol: any, compareIdx: number) => {
+       2580 -                                            if (compareCol.code === col.code) return;
+       2581 -                                            const base2 = ng.columnBases?.[compareCol.code]
+            - || 0;
+       2582 -                                            if (base2 <= 0) return;
+       2583 -                                            const p2 = (row.cells[compareCol.code]?.pct ||
+            - 0) / 100;
+       2584 -
+            -  const zDen = Math.sqrt((p1 * (1 - p1)) / base + (p2 * (1 - p2)) / base2);
+       2585 -                                            if (zDen > 0) {
+       2586 -                                              const z = (p1 - p2) / zDen;
+       2587 -                                              if (z >= 1.96) {
+       2588 -                                                lettersArr.push(String.fromCharCode(65 +
+            - compareIdx));
+       2589 -                                              }
+       2573 +                                    // Calculate significance testing for both mean and sum
+            + modes
+       2574 +                                    ng.columns.forEach((col: any, colIdx: number) => {
+       2575 +                                      const base = ng.columnBases?.[col.code] || 0;
+       2576 +                                      const lettersArr: string[] = [];
+       2577 +                                      if (base > 0) {
+       2578 +                                        const p1 = (row.cells[col.code]?.pct || 0) / 100;
+       2579 +
+            +  ng.columns.forEach((compareCol: any, compareIdx: number) => {
+       2580 +                                          if (compareCol.code === col.code) return;
+       2581 +                                          const base2 = ng.columnBases?.[compareCol.code] ||
+            +  0;
+       2582 +                                          if (base2 <= 0) return;
+       2583 +                                          const p2 = (row.cells[compareCol.code]?.pct || 0)
+            + / 100;
+       2584 +
+            +  const zDen = Math.sqrt((p1 * (1 - p1)) / base + (p2 * (1 - p2)) / base2);
+       2585 +                                          if (zDen > 0) {
+       2586 +                                            const z = (p1 - p2) / zDen;
+       2587 +                                            if (z >= 1.96) {
+       2588 +                                              lettersArr.push(String.fromCharCode(65 +
+            + compareIdx));
+       2589                                              }
+       2590 -                                          });
+       2591 -                                        }
+       2592 -                                        const trimmed = lettersArr.join('');
+       2593 -                                        if (trimmed) hasLetters = true;
+       2594 -                                        lettersMap[col.code] = trimmed;
+       2595 -                                      });
+       2596 -                                    }
+       2590 +                                          }
+       2591 +                                        });
+       2592 +                                      }
+       2593 +                                      const trimmed = lettersArr.join('');
+       2594 +                                      if (trimmed) hasLetters = true;
+       2595 +                                      lettersMap[col.code] = trimmed;
+       2596 +                                    });
+       2597                                      return (
+       2598                                        <React.Fragment key={row.key || idx}>
+       2599                                          <tr className={rowBg}>
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 1 line, removed 1 line
+       2597                                      return (
+       2598                                        <React.Fragment key={row.key || idx}>
+       2599                                          <tr className={rowBg}>
+       2600 -                                          <td className="px-4 py-2 text-sm font-medium
+            -  text-gray-900 border-r border-gray-200" rowSpan={isMeanMode ? 1 : hasLetters ? 3 : 2}>
+       2600 +                                          <td className="px-4 py-2 text-sm font-medium
+            +  text-gray-900 border-r border-gray-200" rowSpan={isMeanMode ? (hasLetters ? 2 : 1)
+            +   : hasLetters ? 3 : 2}>
+       2601                                              {row.label}
+       2602                                            </td>
+       2603                                            <td className="px-4 py-2 text-sm text-gray-900
+              text-center border-l border-gray-200">
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Read 50 lines
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 34 lines, removed 36 lines
+       2617                                            })}
+       2618                                          </tr>
+       2619                                          {!isMeanMode && (
+       2620 -                                          <>
+       2621 -                                            <tr className={rowBg}>
+       2622 -                                              <td className="px-4 py-2 text-xs text-gray-900
+            -  text-center border-l border-gray-200">
+       2623 -                                                {(row.totalPct || 0).toFixed(1)}%
+       2624 -                                              </td>
+       2625 -                                              {ng.columns.map((col: any) => {
+       2626 -                                                const cell = row.cells?.[col.code] || {
+            - value: 0, base: 0, pct: 0 };
+       2627 -                                                return (
+       2628 -                                                  <td
+       2629 -                                                    key={col.code}
+       2630 -                                                    className="px-4 py-2 text-xs
+            - text-gray-900 text-center border-l border-gray-200"
+       2631 -                                                    style={{ backgroundColor:
+            - lettersMap[col.code] ? '#e0f2ff' : 'transparent' }}
+       2632 -                                                  >
+       2633 -                                                    {formatBottom(cell)}
+       2634 -                                                  </td>
+       2635 -                                                );
+       2636 -                                              })}
+       2637 -                                            </tr>
+       2638 -                                            {hasLetters && (
+       2639 -                                              <tr className={rowBg}>
+       2640 -                                                <td className="px-4 py-1 text-[11px]
+            - text-gray-700 text-center border-l border-gray-200"></td>
+       2641 -                                                {ng.columns.map((col: any) => {
+       2642 -                                                  const letters = lettersMap[col.code] ||
+            - '';
+       2643 -                                                  return (
+       2644 -                                                    <td
+       2645 -                                                      key={col.code}
+       2646 -                                                      className="px-4 py-1 text-[11px]
+            - font-semibold text-blue-700 text-center border-l border-gray-200"
+       2647 -                                                      style={{ backgroundColor: letters ?
+            - '#e0f2ff' : 'transparent' }}
+       2648 -                                                    >
+       2649 -                                                      {letters}
+       2650 -                                                    </td>
+       2651 -                                                  );
+       2652 -                                                })}
+       2653 -                                              </tr>
+       2654 -                                            )}
+       2655 -                                          </>
+       2620 +                                          <tr className={rowBg}>
+       2621 +                                            <td className="px-4 py-2 text-xs text-gray-900
+            + text-center border-l border-gray-200">
+       2622 +                                              {(row.totalPct || 0).toFixed(1)}%
+       2623 +                                            </td>
+       2624 +                                            {ng.columns.map((col: any) => {
+       2625 +                                              const cell = row.cells?.[col.code] || { value:
+            +  0, base: 0, pct: 0 };
+       2626 +                                              return (
+       2627 +                                                <td
+       2628 +                                                  key={col.code}
+       2629 +                                                  className="px-4 py-2 text-xs text-gray-900
+            +  text-center border-l border-gray-200"
+       2630 +                                                  style={{ backgroundColor:
+            + lettersMap[col.code] ? '#e0f2ff' : 'transparent' }}
+       2631 +                                                >
+       2632 +                                                  {formatBottom(cell)}
+       2633 +                                                </td>
+       2634 +                                              );
+       2635 +                                            })}
+       2636 +                                          </tr>
+       2637                                          )}
+       2638 +                                        {hasLetters && (
+       2639 +                                          <tr className={rowBg}>
+       2640 +                                            <td className="px-4 py-1 text-[11px]
+            + text-gray-700 text-center border-l border-gray-200"></td>
+       2641 +                                            {ng.columns.map((col: any) => {
+       2642 +                                              const letters = lettersMap[col.code] || '';
+       2643 +                                              return (
+       2644 +                                                <td
+       2645 +                                                  key={col.code}
+       2646 +                                                  className="px-4 py-1 text-[11px]
+            + font-semibold text-blue-700 text-center border-l border-gray-200"
+       2647 +                                                  style={{ backgroundColor: letters ?
+            + '#e0f2ff' : 'transparent' }}
+       2648 +                                                >
+       2649 +                                                  {letters}
+       2650 +                                                </td>
+       2651 +                                              );
+       2652 +                                            })}
+       2653 +                                          </tr>
+       2654 +                                        )}
+       2655                                        </React.Fragment>
+       2656                                      );
+       2657                                    })}
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Read 20 lines
+
+● Read(src\components\tabs\VariablesView.tsx)
+  ⎿  Read 25 lines
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 7 lines, removed 2 lines
+       1463              activeColumns.forEach((col) => {
+       1464                const cell = row.cells[col.code];
+       1465                const colTotal = columnValueTotals[col.code] || 0;
+       1466 -              cell.pct = isNumericGridNumberTag && colTotal > 0 ? (cell.value / colTotal) *
+            - 100 : 0;
+       1466 +              // Calculate pct for both number tag and mean mode (for significance testing)
+       1467 +              if (isNumericGridNumberTag || isMeanMode) {
+       1468 +                cell.pct = colTotal > 0 ? (cell.value / colTotal) * 100 : 0;
+       1469 +              } else {
+       1470 +                cell.pct = 0;
+       1471 +              }
+       1472              });
+       1473              (row as any).totalPct =
+       1474 -              isNumericGridNumberTag
+            -  && totalValueAll > 0 ? (row.totalValue / totalValueAll) * 100 : 0;
+       1474 +              (isNumericGridNumberTag || isMeanMode)
+            +  && totalValueAll > 0 ? (row.totalValue / totalValueAll) * 100 : 0;
+       1475            });
+       1476
+       1477            return rows;
+
+● Perfect! I've completed both requested changes:
+
+  1. ✅ Removed "col:" text from tables and crosstabs
+
+  Removed the column name display (col: {variableName}) that was appearing under statement rows in:
+  - VariablesView.tsx: Crosstab tables (line 2602)
+  - VariableTablePlaceholders.tsx: Regular table views (lines 1961 and 2010)
+
+  Now the statement labels display cleanly without the extra column information.
+
+  2. ✅ Enabled significance testing for mean summary crosstabs
+
+  Made several changes to enable stat testing for mean tables:
+
+  a) Updated significance calculation logic (VariablesView.tsx):
+  - Removed the check that skipped mean mode in single table crosstabs (line 1740)
+  - Updated multi-table mode to include both mean and sum tables in significance summaries (lines 1678-1736)
+  - Added table type label to distinguish rows: ${row.label} (${ng.valueType})
+
+  b) Enabled pct calculation for mean mode (VariablesView.tsx, lines 1467-1474):
+  - Previously only isNumericGridNumberTag tables calculated percentages
+  - Now both number tag AND mean mode calculate pct values (needed for z-test)
+  - Percentages represent each mean as a % of the total column mean
+
+  c) Updated table rendering (VariablesView.tsx, lines 2573-2654):
+  - Removed if (!isMeanMode) condition around significance letter calculation
+  - Both mean and sum modes now calculate letters
+  - Updated rowSpan: mean mode with letters = 2 rows, without = 1 row
+  - Letters row now shows for mean tables when significant differences exist
+
+  Result: Mean summary crosstabs now show:
+  - Mean values in the main row
+  - Significance letters below (when differences are statistically significant at p<0.05)
+  - Blue highlighting on cells with significant differences
+  - "View Summary" button to see detailed significance comparisons
+
+  The stat testing uses the same z-test based on the percentage each mean contributes to its column total.
+
+> for the mean summary tables, it should be able to do mean testing against the mean score, not the %. there
+ is no percent for the mean scores, its just means
+
+● You're absolutely right! For mean summary tables, we need to use a t-test or z-test to compare actual mean
+  values, not percentages. Let me update the significance testing to properly compare means.
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 24 lines, removed 8 lines
+       1316          const buildRowsForValueType = (valueType: 'mean' | 'sum'): Array<{
+       1317            key: string;
+       1318            label: string;
+       1319 -          cells: Record<string, { value: number; base: number; pct: number }>;
+       1319 +          cells: Record<string, { value: number; base: number; pct: number; stdDev?: number
+            +  }>;
+       1320            totalValue: number;
+       1321            totalBase: number;
+       1322 +          totalStdDev?: number;
+       1323          }> => {
+       1324            const isMeanMode = valueType === 'mean';
+       1325
+       1326            let rows: Array<{
+       1327            key: string;
+       1328            label: string;
+       1329 -          cells: Record<string, { value: number; base: number; pct: number }>;
+       1329 +          cells: Record<string, { value: number; base: number; pct: number; stdDev?: number
+            +  }>;
+       1330            totalValue: number;
+       1331            totalBase: number;
+       1332 +          totalStdDev?: number;
+       1333          }> = statements.map((stmt, idx) => {
+       1334            const stmtValues = getStatementValues(stmt.code, true);
+       1335            if (!stmtValues) return null;
+       1336            const len = Math.min(stmtValues.length, targetValues.length);
+       1337 -          const cells: Record<string, { value: number; base: number; pct: number }> = {};
+       1337 +          const cells: Record<string, { value: number; base: number; pct: number;
+            +  stdDev?: number; sumSq?: number }> = {};
+       1338            activeColumns.forEach((col) => {
+       1339 -            cells[col.code] = { value: 0, base: 0, pct: 0 };
+       1339 +            cells[col.code] = { value: 0, base: 0, pct: 0, stdDev: 0, sumSq: 0 };
+       1340            });
+       1341
+       1342            // Total metrics for the statement (all respondents)
+       1343            let totalValueAgg = 0;
+       1344            let totalBaseAgg = 0;
+       1345 +          let totalSumSq = 0;
+       1346            for (let i = 0; i < stmtValues.length; i++) {
+       1347              const val = stmtValues[i];
+       1348              if (val === null || val === undefined || val === '') continue;
+     ...
+       1347              if (Number.isNaN(num)) continue;
+       1348              totalValueAgg += num;
+       1349              totalBaseAgg += 1;
+       1350 +            totalSumSq += num * num;
+       1351            }
+       1352
+       1353            for (let i = 0; i < len; i++) {
+     ...
+       1359              if (Number.isNaN(num)) continue;
+       1360              cells[tCode].base += 1;
+       1361              cells[tCode].value += num;
+       1362 +            if (cells[tCode].sumSq !== undefined) {
+       1363 +              cells[tCode].sumSq! += num * num;
+       1364 +            }
+       1365            }
+       1366
+       1367 -          // Finalize values based on value type
+       1367 +          // Finalize values based on value type and calculate std dev for mean mode
+       1368            activeColumns.forEach((col) => {
+       1369              const cell = cells[col.code];
+       1370 -            if (isNumericGridPercentTag && isMeanMode) {
+       1371 -              cell.value = cell.base > 0 ? cell.value / cell.base : 0;
+       1370 +            if (isMeanMode || isNumericGridPercentTag) {
+       1371 +              // Calculate mean
+       1372 +              const mean = cell.base > 0 ? cell.value / cell.base : 0;
+       1373 +              cell.value = mean;
+       1374 +
+       1375 +              // Calculate standard deviation for mean mode
+       1376 +              if (isMeanMode && cell.base > 1) {
+       1377 +                const variance = (cell.sumSq! - (cell.value * cell.value * cell.base)) /
+            + (cell.base - 1);
+       1378 +                cell.stdDev = variance > 0 ? Math.sqrt(variance) : 0;
+       1379 +              }
+       1380              }
+       1381 -            // For sum mode or non-percent tags, keep the sum value as-is
+       1381 +            // For sum mode, keep the sum value as-is
+       1382 +            delete cell.sumSq; // Clean up temporary field
+       1383            });
+       1384
+       1385            const totalValue = (isNumericGridPercentTag && isMeanMode)
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 12 lines, removed 2 lines
+       1386              delete cell.sumSq; // Clean up temporary field
+       1387            });
+       1388
+       1389 -          const totalValue = (isNumericGridPercentTag && isMeanMode)
+       1389 +          const totalValue = (isNumericGridPercentTag || isMeanMode)
+       1390              ? totalBaseAgg > 0
+       1391                ? totalValueAgg / totalBaseAgg
+       1392                : 0
+       1393              : totalValueAgg;
+       1394
+       1395 +          // Calculate total standard deviation for mean mode
+       1396 +          let totalStdDev = 0;
+       1397 +          if (isMeanMode && totalBaseAgg > 1) {
+       1398 +            const totalVariance = (totalSumSq - (totalValue * totalValue * totalBaseAgg)) /
+            + (totalBaseAgg - 1);
+       1399 +            totalStdDev = totalVariance > 0 ? Math.sqrt(totalVariance) : 0;
+       1400 +          }
+       1401 +
+       1402            const hasAny =
+       1403              totalBaseAgg > 0 ||
+       1404              activeColumns.some((col) => {
+     ...
+       1407              label: stmt.text || stmt.code,
+       1408              totalValue,
+       1409              totalBase: totalBaseAgg,
+       1410 +            totalStdDev: isMeanMode ? totalStdDev : undefined,
+       1411              cells: Object.entries(cells).map(([code, cell]) => ({
+       1412                code,
+       1413                value: cell.value,
+       1414 -              base: cell.base
+       1414 +              base: cell.base,
+       1415 +              stdDev: isMeanMode ? cell.stdDev : undefined
+       1416              }))
+       1417            });
+       1418
+     ...
+       1420              cells,
+       1421              totalValue,
+       1422              totalBase: totalBaseAgg,
+       1423 +            totalStdDev: isMeanMode ? totalStdDev : undefined,
+       1424            };
+       1425          }).filter(Boolean) as Array<{
+       1426            key: string;
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 38 lines, removed 10 lines
+       2601                                      const rowBg = 'bg-white';
+       2602                                      const lettersMap: Record<string, string> = {};
+       2603                                      let hasLetters = false;
+       2604 -                                    // Calculate significance testing for both mean and sum
+            -  modes
+       2604 +                                    // Calculate significance testing - use t-test for mean
+            +  mode, proportion test for sum mode
+       2605                                      ng.columns.forEach((col: any, colIdx: number) => {
+       2606                                        const base = ng.columnBases?.[col.code] || 0;
+       2607 +                                      const cell = row.cells[col.code] || { value: 0, base:
+            + 0, pct: 0, stdDev: 0 };
+       2608                                        const lettersArr: string[] = [];
+       2609 -                                      if (base > 0) {
+       2610 -                                        const p1 = (row.cells[col.code]?.pct || 0) / 100;
+       2609 +
+       2610 +                                      if (base > 0 && cell.base > 0) {
+       2611                                          ng.columns.forEach((compareCol: any, compareIdx:
+              number) => {
+       2612                                            if (compareCol.code === col.code) return;
+       2613                                            const base2 = ng.columnBases?.[compareCol.code] ||
+               0;
+       2614 -                                          if (base2 <= 0) return;
+       2615 -                                          const p2 = (row.cells[compareCol.code]?.pct || 0)
+            - / 100;
+       2616 -                                          const zDen = Math.sqrt((p1 * (1 - p1)) / base +
+            - (p2 * (1 - p2)) / base2);
+       2617 -                                          if (zDen > 0) {
+       2618 -                                            const z = (p1 - p2) / zDen;
+       2619 -                                            if (z >= 1.96) {
+       2620 -                                              lettersArr.push(String.fromCharCode(65 +
+            - compareIdx));
+       2614 +                                          const cell2 = row.cells[compareCol.code] || {
+            + value: 0, base: 0, pct: 0, stdDev: 0 };
+       2615 +                                          if (base2 <= 0 || cell2.base <= 0) return;
+       2616 +
+       2617 +                                          let isSignificant = false;
+       2618 +                                          if (isMeanMode) {
+       2619 +                                            // T-test for comparing means
+       2620 +                                            const mean1 = cell.value;
+       2621 +                                            const mean2 = cell2.value;
+       2622 +                                            const n1 = cell.base;
+       2623 +                                            const n2 = cell2.base;
+       2624 +                                            const sd1 = cell.stdDev || 0;
+       2625 +                                            const sd2 = cell2.stdDev || 0;
+       2626 +
+       2627 +                                            if (n1 > 1 && n2 > 1 && (sd1 > 0 || sd2 > 0)) {
+       2628 +                                              // Standard error of difference
+       2629 +                                              const se = Math.sqrt((sd1 * sd1) / n1 + (sd2 *
+            +  sd2) / n2);
+       2630 +                                              if (se > 0) {
+       2631 +                                                const t = Math.abs(mean1 - mean2) / se;
+       2632 +                                                // Using z-approximation for large samples
+            + (t ≈ 1.96 for p<0.05)
+       2633 +                                                isSignificant = t >= 1.96;
+       2634 +                                              }
+       2635                                              }
+       2636 +                                          } else {
+       2637 +                                            // Proportion test for sum mode
+       2638 +                                            const p1 = (cell.pct || 0) / 100;
+       2639 +                                            const p2 = (cell2.pct || 0) / 100;
+       2640 +                                            const zDen = Math.sqrt((p1 * (1 - p1)) / base +
+            + (p2 * (1 - p2)) / base2);
+       2641 +                                            if (zDen > 0) {
+       2642 +                                              const z = (p1 - p2) / zDen;
+       2643 +                                              isSignificant = z >= 1.96;
+       2644 +                                            }
+       2645                                            }
+       2646 +
+       2647 +                                          if (isSignificant) {
+       2648 +                                            lettersArr.push(String.fromCharCode(65 +
+            + compareIdx));
+       2649 +                                          }
+       2650                                          });
+       2651                                        }
+       2652                                        const trimmed = lettersArr.join('');
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 36 lines, removed 9 lines
+       1714          tables.forEach((ng: any) => {
+       1715            const columns = ng.columns || [];
+       1716            const bases: Record<string, number> = ng.columnBases || {};
+       1717 +          const isMeanMode = ng.valueType === 'mean';
+       1718            const letterToCol: Record<string, { code: string; text: string }> = {};
+       1719            columns.forEach((col: any, idx: number) => {
+       1720              letterToCol[String.fromCharCode(65 + idx)] = { code: col.code, text: col.text };
+     ...
+       1722              const lettersMap: Record<string, string> = {};
+       1723              columns.forEach((col: any, colIdx: number) => {
+       1724                const base = bases[col.code] || 0;
+       1725 +              const cell = row.cells[col.code] || { value: 0, base: 0, pct: 0, stdDev: 0 };
+       1726                const lettersArr: string[] = [];
+       1727 -              if (base > 0) {
+       1728 -                const p1 = ((row.cells[col.code]?.pct || 0) as number) / 100;
+       1727 +
+       1728 +              if (base > 0 && cell.base > 0) {
+       1729                  columns.forEach((compareCol: any, compareIdx: number) => {
+       1730                    if (compareCol.code === col.code) return;
+       1731                    const base2 = bases[compareCol.code] || 0;
+       1732 -                  if (base2 <= 0) return;
+       1733 -                  const p2 = ((row.cells[compareCol.code]?.pct || 0) as number) / 100;
+       1734 -                  const zDen = Math.sqrt((p1 * (1 - p1)) / base + (p2 * (1 - p2)) / base2);
+       1735 -                  if (zDen > 0) {
+       1736 -                    const z = (p1 - p2) / zDen;
+       1737 -                    if (z >= 1.96) {
+       1738 -                      lettersArr.push(String.fromCharCode(65 + compareIdx));
+       1732 +                  const cell2 = row.cells[compareCol.code] || { value: 0, base: 0, pct: 0,
+            + stdDev: 0 };
+       1733 +                  if (base2 <= 0 || cell2.base <= 0) return;
+       1734 +
+       1735 +                  let isSignificant = false;
+       1736 +                  if (isMeanMode) {
+       1737 +                    // T-test for comparing means
+       1738 +                    const mean1 = cell.value;
+       1739 +                    const mean2 = cell2.value;
+       1740 +                    const n1 = cell.base;
+       1741 +                    const n2 = cell2.base;
+       1742 +                    const sd1 = cell.stdDev || 0;
+       1743 +                    const sd2 = cell2.stdDev || 0;
+       1744 +
+       1745 +                    if (n1 > 1 && n2 > 1 && (sd1 > 0 || sd2 > 0)) {
+       1746 +                      const se = Math.sqrt((sd1 * sd1) / n1 + (sd2 * sd2) / n2);
+       1747 +                      if (se > 0) {
+       1748 +                        const t = Math.abs(mean1 - mean2) / se;
+       1749 +                        isSignificant = t >= 1.96;
+       1750 +                      }
+       1751                      }
+       1752 +                  } else {
+       1753 +                    // Proportion test for sum mode
+       1754 +                    const p1 = ((cell.pct || 0) as number) / 100;
+       1755 +                    const p2 = ((cell2.pct || 0) as number) / 100;
+       1756 +                    const zDen = Math.sqrt((p1 * (1 - p1)) / base + (p2 * (1 - p2)) /
+            + base2);
+       1757 +                    if (zDen > 0) {
+       1758 +                      const z = (p1 - p2) / zDen;
+       1759 +                      isSignificant = z >= 1.96;
+       1760 +                    }
+       1761                    }
+       1762 +
+       1763 +                  if (isSignificant) {
+       1764 +                    lettersArr.push(String.fromCharCode(65 + compareIdx));
+       1765 +                  }
+       1766                  });
+       1767                }
+       1768                lettersMap[col.code] = lettersArr.join('');
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 6 lines, removed 4 lines
+       1773                const letterArr = letters.split('');
+       1774                const col = columns.find((c: any) => c.code === colCode);
+       1775                if (!col) return;
+       1776 -              const pct = row.cells[colCode]?.pct ?? 0;
+       1776 +              const cell = row.cells[colCode] || { value: 0, pct: 0 };
+       1777 +              const displayValue = isMeanMode ? cell.value : cell.pct;
+       1778                const targets = letterArr
+       1779                  .map((l) => {
+       1780                    const mapping = letterToCol[l];
+       1781                    if (!mapping) return null;
+       1782 -                  const pct2 = row.cells[mapping.code]?.pct ?? 0;
+       1783 -                  return { text: mapping.text, pct: pct2 };
+       1782 +                  const targetCell = row.cells[mapping.code] || { value: 0, pct: 0 };
+       1783 +                  const targetValue = isMeanMode ? targetCell.value : targetCell.pct;
+       1784 +                  return { text: mapping.text, pct: targetValue };
+       1785                  })
+       1786                  .filter(Boolean) as Array<{ text: string; pct: number }>;
+       1787                allSummaries.push({
+       1788                  row: `${row.label} (${ng.valueType})`,
+       1789                  col: col.text,
+       1790 -                colPct: pct,
+       1790 +                colPct: displayValue,
+       1791                  targets,
+       1792                });
+       1793              });
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 42 lines, removed 13 lines
+       1801          const ng: any = crosstabSummary;
+       1802          const columns = ng.columns || [];
+       1803          const bases: Record<string, number> = ng.columnBases || {};
+       1804 +        const isMeanMode = ng.valueType === 'mean';
+       1805          const letterToCol: Record<string, { code: string; text: string }> = {};
+       1806          columns.forEach((col: any, idx: number) => {
+       1807            letterToCol[String.fromCharCode(65 + idx)] = { code: col.code, text: col.text };
+     ...
+       1810            const lettersMap: Record<string, string> = {};
+       1811            columns.forEach((col: any, colIdx: number) => {
+       1812              const base = bases[col.code] || 0;
+       1813 +            const cell = row.cells[col.code] || { value: 0, base: 0, pct: 0, stdDev: 0 };
+       1814              const lettersArr: string[] = [];
+       1815 -            if (base > 0) {
+       1816 -              const p1 = ((row.cells[col.code]?.pct || 0) as number) / 100;
+       1815 +
+       1816 +            if (base > 0 && cell.base > 0) {
+       1817                columns.forEach((compareCol: any, compareIdx: number) => {
+       1818                  if (compareCol.code === col.code) return;
+       1819                  const base2 = bases[compareCol.code] || 0;
+       1820 -                if (base2 <= 0) return;
+       1821 -                const p2 = ((row.cells[compareCol.code]?.pct || 0) as number) / 100;
+       1822 -                const zDen = Math.sqrt((p1 * (1 - p1)) / base + (p2 * (1 - p2)) / base2);
+       1823 -                if (zDen > 0) {
+       1824 -                  const z = (p1 - p2) / zDen;
+       1825 -                  if (z >= 1.96) {
+       1826 -                    lettersArr.push(String.fromCharCode(65 + compareIdx));
+       1820 +                const cell2 = row.cells[compareCol.code] || { value: 0, base: 0, pct: 0,
+            + stdDev: 0 };
+       1821 +                if (base2 <= 0 || cell2.base <= 0) return;
+       1822 +
+       1823 +                let isSignificant = false;
+       1824 +                if (isMeanMode) {
+       1825 +                  // T-test for comparing means
+       1826 +                  const mean1 = cell.value;
+       1827 +                  const mean2 = cell2.value;
+       1828 +                  const n1 = cell.base;
+       1829 +                  const n2 = cell2.base;
+       1830 +                  const sd1 = cell.stdDev || 0;
+       1831 +                  const sd2 = cell2.stdDev || 0;
+       1832 +
+       1833 +                  if (n1 > 1 && n2 > 1 && (sd1 > 0 || sd2 > 0)) {
+       1834 +                    const se = Math.sqrt((sd1 * sd1) / n1 + (sd2 * sd2) / n2);
+       1835 +                    if (se > 0) {
+       1836 +                      const t = Math.abs(mean1 - mean2) / se;
+       1837 +                      isSignificant = t >= 1.96;
+       1838 +                    }
+       1839                    }
+       1840 +                } else {
+       1841 +                  // Proportion test for sum mode
+       1842 +                  const p1 = ((cell.pct || 0) as number) / 100;
+       1843 +                  const p2 = ((cell2.pct || 0) as number) / 100;
+       1844 +                  const zDen = Math.sqrt((p1 * (1 - p1)) / base + (p2 * (1 - p2)) / base2);
+       1845 +                  if (zDen > 0) {
+       1846 +                    const z = (p1 - p2) / zDen;
+       1847 +                    isSignificant = z >= 1.96;
+       1848 +                  }
+       1849                  }
+       1850 +
+       1851 +                if (isSignificant) {
+       1852 +                  lettersArr.push(String.fromCharCode(65 + compareIdx));
+       1853 +                }
+       1854                });
+       1855              }
+       1856              lettersMap[col.code] = lettersArr.join('');
+     ...
+       1834              const letterArr = letters.split('');
+       1835              const col = columns.find((c: any) => c.code === colCode);
+       1836              if (!col) return;
+       1837 -            const pct = row.cells[colCode]?.pct ?? 0;
+       1837 +            const cell = row.cells[colCode] || { value: 0, pct: 0 };
+       1838 +            const displayValue = isMeanMode ? cell.value : cell.pct;
+       1839              const targets = letterArr
+       1840                .map((l) => {
+       1841                  const mapping = letterToCol[l];
+       1842                  if (!mapping) return null;
+       1843 -                const pct2 = row.cells[mapping.code]?.pct ?? 0;
+       1844 -                return { text: mapping.text, pct: pct2 };
+       1843 +                const targetCell = row.cells[mapping.code] || { value: 0, pct: 0 };
+       1844 +                const targetValue = isMeanMode ? targetCell.value : targetCell.pct;
+       1845 +                return { text: mapping.text, pct: targetValue };
+       1846                })
+       1847                .filter(Boolean) as Array<{ text: string; pct: number }>;
+       1848              summaries.push({
+       1849                row: row.label,
+       1850                col: col.text,
+       1851 -              colPct: pct,
+       1851 +              colPct: displayValue,
+       1852                targets,
+       1853              });
+       1854            });
+
+● Update(src\components\tabs\VariablesView.tsx)
+  ⎿  Added 4 lines, removed 3 lines
+       1489              activeColumns.forEach((col) => {
+       1490                const cell = row.cells[col.code];
+       1491                const colTotal = columnValueTotals[col.code] || 0;
+       1492 -              // Calculate pct for both number tag and mean mode (for significance testing)
+       1493 -              if (isNumericGridNumberTag || isMeanMode) {
+       1492 +              // Only calculate pct for number tag (sum mode with percentages)
+       1493 +              // Mean mode doesn't use percentages - it compares actual mean values
+       1494 +              if (isNumericGridNumberTag && !isMeanMode) {
+       1495                  cell.pct = colTotal > 0 ? (cell.value / colTotal) * 100 : 0;
+       1496                } else {
+       1497                  cell.pct = 0;
+       1498                }
+       1499              });
+       1500              (row as any).totalPct =
+       1501 -              (isNumericGridNumberTag || isMeanMode)
+            -   && totalValueAll > 0 ? (row.totalValue / totalValueAll) * 100 : 0;
+       1501 +              isNumericGridNumberTag && !isMeanMode
+            +   && totalValueAll > 0 ? (row.totalValue / totalValueAll) * 100 : 0;
+       1502            });
+       1503
+       1504            return rows;
+  ⎿  You've hit your limit · resets 12pm (America/New_York)
+
+> /rate-limit-options
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ What do you want to do?                                                                                      │
+│                                                                                                              │
+│ ❯ 1. Stop and wait for limit to reset                                                                        │
+│   2. Switch to extra usage                                                                                   │
+│   3. Upgrade your plan                                                                                       │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+  Todos
+  ☒ Calculate standard deviations for mean cells
+  ☐ Implement t-test for mean comparison
+  ☐ Update rendering to use proper mean testing

@@ -63,7 +63,9 @@
       "Bash(\"src/components/Tabs.tsx.temp\")",
       "Bash(git reset:*)",
       "Bash(del clog.txt read-excel-example.js)",
-      "Bash(del \"C:\\Users\\LukeBorglin\\Desktop\\Apps\\jaice-dashboard\\src\\pages\\DataQualityPage.tsx\")"
+      "Bash(del \"C:\\Users\\LukeBorglin\\Desktop\\Apps\\jaice-dashboard\\src\\pages\\DataQualityPage.tsx\")",
+      "Bash(git -C \"C:\\\\Users\\\\LukeBorglin\\\\Desktop\\\\Apps\\\\jaice-dashboard\" restore src/hooks/useTabExport.ts)",
+      "Bash(git -C \"C:\\\\Users\\\\LukeBorglin\\\\Desktop\\\\Apps\\\\jaice-dashboard\" checkout HEAD -- src/hooks/useTabExport.ts)"
     ],
     "deny": [],
     "ask": []

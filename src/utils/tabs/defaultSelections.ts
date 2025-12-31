@@ -105,23 +105,34 @@ export function getDefaultTableSelectionsForVariable(
   
   // Numeric grid: depends on tags
   if (isNumericGrid) {
-    // Default to summaries based on tags, no individual tables by default
-    if (hasPercentTag) {
-      defaultSelections.add(`${variableName}_MeanSummaryTable`);
-    } else if (hasNumberTag) {
-      defaultSelections.add(`${variableName}_MeanSummaryTable`);
-      defaultSelections.add(`${variableName}_SumSummaryTable`);
-    } else {
-      // Default: both Mean and Sum Summary Tables
-      defaultSelections.add(`${variableName}_MeanSummaryTable`);
-      defaultSelections.add(`${variableName}_SumSummaryTable`);
-    }
+    // Default to summaries based on tags, no individual tables by default.
+    // Use table options to capture column-suffixed IDs.
+    const summaryOptions = tableOptions.filter(opt => opt.type === 'summary');
+    const shouldIncludeMean = true;
+    const shouldIncludeSum = !hasPercentTag;
+    summaryOptions.forEach(opt => {
+      if (shouldIncludeMean && /_MeanSummaryTable$/i.test(opt.id)) {
+        defaultSelections.add(opt.id);
+      }
+      if (shouldIncludeSum && /_SumSummaryTable$/i.test(opt.id)) {
+        defaultSelections.add(opt.id);
+      }
+    });
     return defaultSelections;
   }
   
   // Open end (non-list): include frequency distribution table by default
   if (isOpenEndType) {
-    defaultSelections.add(variableName);
+    // If the open end question has statements (like an open end grid), select individual statement tables
+    const hasStatements = variable.statements && Object.keys(variable.statements).length > 0;
+    if (hasStatements && variable.statements) {
+      Object.keys(variable.statements).forEach((code) => {
+        defaultSelections.add(`${variableName}_${code}`);
+      });
+    } else {
+      // Single open end question - select the base table
+      defaultSelections.add(variableName);
+    }
   }
   
   // Open end list: nothing (empty set). Tables remain visible in specs.

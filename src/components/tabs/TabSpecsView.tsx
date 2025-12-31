@@ -4,6 +4,7 @@ import ExcelJS from 'exceljs';
 import BannerBuilder from '../BannerBuilder';
 import { BannerBuilderUI } from './BannerBuilderUI';
 import { BannerFilterUI } from './BannerFilterUI';
+import { BannerGroup } from '../../types/dataTabulation';
 import { Variable } from '../../utils/tabs/types';
 import { getBaseQuestionNumber } from '../../utils/tabs/questionHelpers';
 import { getExpectedColumnHeadersForBase } from '../../utils/tabs/expectedHeaders';
@@ -23,6 +24,8 @@ interface TabSpecsViewProps {
   showIncludedQuestions: boolean;
   onQuestionClick: (question: any, displayVariable: Variable | null) => void;
   onShowSettingsPopup: () => void;
+  onExportTables?: () => void;
+  exportingTables?: boolean;
   // Banner-related props
   showBannerBuilder: boolean;
   selectedNewBannerGroupId: string | null;
@@ -41,7 +44,7 @@ interface TabSpecsViewProps {
   onBannerExport?: (groupId: string) => Promise<void>;
   exportingBannerId?: string | null;
   onBannerChange: (group: any) => void;
-  onBannerSave: () => void;
+  onBannerSave: (group: BannerGroup) => void;
   onBannerCancel: () => void;
   onBannerFilterConditionsChange: (conditions: any) => void;
   onBackToTabPlans?: () => void;
@@ -62,6 +65,8 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
   showIncludedQuestions,
   onQuestionClick,
   onShowSettingsPopup,
+  onExportTables,
+  exportingTables = false,
   showBannerBuilder,
   selectedNewBannerGroupId,
   editingBannerGroup,
@@ -123,7 +128,7 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
   return (
     <div className="p-6">
       {viewType === 'tables' && questionnaireQuestions.length > 0 && (
-        <div className="mb-4 flex items-end justify-start">
+        <div className="mb-4 flex items-end justify-between gap-3">
           <div className="flex items-center gap-2">
             <div>
               <label htmlFor="tab-specs-type-select" className="sr-only">Filter questions</label>
@@ -148,6 +153,22 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
               <Cog6ToothIcon className="h-5 w-5 text-gray-600" />
             </button>
           </div>
+          {onExportTables && (
+            <button
+              type="button"
+              onClick={onExportTables}
+              disabled={exportingTables}
+              className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-semibold ${
+                exportingTables
+                  ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+              title="Export tables using the same logic as the Tables view"
+            >
+              <ArrowDownTrayIcon className="h-4 w-4" />
+              {exportingTables ? 'Exporting…' : 'Export Tables'}
+            </button>
+          )}
         </div>
       )}
       {viewType === 'tables' ? (

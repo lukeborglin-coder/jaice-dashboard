@@ -4,7 +4,7 @@
   "name": "test",
   "sourceType": "raw",
   "createdAt": "2025-12-18T16:06:33.905Z",
-  "updatedAt": "2025-12-20T19:51:16.609Z",
+  "updatedAt": "2025-12-31T14:54:52.881Z",
   "specs": {
     "variableTableSelections": {
       "QS1": [
@@ -2485,7 +2485,68 @@
     },
     "variableHoldResponseCodes": {},
     "singleSelectSort": {},
-    "newBannerGroups": [],
+    "newBannerGroups": [
+      {
+        "id": "default_1767106579771",
+        "title": "testest_B1",
+        "confidenceLevel": 95,
+        "includeTotal": true,
+        "groups": [
+          {
+            "id": "1767109809931",
+            "title": "COE",
+            "cuts": [
+              {
+                "id": "1767109809931-1",
+                "title": "Yes",
+                "variableName": "QS6",
+                "codes": [
+                  "1"
+                ],
+                "conditionGroups": [
+                  {
+                    "conditions": [
+                      {
+                        "id": "1767112429392",
+                        "variableName": "QS6",
+                        "codes": [
+                          "1"
+                        ]
+                      }
+                    ],
+                    "operator": "OR"
+                  }
+                ]
+              },
+              {
+                "id": "1767109809931-2",
+                "title": "No",
+                "variableName": "QS6",
+                "codes": [
+                  "2",
+                  "99"
+                ],
+                "conditionGroups": [
+                  {
+                    "conditions": [
+                      {
+                        "id": "1767112442329",
+                        "variableName": "QS6",
+                        "codes": [
+                          "2",
+                          "99"
+                        ]
+                      }
+                    ],
+                    "operator": "OR"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
     "bannerFilterConditions": null,
     "hiddenFromBanners": [
       "uuid",
@@ -2527,7 +2588,464 @@
       "identifier",
       "ID"
     ],
-    "netSummaryTableSelectedCodes": {},
+    "netSummaryTableSelectedCodes": {
+      "QA7": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QB7": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QB7A": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC1": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC2": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC2A": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC3": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC4": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC5": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC6X1": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC6X2": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QC6X3": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QD2": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QD6": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QD7": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QD8": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QD10": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QD11": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ],
+      "QE9": [
+        {
+          "name": "Top 2 Box",
+          "codes": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "name": "Middle 3 Box",
+          "codes": [
+            "3",
+            "4",
+            "5"
+          ]
+        },
+        {
+          "name": "Bottom 2 Box",
+          "codes": [
+            "1",
+            "2"
+          ]
+        }
+      ]
+    },
     "netSummaryTableRanges": {},
     "settings": {
       "significanceLevel": 95,

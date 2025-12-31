@@ -166,9 +166,9 @@ const VariableSelectorPopup: React.FC<VariableSelectorPopupProps> = ({ variables
           </button>
         </div>
         <div className="space-y-1 max-h-96 overflow-y-auto">
-          {filteredVariables.map(v => (
+          {filteredVariables.map((v, idx) => (
             <button
-              key={v.name}
+              key={`${v.name}-${idx}`}
               onClick={() => {
                 onSelect(v.name);
                 onClose();

@@ -56,8 +56,8 @@ export function getTableOptionsForVariable(
   }
 
   const hasStatements = variable.statements && Object.keys(variable.statements).length > 0;
-  // For numeric questions (not grids) and numeric grids, add individual tables for each statement
-  if (hasStatements && !isOpenEndListType && (isNumericQuestion || isNumericGrid) && variable.statements) {
+  // For numeric questions (not grids), numeric grids, and open end questions with statements, add individual tables for each statement
+  if (hasStatements && !isOpenEndListType && (isNumericQuestion || isNumericGrid || isOpenEndType) && variable.statements) {
     Object.entries(variable.statements).forEach((entry) => {
       const [code, label] = entry;
       individualTableOptions.push({
