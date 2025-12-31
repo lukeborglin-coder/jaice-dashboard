@@ -1885,6 +1885,7 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
   const selectableVariables = React.useMemo(() => {
     const result: any[] = [];
 
+    // Add categorical variables
     variables.forEach(v => {
       const isNumericGrid = v.type?.toLowerCase().includes('numeric') && v.type?.toLowerCase().includes('grid');
 
@@ -1892,30 +1893,55 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
       if (v.codes && Object.keys(v.codes).length > 0 && !isNumericGrid) {
         result.push(v);
       }
-      // For numeric grids, expand each column as a separate selectable variable
-      else if (isNumericGrid && v.codes && Object.keys(v.codes).length > 0) {
-        // This is a numeric grid with multiple columns - create one entry per column
-        const baseNumber = v.name.replace(/^Q/, '');
-        Object.entries(v.codes).forEach(([colCode, colLabel]) => {
-          const normalizedColCode = colCode.startsWith('c') || colCode.startsWith('C') ? colCode : `c${colCode}`;
-          result.push({
-            ...v,
-            name: `Q${baseNumber}${normalizedColCode}`,
-            description: `${v.description || v.name} - ${colLabel}`,
-            _originalVariable: v.name,
-            _columnCode: normalizedColCode,
-            _columnLabel: colLabel
-          });
-        });
-      }
-      // Include single-column numeric variables and numeric grids without codes
-      else if (v.type?.toLowerCase().includes('numeric')) {
+      // Include single-column numeric variables (not grids)
+      else if (v.type?.toLowerCase().includes('numeric') && !isNumericGrid) {
         result.push(v);
       }
     });
 
+    // Extract numeric grid column variables from actual data columns
+    const dataColumns = rawData?.columns || [];
+    const numericGridColumns = new Map<string, { base: string; column: string; description: string }>();
+
+    // Pattern: QS14r1c1, QS14r2c2, etc. -> extract QS14c1, QS14c2
+    dataColumns.forEach(colName => {
+      const match = colName.match(/^(Q?[A-Z]+\d+)r\d+c(\d+)$/i);
+      if (match) {
+        const base = match[1]; // QS14, QA1, etc.
+        const colNum = match[2]; // 1, 2, 3, etc.
+        const key = `${base}c${colNum}`;
+
+        if (!numericGridColumns.has(key)) {
+          // Find the original variable to get description
+          const originalVar = variables.find(v =>
+            v.name === base && v.type?.toLowerCase().includes('numeric grid')
+          );
+
+          numericGridColumns.set(key, {
+            base,
+            column: `c${colNum}`,
+            description: originalVar?.description || base
+          });
+        }
+      }
+    });
+
+    // Add expanded column variables
+    numericGridColumns.forEach(({ base, column, description }, key) => {
+      result.push({
+        name: key,
+        description: `${description} - Column ${column}`,
+        type: 'Numeric grid',
+        codes: {},
+        statements: {},
+        _originalVariable: base,
+        _columnCode: column,
+        _isNumericGridColumn: true
+      });
+    });
+
     return result;
-  }, [variables]);
+  }, [variables, rawData]);
 
   // Build selectable variables from EXPECTED HEADERS ONLY
   // Merge with selectableVariables to get full variable info (codes, descriptions, etc.)
