@@ -1896,6 +1896,8 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
       }
     });
 
+    console.log('🔵 selectableVariables created:', result.length, 'total');
+    console.log('🔵 Numeric grid columns:', result.filter(v => v._originalVariable).map(v => ({ name: v.name, originalVariable: v._originalVariable, columnCode: v._columnCode })));
     return result;
   }, [variables]);
 
@@ -2001,7 +2003,10 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
         }
       });
     }
-    
+
+    console.log('🟢 combinedSelectableVariables created:', result.length, 'total');
+    console.log('🟢 Expected headers sample:', headers.slice(0, 10));
+    console.log('🟢 Numeric grid columns in combined:', result.filter(v => v._originalVariable).map(v => ({ name: v.name, originalVariable: v._originalVariable })));
     return result;
   }, [expectedHeaders, selectableVariables, categoricalVariables]);
 
