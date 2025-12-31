@@ -1791,6 +1791,15 @@ const OldCutConditionsEditor: React.FC<CutConditionsEditorProps> = ({
 };
 
 const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChange, onCancel, editingGroup, existingBannerCount = 0, rawData, columnMapping, settingsOpenRef, questionnaireId, expectedHeaders, variableTableSelections, getTablesForVariable, projectName }) => {
+  // Debug: Log data columns and expected headers once on mount
+  React.useEffect(() => {
+    const dataColumns = rawData?.columns || [];
+    const mappingKeys = columnMapping ? Object.keys(columnMapping) : [];
+    console.log('🔍 DATA COLUMNS from rawData:', dataColumns.filter(c => c.includes('S14') || c.includes('s14')));
+    console.log('🔍 COLUMN MAPPING keys:', mappingKeys.filter(c => c.includes('S14') || c.includes('s14')));
+    console.log('🔍 EXPECTED HEADERS:', (expectedHeaders || []).filter(h => h.includes('S14') || h.includes('s14')));
+  }, []);
+
   const [confidenceLevel, setConfidenceLevel] = useState<95 | 90 | 80>(editingGroup?.confidenceLevel || 95);
   const [includeTotal, setIncludeTotal] = useState<boolean>(editingGroup?.includeTotal !== false);
   const defaultBannerName = projectName ? `${projectName}_B${existingBannerCount + 1}` : `Banner ${existingBannerCount + 1}`;
