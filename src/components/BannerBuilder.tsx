@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { XMarkIcon, PlusIcon, TrashIcon, PencilIcon, Cog6ToothIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, PlusIcon, TrashIcon, PencilIcon, Cog6ToothIcon, ArrowDownTrayIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { type BannerGroup, type BannerCut, type BannerSubGroup, type BannerCondition, type BannerConditionGroup, type BannerSumCondition } from '../types/dataTabulation';
 import { API_BASE_URL } from '../config';
 import ExcelJS from 'exceljs';
@@ -2893,9 +2893,10 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
   };
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
+    <>
+      <div className="flex flex-col h-full bg-white">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <div className="flex items-center gap-2">
           {isEditingTitle ? (
             <input
@@ -2927,19 +2928,6 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleExportBanner}
-            disabled={isExporting || !rawData || !rawData.rows || rawData.rows.length === 0 || !getTablesForVariable}
-            className={`px-3 py-1.5 text-sm rounded-lg transition-colors flex items-center gap-2 ${
-              isExporting || !rawData || !rawData.rows || rawData.rows.length === 0 || !getTablesForVariable
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : 'bg-gray-700 text-white hover:bg-gray-800'
-            }`}
-            title={!rawData || !rawData.rows || rawData.rows.length === 0 ? 'No data available' : !getTablesForVariable ? 'Table selection not available' : 'Download banner tables'}
-          >
-            <ArrowDownTrayIcon className="h-4 w-4" />
-            {isExporting ? 'Exporting...' : 'Download'}
-          </button>
           <button
             onClick={onCancel}
             className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 rounded-lg"
@@ -3106,76 +3094,62 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
                       </td>
                       {/* Banner Definition */}
                       <td className="px-4 py-2 align-top text-gray-700">
-                        {aiConfiguring ? (
-                          <div className="flex items-center gap-2">
-                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-[#D14A2D]"></div>
-                            <span className="text-xs text-gray-500">Configuring...</span>
-                          </div>
-                        ) : (
-                          (() => {
-                            // Prefer imported definition text
-                            if ((cut as any).definitionText) {
-                              return <span className="whitespace-pre-wrap">{(cut as any).definitionText}</span>;
-                            }
-                            // Fallback to a computed summary of current conditions
-                            const c: any = cut as any;
-                            if (c.sumCondition && c.sumCondition.variables && c.sumCondition.variables.length > 0) {
-                              return `SUM(${c.sumCondition.variables.join(', ')}) ${c.sumCondition.condition || ''}`;
-                            }
-                            if (c.conditionGroups && Array.isArray(c.conditionGroups) && c.conditionGroups.length > 0) {
-                              const group = c.conditionGroups[0];
-                              const op = group.operator || 'OR';
-                              const conds = (group.conditions || []).map((cond: any) => {
-                                const codes = Array.isArray(cond.codes) ? cond.codes.join(', ') : '';
-                                return `${cond.variableName}${codes ? '=' + codes : ''}`;
-                              }).join(` ${op} `);
-                              return conds || '';
-                            }
-                            if (c.variableName) {
-                              const codes = Array.isArray(c.codes) ? c.codes.join(', ') : '';
-                              return `${c.variableName}${codes ? '=' + codes : ''}`;
-                            }
-                            return '';
-                          })()
-                        )}
+                        {(() => {
+                          // Prefer imported definition text
+                          if ((cut as any).definitionText) {
+                            return <span className="whitespace-pre-wrap">{(cut as any).definitionText}</span>;
+                          }
+                          // Fallback to a computed summary of current conditions
+                          const c: any = cut as any;
+                          if (c.sumCondition && c.sumCondition.variables && c.sumCondition.variables.length > 0) {
+                            return `SUM(${c.sumCondition.variables.join(', ')}) ${c.sumCondition.condition || ''}`;
+                          }
+                          if (c.conditionGroups && Array.isArray(c.conditionGroups) && c.conditionGroups.length > 0) {
+                            const group = c.conditionGroups[0];
+                            const op = group.operator || 'OR';
+                            const conds = (group.conditions || []).map((cond: any) => {
+                              const codes = Array.isArray(cond.codes) ? cond.codes.join(', ') : '';
+                              return `${cond.variableName}${codes ? '=' + codes : ''}`;
+                            }).join(` ${op} `);
+                            return conds || '';
+                          }
+                          if (c.variableName) {
+                            const codes = Array.isArray(c.codes) ? c.codes.join(', ') : '';
+                            return `${c.variableName}${codes ? '=' + codes : ''}`;
+                          }
+                          return '';
+                        })()}
                       </td>
                       {/* Configure */}
                       <td className="px-4 py-2 align-top">
-                        {aiConfiguring ? (
-                          <div className="flex items-center gap-2">
-                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-[#D14A2D]"></div>
-                            <span className="text-xs text-gray-500">Configuring...</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-start gap-2">
-                            <CutConditionsEditor
-                              cut={cut}
-                              subGroupId={subGroup.id}
-                              selectableVariables={combinedSelectableVariables}
-                              categoricalVariables={categoricalVariables}
-                              isNumericVariable={isNumericVariable}
-                              updateCut={updateCut}
-                              openVariableSelector={openVariableSelector}
-                              setOpenVariableSelector={setOpenVariableSelector}
-                              openCodeSelector={openCodeSelector}
-                              setOpenCodeSelector={setOpenCodeSelector}
-                              getButtonRef={getButtonRef}
-                              codeButtonRefs={codeButtonRefs}
-                              variableButtonRefs={variableButtonRefs}
-                              rawData={rawData}
-                              columnMapping={columnMapping}
-                            />
-                            {subGroups.length > 1 && (
-                              <button
-                                onClick={() => removeSubGroup(subGroup.id)}
-                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                                title="Remove banner heading"
-                              >
-                                <TrashIcon className="h-4 w-4" />
-                              </button>
-                            )}
-                          </div>
-                        )}
+                        <div className="flex items-start gap-2">
+                          <CutConditionsEditor
+                            cut={cut}
+                            subGroupId={subGroup.id}
+                            selectableVariables={combinedSelectableVariables}
+                            categoricalVariables={categoricalVariables}
+                            isNumericVariable={isNumericVariable}
+                            updateCut={updateCut}
+                            openVariableSelector={openVariableSelector}
+                            setOpenVariableSelector={setOpenVariableSelector}
+                            openCodeSelector={openCodeSelector}
+                            setOpenCodeSelector={setOpenCodeSelector}
+                            getButtonRef={getButtonRef}
+                            codeButtonRefs={codeButtonRefs}
+                            variableButtonRefs={variableButtonRefs}
+                            rawData={rawData}
+                            columnMapping={columnMapping}
+                          />
+                          {subGroups.length > 1 && (
+                            <button
+                              onClick={() => removeSubGroup(subGroup.id)}
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="Remove banner heading"
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -3196,7 +3170,18 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
       </div>
 
       {/* Footer removed (moved actions to header) */}
-    </div>
+      </div>
+
+      {/* Full-page loading overlay */}
+      {aiConfiguring && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-8 flex flex-col items-center gap-4">
+            <ArrowPathIcon className="h-12 w-12 animate-spin text-[#D14A2D]" />
+            <p className="text-lg font-medium text-gray-900">Configuring banner specifications...</p>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

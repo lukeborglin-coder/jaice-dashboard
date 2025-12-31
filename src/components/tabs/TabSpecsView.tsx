@@ -1,5 +1,5 @@
 import React from 'react';
-import { TableCellsIcon, Cog6ToothIcon, ArrowDownTrayIcon, PlusCircleIcon, CheckCircleIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
+import { TableCellsIcon, Cog6ToothIcon, ArrowDownTrayIcon, PlusCircleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import ExcelJS from 'exceljs';
 import BannerBuilder from '../BannerBuilder';
 import { BannerBuilderUI } from './BannerBuilderUI';
@@ -452,28 +452,6 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
           ) : (
             /* Banner Groups List */
             <>
-              {/* Hidden file input for Excel import */}
-              <input
-                type="file"
-                ref={bannerSpecsFileInputRef}
-                onChange={onBannerSpecsFileChange}
-                accept=".xlsx,.xls"
-                className="hidden"
-              />
-
-              {/* Header with Import Button */}
-              <div className="mb-4 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={onHandleClickImportBannerSpecs}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-sm font-semibold transition-colors"
-                  title="Import banner specifications from Excel file"
-                >
-                  <ArrowUpTrayIcon className="h-4 w-4" />
-                  Import Banner Specs
-                </button>
-              </div>
-
               <BannerBuilderUI
                 bannerGroups={newBannerGroups}
                 onEdit={onBannerEdit}
@@ -481,6 +459,9 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
                 onExport={onBannerExport}
                 exportingBannerId={exportingBannerId}
                 variables={variables}
+                bannerSpecsFileInputRef={bannerSpecsFileInputRef}
+                onBannerSpecsFileChange={onBannerSpecsFileChange}
+                onHandleClickImportBannerSpecs={onHandleClickImportBannerSpecs}
               />
               {bannerFilterConditions && (
                 <div className="mt-6 border-t border-gray-200 pt-6">
