@@ -946,7 +946,7 @@ const ConditionsConfigModal: React.FC<ConditionsConfigModalProps> = ({
                       </button>
                       {showVariableSelector === idx && (
                         <VariableSelectorPopup
-                          variables={combinedSelectableVariables}
+                          variables={selectableVariables}
                           selectedVariable={cond.variableName}
                           onSelect={(varName) => {
                             updateCondition(idx, { variableName: varName, codes: [] });
