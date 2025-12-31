@@ -1804,6 +1804,35 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [aiConfiguring, setAiConfiguring] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+
+  // Track initial state to detect changes
+  const initialStateRef = useRef({
+    bannerTitle: editingGroup?.title || defaultBannerName,
+    confidenceLevel: editingGroup?.confidenceLevel || 95,
+    includeTotal: editingGroup?.includeTotal !== false,
+    subGroups: JSON.stringify(editingGroup?.groups || [
+      {
+        id: '1',
+        title: '',
+        cuts: [
+          { id: '1-1', title: '', variableName: '', codes: [] },
+          { id: '1-2', title: '', variableName: '', codes: [] }
+        ]
+      }
+    ])
+  });
+
+  // Detect if there are unsaved changes
+  const hasChanges = React.useMemo(() => {
+    const initial = initialStateRef.current;
+    return (
+      bannerTitle !== initial.bannerTitle ||
+      confidenceLevel !== initial.confidenceLevel ||
+      includeTotal !== initial.includeTotal ||
+      JSON.stringify(subGroups) !== initial.subGroups
+    );
+  }, [bannerTitle, confidenceLevel, includeTotal, subGroups]);
+
   // Expose settings opener to parent so the top-level header button can open it
   useEffect(() => {
     if (settingsOpenRef) {
@@ -2598,6 +2627,14 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
       groups: subGroupsWithTitles
     };
     onSave(group);
+
+    // Reset initial state to current state after save
+    initialStateRef.current = {
+      bannerTitle,
+      confidenceLevel,
+      includeTotal,
+      subGroups: JSON.stringify(subGroupsWithTitles)
+    };
   };
 
   // Match Data tab's "Respondents" count: count rows with a non-empty record/respno field
@@ -2905,23 +2942,25 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
             </>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onCancel}
-            className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 rounded-lg"
-            title="Cancel editing"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="px-3 py-1.5 text-sm text-white rounded-lg hover:opacity-90"
-            style={{ backgroundColor: BRAND_ORANGE }}
-            title="Save banner group"
-          >
-            Save
-          </button>
-        </div>
+        {hasChanges && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onCancel}
+              className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 rounded-lg"
+              title="Cancel editing"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              className="px-3 py-1.5 text-sm text-white rounded-lg hover:opacity-90"
+              style={{ backgroundColor: BRAND_ORANGE }}
+              title="Save banner group"
+            >
+              Save
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Settings Popup */}
