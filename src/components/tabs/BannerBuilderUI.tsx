@@ -111,7 +111,7 @@ export const BannerBuilderUI: React.FC<BannerBuilderUIProps> = ({
   };
 
   return (
-    <div className="flex flex-col flex-1 py-6 pr-6">
+    <div className="flex flex-col flex-1 pb-6 pr-6">
       {/* Hidden file input for Excel import */}
       {bannerSpecsFileInputRef && onBannerSpecsFileChange && (
         <input
