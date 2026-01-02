@@ -498,8 +498,11 @@ const ConditionsConfigModal: React.FC<ConditionsConfigModalProps> = ({
     console.log('📋 ConditionsConfigModal opened with', selectableVariables.length, 'variables');
     const numericVars = selectableVariables.filter(v => v.type?.toLowerCase().includes('numeric'));
     console.log('📋 Numeric variables (all types):', numericVars.map(v => ({ name: v.name, type: v.type, hasCodes: !!v.codes && Object.keys(v.codes).length > 0 })));
-    const numericGridCols = selectableVariables.filter(v => v._originalVariable);
-    console.log('📋 Numeric grid columns available:', numericGridCols.map(v => v.name));
+    const gridCells = selectableVariables.filter(v => v._isNumericGridCell);
+    console.log('📋 Numeric grid cells available:', gridCells.length);
+    if (gridCells.length > 0) {
+      console.log('   Sample cells:', gridCells.slice(0, 5).map(v => `${v.name}: ${v._rowLabel} - ${v._columnLabel}`));
+    }
   }, []);
 
   const [localConditions, setLocalConditions] = React.useState<BannerCondition[]>(() => {
@@ -1899,54 +1902,53 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
       }
     });
 
-    // Extract numeric grid column variables from actual data columns
+    // Extract numeric grid cell variables from actual data columns
+    // Each cell (QS14r1c1, QS14r2c1, etc.) becomes a selectable variable
     const dataColumns = rawData?.columns || [];
-    const numericGridColumns = new Map<string, { base: string; column: string; description: string }>();
 
-    console.log('🔍 Extracting numeric grid columns from', dataColumns.length, 'data columns');
+    console.log('🔍 Extracting numeric grid cells from', dataColumns.length, 'data columns');
 
-    // Pattern: QS14r1c1, QS14r2c2, etc. -> extract QS14c1, QS14c2
+    // Pattern: QS14r1c1, QS14r2c2, etc. -> create individual cell variables
     let matchCount = 0;
     dataColumns.forEach(colName => {
-      const match = colName.match(/^(Q?[A-Z]+\d+)r\d+c(\d+)$/i);
+      const match = colName.match(/^(Q?[A-Z]+\d+)r(\d+)c(\d+)$/i);
       if (match) {
         matchCount++;
         const base = match[1]; // QS14, QA1, etc.
-        const colNum = match[2]; // 1, 2, 3, etc.
-        const key = `${base}c${colNum}`;
+        const rowNum = match[2]; // 1, 2, 3, etc.
+        const colNum = match[3]; // 1, 2, 3, etc.
 
-        if (!numericGridColumns.has(key)) {
-          // Find the original variable to get description
-          const originalVar = variables.find(v =>
-            v.name === base && v.type?.toLowerCase().includes('numeric grid')
-          );
+        // Find the original variable to get description and row/column labels
+        const originalVar = variables.find(v =>
+          v.name === base && v.type?.toLowerCase().includes('numeric grid')
+        );
 
-          console.log('  ➕ Adding:', key, '(base:', base, 'col:', colNum, 'found var:', !!originalVar, ')');
+        // Get row label from statements (e.g., "Spinraza")
+        const rowLabel = originalVar?.statements?.[rowNum] || originalVar?.statements?.[`r${rowNum}`] || `Row ${rowNum}`;
 
-          numericGridColumns.set(key, {
-            base,
-            column: `c${colNum}`,
-            description: originalVar?.description || base
-          });
-        }
+        // Get column label from codes (e.g., "Current patients")
+        const colLabel = originalVar?.codes?.[colNum] || originalVar?.codes?.[`c${colNum}`] || originalVar?.codes?.[`${colNum}`] || `Column ${colNum}`;
+
+        const baseDescription = originalVar?.description || base;
+
+        // Create a variable for each cell
+        result.push({
+          name: colName, // QS14r1c1
+          description: `${baseDescription} - ${rowLabel} - ${colLabel}`,
+          type: 'Numeric grid cell',
+          codes: {},
+          statements: {},
+          _originalVariable: base,
+          _rowCode: `r${rowNum}`,
+          _columnCode: `c${colNum}`,
+          _isNumericGridCell: true,
+          _rowLabel: rowLabel,
+          _columnLabel: colLabel
+        });
       }
     });
 
-    console.log('🔍 Matched', matchCount, 'columns, created', numericGridColumns.size, 'unique grid columns');
-
-    // Add expanded column variables
-    numericGridColumns.forEach(({ base, column, description }, key) => {
-      result.push({
-        name: key,
-        description: `${description} - Column ${column}`,
-        type: 'Numeric grid',
-        codes: {},
-        statements: {},
-        _originalVariable: base,
-        _columnCode: column,
-        _isNumericGridColumn: true
-      });
-    });
+    console.log('🔍 Matched', matchCount, 'cell columns, created', matchCount, 'grid cell variables');
 
     return result;
   }, [variables, rawData]);
@@ -2042,13 +2044,16 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
       }
     });
     
-    // Always include numeric grid column variables (QS14c1, QS14c2, etc.)
+    // Always include numeric grid cell variables (QS14r1c1, QS14r2c1, etc.)
     // These are synthetic variables created from multi-column numeric grids
-    const numericGridCols = selectableVariables.filter(sv => sv._isNumericGridColumn);
-    console.log('🔍 Adding', numericGridCols.length, 'numeric grid column variables to combined list:', numericGridCols.map(c => c.name));
+    const numericGridCells = selectableVariables.filter(sv => sv._isNumericGridCell);
+    console.log('🔍 Adding', numericGridCells.length, 'numeric grid cell variables to combined list');
+    if (numericGridCells.length > 0) {
+      console.log('   Sample cells:', numericGridCells.slice(0, 5).map(c => `${c.name} (${c._rowLabel} - ${c._columnLabel})`));
+    }
 
     selectableVariables.forEach(sv => {
-      if (sv._isNumericGridColumn) {
+      if (sv._isNumericGridCell) {
         const alreadyIncluded = result.some(r => r.name === sv.name);
         if (!alreadyIncluded) {
           result.push(sv);
@@ -2073,7 +2078,7 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
 
   // Check if a variable is numeric (no codes, type includes numeric)
   const isNumericVariable = (varName: string): boolean => {
-    // Check if this is an expanded numeric grid column variable
+    // Check if this is an expanded numeric grid cell variable (QS14r1c1, etc.)
     const expandedVar = selectableVariables.find(sv =>
       sv.name === varName && sv._originalVariable
     );
