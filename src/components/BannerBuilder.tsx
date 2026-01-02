@@ -2042,6 +2042,20 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
       }
     });
     
+    // Always include numeric grid column variables (QS14c1, QS14c2, etc.)
+    // These are synthetic variables created from multi-column numeric grids
+    const numericGridCols = selectableVariables.filter(sv => sv._isNumericGridColumn);
+    console.log('🔍 Adding', numericGridCols.length, 'numeric grid column variables to combined list:', numericGridCols.map(c => c.name));
+
+    selectableVariables.forEach(sv => {
+      if (sv._isNumericGridColumn) {
+        const alreadyIncluded = result.some(r => r.name === sv.name);
+        if (!alreadyIncluded) {
+          result.push(sv);
+        }
+      }
+    });
+
     // If we have expected headers but didn't match many, include all selectableVariables as fallback
     // This ensures variables are always available for selection
     if (result.length === 0 || result.length < selectableVariables.length * 0.5) {
