@@ -2833,6 +2833,23 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
         const type = surveyVar?.type || 'Unknown';
         return { header: h, type, codes };
       });
+
+      // Also include numeric grid cell variables (QS14r1c1, QS14r2c1, etc.) in expected headers
+      // These are synthetic variables created from multi-column numeric grids
+      const numericGridCells = selectableVariables.filter(sv => sv._isNumericGridCell);
+      numericGridCells.forEach(cell => {
+        expectedHeadersDetail.push({
+          header: cell.name, // e.g., QS14r1c1
+          type: 'Numeric grid cell',
+          codes: [] // Numeric cells don't have codes
+        });
+      });
+
+      console.log('📤 Sending to AI:', expectedHeadersDetail.length, 'expected headers including', numericGridCells.length, 'numeric grid cells');
+
+      // Include numeric grid cells in the expectedHeaders array as well
+      const allExpectedHeaders = [...headers, ...numericGridCells.map(c => c.name)];
+
       const res = await fetch(`${API_BASE_URL}/api/questionnaire/banners/auto-configure`, {
         method: 'POST',
         headers: {
@@ -2843,7 +2860,7 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
           questionnaireId,
           cuts: payloadCuts,
           variables: [], // do not distract the AI with base variables; expected headers are canonical
-          expectedHeaders: headers,
+          expectedHeaders: allExpectedHeaders,
           expectedHeadersDetail
         })
       });
@@ -2942,8 +2959,8 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
           if (!upd) return cut; // leave blank if no match
           // Multi-condition form
           if (Array.isArray(upd.conditions) && upd.conditions.length > 0) {
-            if (expectedHeaders && expectedHeaders.length > 0) {
-              const allAllowed = upd.conditions.every(cn => expectedHeaders.includes(cn.variableName));
+            if (allExpectedHeaders && allExpectedHeaders.length > 0) {
+              const allAllowed = upd.conditions.every(cn => allExpectedHeaders.includes(cn.variableName));
               if (!allAllowed) return cut;
             }
             const op = upd.operator === 'AND' ? 'AND' : 'OR';
@@ -2966,7 +2983,7 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onChan
           }
           // Single-condition form
           if (!upd.variableName) return cut;
-          if (expectedHeaders && expectedHeaders.length > 0 && !expectedHeaders.includes(upd.variableName!)) {
+          if (allExpectedHeaders && allExpectedHeaders.length > 0 && !allExpectedHeaders.includes(upd.variableName!)) {
             return cut;
           }
           const isNumeric = isNumericVariable(upd.variableName);
