@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BannerGroup } from '../../types/dataTabulation';
 import { Variable } from '../../utils/tabs/types';
-import { TrashIcon, ArrowDownTrayIcon, ArrowPathIcon, ArrowUpTrayIcon, InformationCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { TrashIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, InformationCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { IconTable } from '@tabler/icons-react';
 import ExcelJS from 'exceljs';
 
@@ -293,7 +293,7 @@ export const BannerBuilderUI: React.FC<BannerBuilderUIProps> = ({
                       disabled={exportingBannerId === group.id}
                     >
                       {exportingBannerId === group.id ? (
-                        <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-200" style={{ borderTopColor: BRAND_ORANGE }} />
                       ) : (
                         <ArrowDownTrayIcon className="h-5 w-5" />
                       )}
