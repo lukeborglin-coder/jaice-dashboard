@@ -983,7 +983,17 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     }
     setExportingTables(true);
     try {
-      const { workbook } = await buildTablesOnlyWorkbook(variables);
+      // Create a synthetic banner group with only Total column (no cuts)
+      const totalOnlyBanner = {
+        id: 'total-only-export',
+        title: 'Total',
+        groups: [],
+        includeTotal: true
+      };
+
+      // Use the same buildTabSpecsWorkbook function as banner export
+      // This ensures consistent table formatting
+      const { workbook } = await buildTabSpecsWorkbook(variables, totalOnlyBanner);
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = URL.createObjectURL(blob);

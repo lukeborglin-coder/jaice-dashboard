@@ -163,9 +163,13 @@ export const TabSpecsView: React.FC<TabSpecsViewProps> = ({
                   ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
                   : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
               }`}
-              title="Export tables using the same logic as the Tables view"
+              title="Export tables with Total column only"
             >
-              <ArrowDownTrayIcon className="h-4 w-4" />
+              {exportingTables ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-200" style={{ borderTopColor: '#D14A2D' }} />
+              ) : (
+                <ArrowDownTrayIcon className="h-4 w-4" />
+              )}
               {exportingTables ? 'Exporting…' : 'Export Tables'}
             </button>
           )}
