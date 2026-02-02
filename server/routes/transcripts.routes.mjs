@@ -604,7 +604,16 @@ function hardCodeCleanTranscript(transcriptText, moderatorName, respondentName, 
   
   // Output normalized speaker turns with a blank line between EVERY turn
   // (even when the same speaker has multiple consecutive turns).
-  return cleanedLines.join('\n\n').trim();
+  const result = cleanedLines.join('\n\n').trim();
+
+  // If cleaning produced no output, return original transcript
+  // (This prevents empty transcripts when the format isn't recognized)
+  if (!result || result.length === 0) {
+    console.warn('⚠️ Cleaning produced empty result, returning original transcript');
+    return transcriptText;
+  }
+
+  return result;
 }
 
 // Helper function to parse date and time from transcript
