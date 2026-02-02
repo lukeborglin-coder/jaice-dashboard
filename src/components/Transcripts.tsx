@@ -1146,6 +1146,8 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       formData.append('cleanType', cleanType);
       if (parsedModerator) formData.append('moderatorName', parsedModerator);
       if (parsedRespondent) formData.append('respondentName', parsedRespondent);
+      if (parsedDateTime?.date) formData.append('interviewDate', parsedDateTime.date);
+      if (parsedDateTime?.time) formData.append('interviewTime', parsedDateTime.time);
 
       const response = await fetch(`${API_BASE_URL}/api/transcripts/upload`, {
         method: 'POST',

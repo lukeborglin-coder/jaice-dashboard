@@ -1014,8 +1014,18 @@ router.post('/upload', authenticateToken, upload.single('transcript'), async (re
       return res.status(400).json({ error: 'Unsupported file format. Please upload .txt or .docx files.' });
     }
 
-    // Parse date and time from original transcript
-    const { interviewDate, interviewTime } = parseDateTimeFromTranscript(transcriptText);
+    // Use AI-extracted date/time from parse-datetime if provided, otherwise parse from transcript
+    let interviewDate = req.body.interviewDate || null;
+    let interviewTime = req.body.interviewTime || null;
+
+    // Fallback to regex parsing only if date/time not provided
+    if (!interviewDate || !interviewTime) {
+      const parsed = parseDateTimeFromTranscript(transcriptText);
+      interviewDate = interviewDate || parsed.interviewDate;
+      interviewTime = interviewTime || parsed.interviewTime;
+    }
+
+    console.log('📅 Using date/time for transcript:', { interviewDate, interviewTime });
 
     // Load project data to get project name
     const projectsData = await fs.readFile(PROJECTS_PATH, 'utf8');
