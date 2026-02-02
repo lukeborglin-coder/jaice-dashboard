@@ -445,9 +445,10 @@ function hardCodeCleanTranscript(transcriptText, moderatorName, respondentName, 
   // Split into lines for processing
   const lines = cleaned.split(/\r?\n/);
   const cleanedLines = [];
-  // Allow common speaker label formats like "Erica:", "Erica (Moderator):", "John O'Neil:"
+  // Allow common speaker label formats including numbers and symbols:
+  // "Erica:", "Moderator #1:", "Panelist #2:", "John O'Neil:", "Erica (Moderator):"
   // Also allow leading bullet/icon characters (e.g., "★ Erica:")
-  const speakerLineRegex = /^[^\wA-Za-z]{0,6}\s*([A-Za-z][A-Za-z .'\-()]{0,60})\s*:\s*(.*)$/;
+  const speakerLineRegex = /^[^\wA-Za-z]{0,6}\s*([A-Za-z][A-Za-z0-9 .'\-()#]{0,60})\s*:\s*(.*)$/;
   const moderatorNameRegex = moderatorName ? new RegExp(`^${escapeRegex(moderatorName)}$`, 'i') : null;
   const respondentNameRegex = respondentName ? new RegExp(`^${escapeRegex(respondentName)}$`, 'i') : null;
 
