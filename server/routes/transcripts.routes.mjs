@@ -415,7 +415,11 @@ function hardCodeCleanTranscript(transcriptText, moderatorName, respondentName, 
     // Lines that are JUST a date or JUST a time
     /^\s*\d{1,2}\/\d{1,2}\/\d{2,4}\s*$/gm,
     /^\s*\d{4}-\d{2}-\d{2}\s*$/gm,
-    /^\s*\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)\s*(?:[A-Z]{2,4})?\s*$/gm,
+    /^\s*\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?\s*(?:[A-Z]{2,4})?\s*$/gm,
+    // Timestamps in brackets or parens on their own line
+    /^\s*[\(\[]\d{1,2}:\d{2}(?::\d{2})?[\)\]]\s*$/gm,
+    // Timestamp ranges on their own line
+    /^\s*[\(\[]?\d{1,2}:\d{2}(?::\d{2})?\s*-\s*\d{1,2}:\d{2}(?::\d{2})?[\)\]]?\s*$/gm,
   ];
   
   dateTimePatterns.forEach(pattern => {
@@ -463,8 +467,16 @@ function hardCodeCleanTranscript(transcriptText, moderatorName, respondentName, 
       return roleHintMatch[2].toLowerCase() === 'moderator' ? 'Moderator' : 'Respondent';
     }
 
-    if (/^Moderator$/i.test(s)) return 'Moderator';
-    if (/^Respondent$/i.test(s)) return 'Respondent';
+    // Match common moderator patterns (with or without numbers/symbols)
+    if (/^Moderator(?:\s*#?\d+)?$/i.test(s)) return 'Moderator';
+    if (/^Interviewer(?:\s*#?\d+)?$/i.test(s)) return 'Moderator';
+    if (/^Facilitator(?:\s*#?\d+)?$/i.test(s)) return 'Moderator';
+
+    // Match common respondent patterns (with or without numbers/symbols)
+    if (/^Respondent(?:\s*#?\d+)?$/i.test(s)) return 'Respondent';
+    if (/^Panelist(?:\s*#?\d+)?$/i.test(s)) return 'Respondent';
+    if (/^Participant(?:\s*#?\d+)?$/i.test(s)) return 'Respondent';
+    if (/^Patient(?:\s*#?\d+)?$/i.test(s)) return 'Respondent';
 
     if (moderatorNameRegex && moderatorNameRegex.test(s)) return 'Moderator';
     if (respondentNameRegex && respondentNameRegex.test(s)) return 'Respondent';
@@ -498,8 +510,14 @@ function hardCodeCleanTranscript(transcriptText, moderatorName, respondentName, 
 
     let normalizedLine = `${role}: ${rawText}`.trim();
 
-    // Remove timestamps like (00:00:01 - 00:00:11) but preserve speaker notes like (laughter), (pause)
-    normalizedLine = normalizedLine.replace(/\(\d{1,2}:\d{2}(?::\d{2})?\s*-\s*\d{1,2}:\d{2}(?::\d{2})?\)/g, '');
+    // Remove timestamps in various formats:
+    // (00:00:01 - 00:00:11) or [00:00:01 - 00:00:11]
+    normalizedLine = normalizedLine.replace(/[\(\[]\d{1,2}:\d{2}(?::\d{2})?\s*-\s*\d{1,2}:\d{2}(?::\d{2})?[\)\]]/g, '');
+    // Standalone timestamps: 00:00:01 or [00:00:01]
+    normalizedLine = normalizedLine.replace(/\[?\d{1,2}:\d{2}(?::\d{2})?\]?(?=\s|$)/g, '');
+    // Leading/trailing timestamps with separators like | or -
+    normalizedLine = normalizedLine.replace(/^[\|\-\s]*\d{1,2}:\d{2}(?::\d{2})?[\|\-\s]*/g, '');
+    normalizedLine = normalizedLine.replace(/[\|\-\s]+\d{1,2}:\d{2}(?::\d{2})?[\|\-\s]*$/g, '');
 
     // Clean up extra whitespace (but preserve single spaces)
     normalizedLine = normalizedLine.replace(/\s{2,}/g, ' ').trim();
@@ -1922,23 +1940,24 @@ router.post('/parse-datetime', authenticateToken, upload.single('file'), async (
 
       const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-      const systemPrompt = `You are an expert at extracting metadata from interview transcripts. Use simple label detection first; do not read the full content. Look for explicit speaker tags such as "Moderator:" and "Respondent:" or speaker name labels like "John:".
-
-If a project moderator is provided, prefer mapping that name to the moderator role when ambiguous.
+      const systemPrompt = `You are an expert at extracting metadata from interview transcripts.
 
 Your task is to read the beginning of a transcript and extract:
 
 1. Interview Date (in a clear format like "Oct 15, 2024" or "10/15/2024")
 2. Interview Time (including AM/PM and timezone if available, like "3:00 PM EST")
-3. Moderator Name (the actual person's name, NOT just "Moderator" - look for headers, introductions, or labels)
-4. Respondent Name (the actual person's name, NOT just "Respondent" - look for headers, introductions, or labels)
+3. Moderator Label - The EXACT speaker label used for the interviewer/moderator in the transcript
+4. Respondent Label - The EXACT speaker label used for the interviewee/respondent in the transcript
 
-IMPORTANT INSTRUCTIONS:
-- Prefer explicit tags: lines starting with "Moderator:" or "Respondent:" and capture text after the colon.
-- If tags are not present, look for speaker labels like "John:" and "Jane:"; infer moderator using the provided project moderator when present.
-- Ignore single-letter speaker labels (e.g., "M:", "R:") as names.
-- If a proper name cannot be found, return the generic tag ("Moderator" / "Respondent") rather than a wrong guess.
-- If you cannot find an actual name, return null for that field.
+IMPORTANT INSTRUCTIONS FOR SPEAKER LABELS:
+- Look for speaker labels in the format "Label:" followed by dialogue
+- Return the EXACT label as it appears (including numbers/symbols), e.g., "Moderator #1", "Panelist #2", "Paula", "Interviewer", etc.
+- DO NOT simplify or normalize - if the transcript says "Moderator #1:", return "Moderator #1"
+- DO NOT simplify or normalize - if the transcript says "Panelist #2:", return "Panelist #2"
+- The first speaker label is usually the moderator/interviewer
+- The second speaker label is usually the respondent/interviewee
+- Ignore single-letter labels (e.g., "M:", "R:") unless no other labels found
+- If you cannot find speaker labels, return null for that field
 
 Return your response as a JSON object with these exact keys:
 {
@@ -1967,24 +1986,19 @@ Return ONLY the JSON object, no additional text.`;
       const extracted = JSON.parse(response.choices[0].message.content);
       interviewDate = extracted.date || null;
       interviewTime = extracted.time || null;
-      // Merge with simple extraction but validate AI outputs
+
+      // Accept ANY speaker label returned by AI (names OR role labels like "Panelist #2")
       const aiMod = extracted.moderatorName || null;
       const aiResp = extracted.respondentName || null;
-      if (!moderatorName && isLikelyName(aiMod)) moderatorName = aiMod;
-      if (!respondentName && isLikelyName(aiResp)) respondentName = aiResp;
 
-      // Final sanity: avoid identical or reserved outputs
-      if (moderatorName && RESERVED.has(moderatorName.toLowerCase())) moderatorName = null;
-      if (respondentName && RESERVED.has(respondentName.toLowerCase())) respondentName = null;
-      if (moderatorName && respondentName && moderatorName.toLowerCase() === respondentName.toLowerCase()) {
-        // If both same, prefer project moderator assignment if available
-        if (projectModeratorName && moderatorName.toLowerCase() !== projectModeratorName.toLowerCase()) {
-          // assign moderator to project moderator if it passes name check
-          if (isLikelyName(projectModeratorName)) moderatorName = projectModeratorName;
-          else moderatorName = null;
-        } else {
-          respondentName = null;
-        }
+      // Use AI-detected labels (they're already validated by the AI)
+      if (!moderatorName && aiMod) moderatorName = aiMod;
+      if (!respondentName && aiResp) respondentName = aiResp;
+
+      // Don't filter out generic role labels - we need them for cleaning
+      // Only reject if they're identical (which would break cleaning logic)
+      if (moderatorName && respondentName && moderatorName.toLowerCase().trim() === respondentName.toLowerCase().trim()) {
+        respondentName = null; // Keep moderator, clear respondent to avoid collision
       }
 
       // If still missing and tags were present, fall back to generic labels
