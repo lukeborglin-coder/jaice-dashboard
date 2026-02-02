@@ -1135,12 +1135,16 @@ router.post('/upload', authenticateToken, upload.single('transcript'), async (re
 
     // Add transcript without assigning respno yet
     // Note: We no longer save original transcripts - only cleaned ones
+    // Calculate relative path from server root for cross-platform compatibility
+    const serverRoot = path.join(__dirname, '..');
+    const relativeCleanedPath = cleanedPath ? path.relative(serverRoot, cleanedPath) : null;
+
     const transcriptRecord = {
       id: transcriptId,
       originalFilename: req.file.originalname, // Keep for reference, but file is not saved
       cleanedFilename,
       originalPath: null, // No longer saving original files
-      cleanedPath: cleanedPath ? `data/uploads/${cleanedFilename}` : null, // Store relative path for cross-platform compatibility
+      cleanedPath: relativeCleanedPath, // Store relative path for cross-platform compatibility
       uploadedAt: Date.now(),
       isCleaned: cleanTranscript === 'true' && cleanedText !== null && cleanedText.length > 0,
       originalSize: originalSize, // Keep size for reference
@@ -1158,9 +1162,11 @@ router.post('/upload', authenticateToken, upload.single('transcript'), async (re
     // If cleaned, generate Word document (respno will be null/placeholder until added to CA)
     if (cleanTranscript === 'true' && cleanedText) {
       console.log('💾 Saving cleaned transcript to file...');
-      console.log('📁 Cleaned path:', cleanedPath);
+      console.log('📁 Absolute path:', cleanedPath);
+      console.log('📁 Relative path:', relativeCleanedPath);
+      console.log('📁 DATA_DIR:', DATA_DIR);
       console.log('📄 Cleaned text length:', cleanedText.length);
-      
+
       try {
         // Generate Word doc without respno (will be regenerated when added to CA with proper respno)
         const wordBuffer = await createFormattedWordDoc(
@@ -1175,9 +1181,11 @@ router.post('/upload', authenticateToken, upload.single('transcript'), async (re
         transcriptRecord.cleanedSize = wordBuffer.length;
         console.log('✅ Cleaned transcript saved successfully (without respno)');
         console.log('📊 File size:', wordBuffer.length, 'bytes');
+        console.log('📁 File exists check:', await fs.access(cleanedPath).then(() => true).catch(() => false));
       } catch (saveError) {
         console.error('❌ Error saving cleaned transcript file:', saveError);
         console.error('Error details:', saveError.message);
+        console.error('Stack trace:', saveError.stack);
         // Don't fail the upload if file save fails, but mark as not cleaned
         transcriptRecord.isCleaned = false;
         transcriptRecord.cleanedPath = null;
