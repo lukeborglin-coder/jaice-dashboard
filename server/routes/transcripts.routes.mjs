@@ -1199,9 +1199,9 @@ router.post('/upload', authenticateToken, upload.single('transcript'), async (re
     // Save the final transcripts array
     await fs.writeFile(TRANSCRIPTS_PATH, JSON.stringify(transcripts, null, 2));
 
-    // Regenerate cleaned transcripts for all transcripts that may have changed respnos
-    // (this handles the case where adding a new transcript causes respnos to shift)
-    await regenerateCleanedTranscripts(projectId, transcripts[projectId], projectName);
+    // No need to regenerate transcripts - respnos are not assigned on upload (they're null)
+    // Respnos are only assigned when transcript is added to a CA
+    // (Removed regenerateCleanedTranscripts call - was causing 19s delay per upload)
 
     // Update content analysis data only if needed (no respno changes on upload now)
     try {
@@ -1421,8 +1421,9 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
     // Remove from list
     transcripts[projectId].splice(transcriptIndex, 1);
 
-    // Do NOT renumber existing respnos on deletion; they are locked. Optionally regenerate docs unchanged.
-    try { await regenerateCleanedTranscripts(projectId, transcripts[projectId], null); } catch {}
+    // Do NOT renumber existing respnos on deletion; they are locked.
+    // Regeneration is not needed since respnos don't change.
+    // (Removed regenerateCleanedTranscripts call - was causing 19s delay per deletion)
 
     await fs.writeFile(TRANSCRIPTS_PATH, JSON.stringify(transcripts, null, 2));
 
@@ -2115,8 +2116,8 @@ router.put('/:projectId/:transcriptId/datetime', authenticateToken, async (req, 
     }
 
     // Do not reassign respnos on date/time edits; preserve CA-assigned respnos
-    // Optionally regenerate cleaned transcripts for this project without changing respnos
-    await regenerateCleanedTranscripts(projectId, transcripts[projectId], null);
+    // No need to regenerate - respnos aren't changing, so Word docs are still valid
+    // (Removed regenerateCleanedTranscripts call - was causing 19s delay per edit)
 
     await fs.writeFile(TRANSCRIPTS_PATH, JSON.stringify(transcripts, null, 2));
 
