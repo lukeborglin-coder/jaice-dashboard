@@ -1131,7 +1131,7 @@ router.post('/upload', authenticateToken, upload.single('transcript'), async (re
       originalFilename: req.file.originalname, // Keep for reference, but file is not saved
       cleanedFilename,
       originalPath: null, // No longer saving original files
-      cleanedPath,
+      cleanedPath: cleanedPath ? `data/uploads/${cleanedFilename}` : null, // Store relative path for cross-platform compatibility
       uploadedAt: Date.now(),
       isCleaned: cleanTranscript === 'true' && cleanedText !== null && cleanedText.length > 0,
       originalSize: originalSize, // Keep size for reference
@@ -1338,7 +1338,10 @@ router.get('/download/:projectId/:transcriptId', authenticateToken, async (req, 
       return res.status(404).json({ error: 'Cleaned transcript not available. Only cleaned transcripts are saved.' });
     }
 
-    const filePath = transcript.cleanedPath;
+    // Resolve relative path to absolute path for file operations
+    const filePath = path.isAbsolute(transcript.cleanedPath)
+      ? transcript.cleanedPath
+      : path.join(__dirname, '..', transcript.cleanedPath);
     const filename = transcript.cleanedFilename;
 
     // If asText is requested, extract plain text from .docx
@@ -1387,7 +1390,11 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
     // Delete cleaned transcript file (original files are no longer saved)
     try {
       if (transcript.cleanedPath) {
-        await fs.unlink(transcript.cleanedPath);
+        // Resolve relative path to absolute path for file operations
+        const filePathToDelete = path.isAbsolute(transcript.cleanedPath)
+          ? transcript.cleanedPath
+          : path.join(__dirname, '..', transcript.cleanedPath);
+        await fs.unlink(filePathToDelete);
       }
       // Note: originalPath is null now since we don't save original files
     } catch (error) {
